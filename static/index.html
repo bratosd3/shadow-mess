@@ -6,8 +6,11 @@
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
   <meta name="theme-color" content="#000000"/>
+  <meta name="description" content="Shadow Message — приватный мессенджер"/>
+  <link rel="manifest" href="/manifest.json"/>
+  <link rel="apple-touch-icon" href="/static/icons/icon-192.svg"/>
   <title>Shadow Message</title>
-  <link rel="stylesheet" href="/static/css/style.css?v=20260303b"/>
+  <link rel="stylesheet" href="/static/css/style.css?v=20260303c"/>
 </head>
 <body data-theme="light">
 
@@ -252,13 +255,13 @@
         </button>
       </div>
 
-      <!-- Message input -->
-      <div class="message-input-wrap">
-
       <!-- Scroll to bottom -->
       <button class="scroll-bottom-btn hidden" id="scroll-bottom-btn">
         <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
       </button>
+
+      <!-- Message input -->
+      <div class="message-input-wrap">
         <button class="icon-btn" id="attach-btn" title="Прикрепить файл">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
         </button>
@@ -743,6 +746,16 @@
 
 <script src="/socket.io/socket.io.js"></script>
 <script src="/static/js/calls.js"></script>
-<script src="/static/js/app.js?v=20260303b"></script>
+<script src="/static/js/app.js?v=20260303c"></script>
+<script>
+  // Register Service Worker for PWA & push notifications
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js').then(reg => {
+        console.log('SW registered:', reg.scope);
+      }).catch(err => console.log('SW error:', err));
+    });
+  }
+</script>
 </body>
 </html>

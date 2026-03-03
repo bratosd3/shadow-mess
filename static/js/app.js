@@ -293,6 +293,7 @@ async function onLogin({ token, user }, isRegister = false) {
   initSocket();
   await loadChats();
   initApp();
+  subscribeToPush();
 
   requestAnimationFrame(() => {
     setTimeout(() => $('app').classList.remove('app-enter'), 800);
@@ -758,7 +759,12 @@ function handleNewMessage(msg) {
       sep.innerHTML = `<span>${formatDate(msg.timestamp)}</span>`;
       area.appendChild(sep);
     }
-    area.appendChild(buildMsgEl(msg));
+    const el = buildMsgEl(msg);
+    // Animate new messages
+    const isMine = msg.senderId === S.user?.id;
+    el.classList.add(isMine ? 'msg-sending' : 'msg-new');
+    el.addEventListener('animationend', () => el.classList.remove('msg-sending', 'msg-new'), { once: true });
+    area.appendChild(el);
     scrollBottom();
     S.socket?.emit('mark_read', { chatId: msg.chatId });
   }
@@ -1993,31 +1999,73 @@ function applyAllSettings(s) {
 // MOBILE KEYBOARD & VIEWPORT FIX
 // ══════════════════════════════════════════════════════════
 function initMobileKeyboardFix() {
-  if (window.innerWidth > 680) return;
+  const isMobile = () => window.innerWidth <= 680;
+  if (!isMobile()) return;
 
-  // Fix iOS 100vh issue — use visual viewport
+  // ── Fix iOS 100vh: set --vh from visual viewport ──
   function setVH() {
-    const vh = (window.visualViewport?.height || window.innerHeight) * 0.01;
-    document.documentElement.style.setProperty('--vh', `${vh}px`);
+    const h = window.visualViewport?.height || window.innerHeight;
+    document.documentElement.style.setProperty('--vh', `${h * 0.01}px`);
   }
   setVH();
-  if (window.visualViewport) {
-    window.visualViewport.addEventListener('resize', setVH);
-  } else {
-    window.addEventListener('resize', setVH);
+  (window.visualViewport || window).addEventListener('resize', setVH);
+
+  // ── Keyboard open/close detection ──
+  const initialHeight = window.visualViewport?.height || window.innerHeight;
+  let kbOpen = false;
+
+  function onViewportResize() {
+    if (!isMobile()) return;
+    const vpH = window.visualViewport?.height || window.innerHeight;
+    const diff = initialHeight - vpH;
+    const nowOpen = diff > 80; // keyboard is open if viewport shrank >80px
+
+    if (nowOpen && !kbOpen) {
+      kbOpen = true;
+      document.body.classList.add('keyboard-open');
+      // Resize active-chat to fit visual viewport
+      const ac = $('active-chat');
+      if (ac) ac.style.height = vpH + 'px';
+      // Scroll messages to bottom
+      const ma = $('messages-area');
+      if (ma) setTimeout(() => { ma.scrollTop = ma.scrollHeight; }, 100);
+    } else if (!nowOpen && kbOpen) {
+      kbOpen = false;
+      document.body.classList.remove('keyboard-open');
+      const ac = $('active-chat');
+      if (ac) ac.style.height = '';
+    }
   }
 
-  // Scroll input into view when keyboard opens
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', onViewportResize);
+    window.visualViewport.addEventListener('scroll', () => {
+      // Keep fixed-like elements in view on iOS scroll
+      document.documentElement.style.setProperty('--vv-offset', `${window.visualViewport.offsetTop}px`);
+    });
+  }
+
+  // ── Scroll input into view after focus (with delay for keyboard) ──
   const msgInput = $('msg-input');
   if (msgInput) {
     msgInput.addEventListener('focus', () => {
       setTimeout(() => {
-        msgInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }, 300);
+        const wrap = msgInput.closest('.message-input-wrap');
+        if (wrap) wrap.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      }, 350);
+    });
+    // On blur, scroll messages-area back
+    msgInput.addEventListener('blur', () => {
+      setTimeout(() => {
+        if (!document.activeElement || document.activeElement === document.body) {
+          const ma = $('messages-area');
+          if (ma) ma.scrollTop = ma.scrollHeight;
+        }
+      }, 200);
     });
   }
 
-  // Handle back button (Android hardware back)
+  // ── Android hardware back button ──
   window.addEventListener('popstate', () => {
     const cp = $('chat-panel');
     if (cp && cp.classList.contains('mobile-active')) {
@@ -2029,24 +2077,60 @@ function initMobileKeyboardFix() {
     }
   });
 
-  // Push state when opening chat on mobile
-  const origOpenChat = window.openChat || null;
-  if (typeof openChat === 'function') {
-    const _origOpen = openChat;
-    // We can't easily wrap openChat, but we can listen for mobile-active
-    const observer = new MutationObserver((mutations) => {
-      for (const m of mutations) {
-        if (m.attributeName === 'class') {
-          const cp = $('chat-panel');
-          if (cp?.classList.contains('mobile-active')) {
-            history.pushState({ chatOpen: true }, '');
-          }
-        }
+  // ── Push history state when opening chat on mobile ──
+  const cp = $('chat-panel');
+  if (cp) {
+    new MutationObserver(() => {
+      if (cp.classList.contains('mobile-active')) {
+        history.pushState({ chatOpen: true }, '');
       }
-    });
-    const cp = $('chat-panel');
-    if (cp) observer.observe(cp, { attributes: true, attributeFilter: ['class'] });
+    }).observe(cp, { attributes: true, attributeFilter: ['class'] });
   }
+}
+
+// ══════════════════════════════════════════════════════════
+// PUSH NOTIFICATIONS SUBSCRIPTION
+// ══════════════════════════════════════════════════════════
+async function subscribeToPush() {
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+
+    // Already subscribed?
+    const existing = await reg.pushManager.getSubscription();
+    if (existing) {
+      // Re-send to server in case it was lost
+      await API.post('/api/push/subscribe', existing.toJSON());
+      return;
+    }
+
+    // Ask permission
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') return;
+
+    // Get VAPID public key
+    const { publicKey } = await API.get('/api/push/vapid');
+    const applicationServerKey = urlBase64ToUint8Array(publicKey);
+
+    const subscription = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey
+    });
+
+    await API.post('/api/push/subscribe', subscription.toJSON());
+    console.log('Push subscription active');
+  } catch (err) {
+    console.warn('Push subscription failed:', err);
+  }
+}
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const raw = atob(base64);
+  const arr = new Uint8Array(raw.length);
+  for (let i = 0; i < raw.length; ++i) arr[i] = raw.charCodeAt(i);
+  return arr;
 }
 
 // ══════════════════════════════════════════════════════════
@@ -2102,6 +2186,7 @@ function initApp() {
       initSocket();
       await loadChats();
       initApp();
+      subscribeToPush();
     } catch {
       S.token = null;
       localStorage.removeItem('sm_token');

@@ -2499,6 +2499,32 @@ button, .icon-btn, .send-btn, .fab-new-chat, .call-btn, .call-ctrl-btn {
   .welcome-screen h2 { font-size: 20px; }
   .welcome-screen p { font-size: 13px; }
   .welcome-logo { width: 72px; height: 72px; border-radius: 24px; }
+
+  /* ── Keyboard open state ── */
+  body.keyboard-open .fab-new-chat { display: none; }
+  body.keyboard-open .scroll-bottom-btn { display: none; }
+  body.keyboard-open .active-chat {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  body.keyboard-open .messages-area {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+  }
+  body.keyboard-open .message-input-wrap {
+    flex-shrink: 0;
+    position: relative;
+    z-index: 10;
+  }
+  body.keyboard-open .chat-header {
+    flex-shrink: 0;
+  }
+  body.keyboard-open .emoji-picker,
+  body.keyboard-open .sticker-picker {
+    display: none;
+  }
 }
 
 /* Small phone (≤400px) */
@@ -3114,6 +3140,219 @@ body.bubble-cornered .message-row.out .message-bubble { border-bottom-right-radi
 @keyframes slideUpSheet {
   from { transform: translateY(100%); opacity: 0; }
   to   { transform: translateY(0);    opacity: 1; }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   ENHANCED ANIMATIONS & TRANSITIONS
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Message send animation (outgoing) ── */
+.message-row.out.msg-sending {
+  animation: msgSendBounce .5s cubic-bezier(.34, 1.56, .64, 1);
+}
+@keyframes msgSendBounce {
+  0%   { opacity: 0; transform: translateY(30px) scale(.8); }
+  50%  { transform: translateY(-4px) scale(1.02); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ── Incoming message slide ── */
+.message-row.in.msg-new {
+  animation: msgSlideIn .4s cubic-bezier(.32, .72, 0, 1);
+}
+@keyframes msgSlideIn {
+  0%   { opacity: 0; transform: translateX(-30px) scale(.95); }
+  100% { opacity: 1; transform: translateX(0) scale(1); }
+}
+
+/* ── Chat item hover ripple effect ── */
+.chat-item {
+  overflow: hidden;
+  position: relative;
+}
+.chat-item::after {
+  content: '';
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 0; height: 0;
+  border-radius: 50%;
+  background: var(--accent-light);
+  opacity: 0;
+  transition: width .5s ease, height .5s ease, opacity .3s ease;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.chat-item:active::after {
+  width: 300px; height: 300px;
+  opacity: .3;
+  transition: 0s;
+}
+
+/* ── Button press animation ── */
+.btn-primary, .btn-secondary, .btn-full {
+  transition: all .3s cubic-bezier(.34, 1.56, .64, 1);
+}
+.btn-primary:active, .btn-full:active {
+  transform: scale(.95);
+  transition-duration: .1s;
+}
+
+/* ── FAB pulse on idle ── */
+.fab-new-chat {
+  animation: fabPulse 3s ease-in-out infinite;
+}
+@keyframes fabPulse {
+  0%, 100% { box-shadow: 0 6px 20px var(--accent-glow); }
+  50%      { box-shadow: 0 6px 35px var(--accent-glow), 0 0 60px var(--accent-glow); }
+}
+.fab-new-chat:hover {
+  animation: none;
+}
+
+/* ── Sidebar tab switch with underline slide ── */
+.sidebar-tab {
+  position: relative;
+  overflow: hidden;
+}
+.sidebar-tab::before {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 50%; right: 50%;
+  height: 2px;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: left .3s cubic-bezier(.34, 1.56, .64, 1), right .3s cubic-bezier(.34, 1.56, .64, 1);
+}
+.sidebar-tab.active::before {
+  left: 20%; right: 20%;
+}
+
+/* ── Avatar hover scale ── */
+.avatar {
+  transition: transform .3s cubic-bezier(.34, 1.56, .64, 1), box-shadow .3s ease;
+}
+.chat-header-avatar:hover,
+.settings-avatar-area .avatar:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 20px rgba(0,0,0,.15);
+}
+
+/* ── Modal backdrop blur animation ── */
+.modal-overlay {
+  transition: backdrop-filter .3s ease, background .3s ease;
+}
+.modal-overlay:not(.hidden) {
+  animation: overlayFadeIn .3s ease;
+}
+@keyframes overlayFadeIn {
+  from { backdrop-filter: blur(0px); background: transparent; }
+  to   { backdrop-filter: var(--blur); background: rgba(0,0,0,.5); }
+}
+
+/* ── Notification badge bounce ── */
+.chat-item-badge {
+  animation: badgeBounce .5s cubic-bezier(.34, 1.56, .64, 1);
+}
+@keyframes badgeBounce {
+  0%   { transform: scale(0); }
+  50%  { transform: scale(1.3); }
+  100% { transform: scale(1); }
+}
+
+/* ── Side menu open animation ── */
+.side-menu:not(.hidden) {
+  animation: sideMenuSlide .35s cubic-bezier(.32, .72, 0, 1);
+}
+@keyframes sideMenuSlide {
+  from { transform: translateX(-100%); opacity: .5; }
+  to   { transform: translateX(0); opacity: 1; }
+}
+
+/* ── Toast slide-in with spring ── */
+.toast {
+  animation: toastSpring .5s cubic-bezier(.34, 1.56, .64, 1);
+}
+@keyframes toastSpring {
+  0%   { opacity: 0; transform: translateX(60px) scale(.8); }
+  60%  { transform: translateX(-8px) scale(1.02); }
+  100% { opacity: 1; transform: translateX(0) scale(1); }
+}
+
+/* ── Emoji picker pop-in ── */
+.emoji-picker:not(.hidden),
+.sticker-picker:not(.hidden) {
+  animation: pickerPop .3s cubic-bezier(.34, 1.56, .64, 1);
+}
+@keyframes pickerPop {
+  0%   { opacity: 0; transform: scale(.85) translateY(10px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* ── Send button pulse when typing ── */
+.send-btn:not(.hidden) {
+  animation: sendBtnPop .35s cubic-bezier(.34, 1.56, .64, 1);
+}
+@keyframes sendBtnPop {
+  0%   { transform: scale(0) rotate(-90deg); }
+  60%  { transform: scale(1.15) rotate(5deg); }
+  100% { transform: scale(1) rotate(0); }
+}
+
+/* ── Typing indicator dots ── */
+.typing-dots span {
+  animation: typingBounce .8s ease-in-out infinite;
+}
+.typing-dots span:nth-child(2) { animation-delay: .15s; }
+.typing-dots span:nth-child(3) { animation-delay: .3s; }
+@keyframes typingBounce {
+  0%, 100% { transform: translateY(0); opacity: .4; }
+  50%      { transform: translateY(-4px); opacity: 1; }
+}
+
+/* ── Search result items stagger ── */
+.search-item {
+  animation: searchItemIn .3s ease both;
+}
+.search-item:nth-child(1) { animation-delay: 0s; }
+.search-item:nth-child(2) { animation-delay: .05s; }
+.search-item:nth-child(3) { animation-delay: .1s; }
+.search-item:nth-child(4) { animation-delay: .15s; }
+.search-item:nth-child(5) { animation-delay: .2s; }
+@keyframes searchItemIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── App loading shimmer ── */
+.app-enter {
+  animation: appEnterFancy 1s cubic-bezier(.32, .72, 0, 1);
+}
+@keyframes appEnterFancy {
+  0%   { opacity: 0; filter: blur(8px); transform: scale(.96); }
+  40%  { filter: blur(0); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+/* ── Mobile chat panel entrance ── */
+@media (max-width: 680px) {
+  .chat-panel.mobile-active {
+    animation: chatPanelMobileIn .35s cubic-bezier(.32, .72, 0, 1);
+  }
+  @keyframes chatPanelMobileIn {
+    from { opacity: .8; transform: translateX(100%) scale(.97); }
+    to   { opacity: 1; transform: translateX(0) scale(1); }
+  }
+
+  /* Mobile back: sidebar fade-in */
+  .sidebar {
+    transition: opacity .2s ease;
+  }
+}
+
+/* ── Smooth theme transition ── */
+body, .sidebar, .chat-panel, .chat-header, .message-bubble,
+.auth-screen, .auth-card, .modal, .message-input-wrap {
+  transition: background-color .4s ease, color .3s ease, border-color .3s ease;
 }
 
 /* ── PWA / Standalone mode (home-screen app) ── */

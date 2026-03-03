@@ -14,6 +14,7 @@ const cors       = require('cors');
 const fs         = require('fs');
 const path       = require('path');
 const mongoose   = require('mongoose');
+const webpush    = require('web-push');
 
 const app  = express();
 const srv  = http.createServer(app);
@@ -24,6 +25,19 @@ const JWT_SECRET  = process.env.JWT_SECRET || 'shadow_mess_jwt_secret_v2_2026';
 const MONGO_URI   = process.env.MONGODB_URI || 'mongodb://localhost:27017/shadowmess';
 const STATIC_DIR  = path.join(__dirname, 'static');
 const UPLOADS_DIR = path.join(__dirname, 'uploads');
+
+// ── VAPID keys for Web Push ───────────────────────────────────────────────
+let VAPID_PUBLIC  = process.env.VAPID_PUBLIC_KEY  || '';
+let VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY || '';
+if (!VAPID_PUBLIC || !VAPID_PRIVATE) {
+  const keys = webpush.generateVAPIDKeys();
+  VAPID_PUBLIC  = keys.publicKey;
+  VAPID_PRIVATE = keys.privateKey;
+  console.log('  ⚠️  VAPID ключи сгенерированы (сохрани в переменные окружения!):');
+  console.log('  VAPID_PUBLIC_KEY=' + VAPID_PUBLIC);
+  console.log('  VAPID_PRIVATE_KEY=' + VAPID_PRIVATE);
+}
+webpush.setVapidDetails('mailto:shadow@mess.app', VAPID_PUBLIC, VAPID_PRIVATE);
 
 // ── Directories ────────────────────────────────────────────────────────────
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
@@ -138,6 +152,18 @@ messageSchema.set('toJSON', {
 });
 const Message = mongoose.model('Message', messageSchema);
 
+const pushSubSchema = new mongoose.Schema({
+  _id:          { type: String, default: uuidv4 },
+  userId:       { type: String, required: true, index: true },
+  endpoint:     { type: String, required: true },
+  keys: {
+    p256dh: { type: String, required: true },
+    auth:   { type: String, required: true },
+  },
+  createdAt:    { type: Date, default: Date.now },
+}, { _id: false });
+const PushSub = mongoose.model('PushSub', pushSubSchema);
+
 // ── Multer ────────────────────────────────────────────────────────────────
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, UPLOADS_DIR),
@@ -200,12 +226,87 @@ async function setUserOffline(userId, socketId) {
 
 function isOnline(userId) { return onlineUsers.has(userId) && onlineUsers.get(userId).size > 0; }
 
+// ── Push notification helper ──────────────────────────────────────────────
+async function sendPushToUser(userId, payload) {
+  const subs = await PushSub.find({ userId });
+  if (!subs.length) return;
+  const body = JSON.stringify(payload);
+  for (const sub of subs) {
+    try {
+      await webpush.sendNotification({
+        endpoint: sub.endpoint,
+        keys: { p256dh: sub.keys.p256dh, auth: sub.keys.auth }
+      }, body);
+    } catch (err) {
+      if (err.statusCode === 410 || err.statusCode === 404) {
+        await PushSub.deleteOne({ _id: sub._id });
+      }
+    }
+  }
+}
+
+async function sendPushForMessage(msg, chat) {
+  const offlineMembers = (chat.members || []).filter(uid => uid !== msg.senderId && !isOnline(uid));
+  if (!offlineMembers.length) return;
+  const payload = {
+    title: msg.senderName || 'Shadow Message',
+    body: msg.text || (msg.type === 'image' ? '📷 Фото' : msg.type === 'voice' ? '🎤 Голосовое' : '📎 Файл'),
+    icon: '/static/icons/icon-192.svg',
+    tag: `chat-${msg.chatId}`,
+    chatId: msg.chatId,
+    url: '/'
+  };
+  await Promise.allSettled(offlineMembers.map(uid => sendPushToUser(uid, payload)));
+}
+
 // =============================================================================
 // REST API
 // =============================================================================
 
 // ── Root ──────────────────────────────────────────────────────────────────
 app.get('/', (req, res) => res.sendFile(path.join(STATIC_DIR, 'index.html')));
+app.get('/manifest.json', (req, res) => res.sendFile(path.join(STATIC_DIR, 'manifest.json')));
+app.get('/sw.js', (req, res) => {
+  res.setHeader('Service-Worker-Allowed', '/');
+  res.setHeader('Content-Type', 'application/javascript');
+  res.sendFile(path.join(STATIC_DIR, 'sw.js'));
+});
+
+// ── Push subscription endpoints ───────────────────────────────────────────
+app.get('/api/push/vapid', (req, res) => {
+  res.json({ publicKey: VAPID_PUBLIC });
+});
+
+app.post('/api/push/subscribe', authMiddleware, async (req, res) => {
+  try {
+    const { endpoint, keys } = req.body;
+    if (!endpoint || !keys?.p256dh || !keys?.auth)
+      return res.status(400).json({ error: 'Invalid subscription' });
+
+    // Remove duplicate endpoint for this user
+    await PushSub.deleteMany({ userId: req.user.id, endpoint });
+
+    await PushSub.create({
+      userId:   req.user.id,
+      endpoint,
+      keys: { p256dh: keys.p256dh, auth: keys.auth }
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    console.error('Push subscribe error:', err);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+app.post('/api/push/unsubscribe', authMiddleware, async (req, res) => {
+  try {
+    const { endpoint } = req.body;
+    await PushSub.deleteMany({ userId: req.user.id, endpoint });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
 
 // ── Register ──────────────────────────────────────────────────────────────
 app.post('/api/register', async (req, res) => {
@@ -679,6 +780,7 @@ app.post('/api/chats/:id/messages', authMiddleware, async (req, res) => {
   });
 
   io.to(req.params.id).emit('new_message', msg.toJSON());
+  sendPushForMessage(msg, chat).catch(() => {});
   res.json(msg.toJSON());
 });
 
@@ -708,6 +810,7 @@ app.post('/api/chats/:id/upload', authMiddleware, upload.single('file'), async (
   });
 
   io.to(req.params.id).emit('new_message', msg.toJSON());
+  sendPushForMessage(msg, chat).catch(() => {});
   res.json(msg.toJSON());
 });
 

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192">
+  <rect width="192" height="192" rx="40" fill="#000"/>
+  <path d="M142 100a2 2 0 0 1-2 2H74l-24 24V60a2 2 0 0 1 2-2h88a2 2 0 0 1 2 2z" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="82" cy="85" r="4" fill="#fff"/>
+  <circle cx="96" cy="85" r="4" fill="#fff"/>
+  <circle cx="110" cy="85" r="4" fill="#fff"/>
+  <text x="96" y="155" text-anchor="middle" fill="#fff" font-family="Arial,sans-serif" font-weight="800" font-size="20">SHADOW</text>
+</svg>
