@@ -23,6 +23,7 @@ const io   = new Server(srv, { cors: { origin: '*', credentials: true } });
 const PORT        = process.env.PORT || 5000;
 const JWT_SECRET  = process.env.JWT_SECRET || 'shadow_mess_jwt_secret_v2_2026';
 const MONGO_URI   = process.env.MONGODB_URI || 'mongodb://localhost:27017/shadowmess';
+const ADMIN_KEY   = process.env.ADMIN_KEY || 'shadow_admin_secret_2026';
 const STATIC_DIR  = path.join(__dirname, 'static');
 const UPLOADS_DIR = path.join(__dirname, 'uploads');
 
@@ -348,11 +349,16 @@ app.post('/api/push/unsubscribe', authMiddleware, async (req, res) => {
   }
 });
 
-// ── Управление: очистка базы данных ──────────────────────────────────────
-// Доступно любому авторизованному пользователю
+// ── Управление БД (только через секретный ключ) ────────────────────────────
+// Доступ только с admin.bat через заголовок X-Admin-Key
+function adminKeyMiddleware(req, res, next) {
+  const key = req.headers['x-admin-key'];
+  if (key !== ADMIN_KEY) return res.status(403).json({ error: 'Нет доступа' });
+  next();
+}
 
 // Статистика БД
-app.get('/api/admin/stats', authMiddleware, async (req, res) => {
+app.get('/api/admin/stats', adminKeyMiddleware, async (req, res) => {
   const [users, chats, messages, sessions, pushSubs] = await Promise.all([
     User.countDocuments(),
     Chat.countDocuments(),
@@ -364,7 +370,7 @@ app.get('/api/admin/stats', authMiddleware, async (req, res) => {
 });
 
 // Очистка сообщений (всех или конкретного чата)
-app.delete('/api/admin/messages', authMiddleware, async (req, res) => {
+app.delete('/api/admin/messages', adminKeyMiddleware, async (req, res) => {
   const { chatId } = req.query;
   const filter = chatId ? { chatId } : {};
   const result = await Message.deleteMany(filter);
@@ -372,7 +378,7 @@ app.delete('/api/admin/messages', authMiddleware, async (req, res) => {
 });
 
 // Очистка всех чатов и их сообщений
-app.delete('/api/admin/chats', authMiddleware, async (req, res) => {
+app.delete('/api/admin/chats', adminKeyMiddleware, async (req, res) => {
   const [msgs, chats] = await Promise.all([
     Message.deleteMany({}),
     Chat.deleteMany({}),
@@ -380,34 +386,34 @@ app.delete('/api/admin/chats', authMiddleware, async (req, res) => {
   res.json({ deletedChats: chats.deletedCount, deletedMessages: msgs.deletedCount });
 });
 
-// Удаление всех пользователей кроме текущего
-app.delete('/api/admin/users', authMiddleware, async (req, res) => {
-  const result = await User.deleteMany({ _id: { $ne: req.user.id } });
-  await Session.deleteMany({ userId: { $ne: req.user.id } });
+// Удаление всех пользователей
+app.delete('/api/admin/users', adminKeyMiddleware, async (req, res) => {
+  const result = await User.deleteMany({});
+  await Session.deleteMany({});
   res.json({ deleted: result.deletedCount });
 });
 
 // Очистка сессий
-app.delete('/api/admin/sessions', authMiddleware, async (req, res) => {
+app.delete('/api/admin/sessions', adminKeyMiddleware, async (req, res) => {
   const result = await Session.deleteMany({ active: false });
   res.json({ deleted: result.deletedCount });
 });
 
 // Очистка push-подписок
-app.delete('/api/admin/pushsubs', authMiddleware, async (req, res) => {
+app.delete('/api/admin/pushsubs', adminKeyMiddleware, async (req, res) => {
   const result = await PushSub.deleteMany({});
   res.json({ deleted: result.deletedCount });
 });
 
-// Полный сброс — удаляет ВСЁ кроме текущего пользователя
-app.delete('/api/admin/reset', authMiddleware, async (req, res) => {
+// Полный сброс — удаляет ВСЁ
+app.delete('/api/admin/reset', adminKeyMiddleware, async (req, res) => {
   const [msgs, chats, sessions, pushSubs] = await Promise.all([
     Message.deleteMany({}),
     Chat.deleteMany({}),
-    Session.deleteMany({ userId: { $ne: req.user.id } }),
+    Session.deleteMany({}),
     PushSub.deleteMany({}),
   ]);
-  const users = await User.deleteMany({ _id: { $ne: req.user.id } });
+  const users = await User.deleteMany({});
   res.json({
     deletedMessages: msgs.deletedCount,
     deletedChats: chats.deletedCount,

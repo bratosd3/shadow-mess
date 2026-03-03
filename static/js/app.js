@@ -151,7 +151,6 @@ const _i18n = {
     security:       'Безопасность',
     sessions:       'Сессии',
     logoutBtn:      'Выйти',
-    management:     'Управление',
     favourites:     'Избранное',
     archive:        'Архив',
     contacts:       'Контакты',
@@ -171,7 +170,6 @@ const _i18n = {
     security:       'Security',
     sessions:       'Sessions',
     logoutBtn:      'Logout',
-    management:     'Management',
     favourites:     'Favourites',
     archive:        'Archive',
     contacts:       'Contacts',
@@ -191,7 +189,6 @@ function applyLanguage(lang) {
     'menu-settings':   { attr: 'text', val: t.settings },
     'menu-favourites': { attr: 'text', val: t.favourites },
     'menu-archive':    { attr: 'text', val: t.archive },
-    'menu-admin':      { attr: 'text', val: t.management },
     'menu-logout':     { attr: 'text', val: t.logoutBtn },
   };
 
@@ -2455,73 +2452,7 @@ function toggleHints(enabled) {
   localStorage.setItem('sm_hints', enabled ? 'true' : 'false');
 }
 
-// ══════════════════════════════════════════════════════════
-// ADMIN PANEL
-// ══════════════════════════════════════════════════════════
-function initAdminPanel() {
-  // Кнопка управления доступна всем
-  $('menu-admin')?.classList.remove('hidden');
-
-  on('menu-admin', 'click', async () => {
-    $('side-menu').classList.add('hidden');
-    $('admin-overlay').classList.remove('hidden');
-    // Загрузить статистику
-    try {
-      const stats = await API.get('/api/admin/stats');
-      $('stat-users').textContent = stats.users;
-      $('stat-chats').textContent = stats.chats;
-      $('stat-messages').textContent = stats.messages;
-      $('stat-sessions').textContent = stats.sessions;
-    } catch (err) {
-      showToast('Ошибка загрузки статистики', 'error');
-    }
-  });
-
-  on('admin-back', 'click', () => $('admin-overlay').classList.add('hidden'));
-
-  // Обработчики кнопок очистки
-  const actions = [
-    { id: 'admin-clear-messages',  url: '/api/admin/messages',  label: 'сообщения',    confirm: 'Удалить ВСЕ сообщения?' },
-    { id: 'admin-clear-chats',     url: '/api/admin/chats',     label: 'чаты',          confirm: 'Удалить ВСЕ чаты и сообщения?' },
-    { id: 'admin-clear-users',     url: '/api/admin/users',     label: 'пользователей', confirm: 'Удалить всех пользователей кроме вас?' },
-    { id: 'admin-clear-sessions',  url: '/api/admin/sessions',  label: 'сессии',        confirm: 'Очистить неактивные сессии?' },
-    { id: 'admin-clear-pushsubs',  url: '/api/admin/pushsubs',  label: 'push-подписки', confirm: 'Очистить все push-подписки?' },
-  ];
-
-  actions.forEach(({ id, url, label, confirm: confirmMsg }) => {
-    on(id, 'click', async () => {
-      if (!window.confirm(confirmMsg)) return;
-      try {
-        const result = await API.del(url);
-        const count = result.deleted || result.deletedChats || result.deletedMessages || 0;
-        showToast(`Удалено: ${label} (${count})`, 'success');
-        // Обновить статистику
-        $('menu-admin')?.click();
-      } catch (err) {
-        showToast(err.message || 'Ошибка', 'error');
-      }
-    });
-  });
-
-  on('admin-full-reset', 'click', async () => {
-    if (!window.confirm('⚠️ ВНИМАНИЕ! Это удалит ВСЕ данные кроме вашего аккаунта. Продолжить?')) return;
-    if (!window.confirm('Вы точно уверены? Это действие нельзя отменить!')) return;
-    try {
-      const result = await API.del('/api/admin/reset');
-      showToast(`Полный сброс: удалено ${result.deletedMessages} сообщений, ${result.deletedChats} чатов, ${result.deletedUsers} пользователей`, 'success');
-      // Перезагрузить чаты
-      S.chats = [];
-      S.activeChat = null;
-      S.messages = [];
-      $('active-chat')?.classList.add('hidden');
-      $('welcome-screen')?.classList.remove('hidden');
-      renderChatList();
-      $('menu-admin')?.click();
-    } catch (err) {
-      showToast(err.message || 'Ошибка', 'error');
-    }
-  });
-}
+// Управление БД — только через admin.bat на ПК
 
 // ══════════════════════════════════════════════════════════
 // INIT
@@ -2551,7 +2482,6 @@ function initApp() {
   updateMenuProfile();
   initMobileKeyboardFix();
   initHints();
-  initAdminPanel();
 }
 
 // ══════════════════════════════════════════════════════════
