@@ -61,7 +61,6 @@ const userSchema = new mongoose.Schema({
   online:        { type: Boolean, default: false },
   lastSeen:      { type: Date, default: Date.now },
   createdAt:     { type: Date, default: Date.now },
-  isAdmin:       { type: Boolean, default: false },
   settings: {
     theme:            { type: String, default: 'light' },
     fontSize:         { type: Number, default: 14 },
@@ -349,19 +348,11 @@ app.post('/api/push/unsubscribe', authMiddleware, async (req, res) => {
   }
 });
 
-// ── Admin: очистка базы данных ────────────────────────────────────────────
-// Первый зарегистрированный пользователь — автоматически админ.
-// Остальные могут получить isAdmin через БД.
-function adminMiddleware(req, res, next) {
-  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
-  User.findById(req.user.id).then(u => {
-    if (!u?.isAdmin) return res.status(403).json({ error: 'Нет прав администратора' });
-    next();
-  }).catch(() => res.status(500).json({ error: 'Ошибка' }));
-}
+// ── Управление: очистка базы данных ──────────────────────────────────────
+// Доступно любому авторизованному пользователю
 
 // Статистика БД
-app.get('/api/admin/stats', authMiddleware, adminMiddleware, async (req, res) => {
+app.get('/api/admin/stats', authMiddleware, async (req, res) => {
   const [users, chats, messages, sessions, pushSubs] = await Promise.all([
     User.countDocuments(),
     Chat.countDocuments(),
@@ -373,7 +364,7 @@ app.get('/api/admin/stats', authMiddleware, adminMiddleware, async (req, res) =>
 });
 
 // Очистка сообщений (всех или конкретного чата)
-app.delete('/api/admin/messages', authMiddleware, adminMiddleware, async (req, res) => {
+app.delete('/api/admin/messages', authMiddleware, async (req, res) => {
   const { chatId } = req.query;
   const filter = chatId ? { chatId } : {};
   const result = await Message.deleteMany(filter);
@@ -381,7 +372,7 @@ app.delete('/api/admin/messages', authMiddleware, adminMiddleware, async (req, r
 });
 
 // Очистка всех чатов и их сообщений
-app.delete('/api/admin/chats', authMiddleware, adminMiddleware, async (req, res) => {
+app.delete('/api/admin/chats', authMiddleware, async (req, res) => {
   const [msgs, chats] = await Promise.all([
     Message.deleteMany({}),
     Chat.deleteMany({}),
@@ -389,30 +380,27 @@ app.delete('/api/admin/chats', authMiddleware, adminMiddleware, async (req, res)
   res.json({ deletedChats: chats.deletedCount, deletedMessages: msgs.deletedCount });
 });
 
-// Удаление всех пользователей кроме админов
-app.delete('/api/admin/users', authMiddleware, adminMiddleware, async (req, res) => {
-  const admins = await User.find({ isAdmin: true }).select('_id');
-  const adminIds = admins.map(a => a._id);
-  const result = await User.deleteMany({ _id: { $nin: adminIds } });
-  // Удаляем чаты и сообщения этих пользователей
-  await Session.deleteMany({ userId: { $nin: adminIds } });
+// Удаление всех пользователей кроме текущего
+app.delete('/api/admin/users', authMiddleware, async (req, res) => {
+  const result = await User.deleteMany({ _id: { $ne: req.user.id } });
+  await Session.deleteMany({ userId: { $ne: req.user.id } });
   res.json({ deleted: result.deletedCount });
 });
 
 // Очистка сессий
-app.delete('/api/admin/sessions', authMiddleware, adminMiddleware, async (req, res) => {
+app.delete('/api/admin/sessions', authMiddleware, async (req, res) => {
   const result = await Session.deleteMany({ active: false });
   res.json({ deleted: result.deletedCount });
 });
 
 // Очистка push-подписок
-app.delete('/api/admin/pushsubs', authMiddleware, adminMiddleware, async (req, res) => {
+app.delete('/api/admin/pushsubs', authMiddleware, async (req, res) => {
   const result = await PushSub.deleteMany({});
   res.json({ deleted: result.deletedCount });
 });
 
-// Полный сброс — удаляет ВСЁ кроме текущего админа
-app.delete('/api/admin/reset', authMiddleware, adminMiddleware, async (req, res) => {
+// Полный сброс — удаляет ВСЁ кроме текущего пользователя
+app.delete('/api/admin/reset', authMiddleware, async (req, res) => {
   const [msgs, chats, sessions, pushSubs] = await Promise.all([
     Message.deleteMany({}),
     Chat.deleteMany({}),
@@ -444,13 +432,10 @@ app.post('/api/register', async (req, res) => {
     if (exists) return res.status(400).json({ error: 'Логин уже занят' });
 
     const passwordHash = await bcrypt.hash(password, 10);
-    // Первый пользователь — автоматически администратор
-    const userCount = await User.countDocuments();
     const user = await User.create({
       username: username.toLowerCase().trim(),
       displayName: displayName.trim(),
       passwordHash,
-      isAdmin: userCount === 0,
     });
 
     const sessionId = uuidv4();

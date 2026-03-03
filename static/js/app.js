@@ -151,7 +151,7 @@ const _i18n = {
     security:       'Безопасность',
     sessions:       'Сессии',
     logoutBtn:      'Выйти',
-    adminPanel:     'Админ-панель',
+    management:     'Управление',
     favourites:     'Избранное',
     archive:        'Архив',
     contacts:       'Контакты',
@@ -171,7 +171,7 @@ const _i18n = {
     security:       'Security',
     sessions:       'Sessions',
     logoutBtn:      'Logout',
-    adminPanel:     'Admin Panel',
+    management:     'Management',
     favourites:     'Favourites',
     archive:        'Archive',
     contacts:       'Contacts',
@@ -191,7 +191,7 @@ function applyLanguage(lang) {
     'menu-settings':   { attr: 'text', val: t.settings },
     'menu-favourites': { attr: 'text', val: t.favourites },
     'menu-archive':    { attr: 'text', val: t.archive },
-    'menu-admin':      { attr: 'text', val: t.adminPanel },
+    'menu-admin':      { attr: 'text', val: t.management },
     'menu-logout':     { attr: 'text', val: t.logoutBtn },
   };
 
@@ -2459,10 +2459,8 @@ function toggleHints(enabled) {
 // ADMIN PANEL
 // ══════════════════════════════════════════════════════════
 function initAdminPanel() {
-  // Показать кнопку в меню если пользователь админ
-  if (S.user?.isAdmin) {
-    $('menu-admin')?.classList.remove('hidden');
-  }
+  // Кнопка управления доступна всем
+  $('menu-admin')?.classList.remove('hidden');
 
   on('menu-admin', 'click', async () => {
     $('side-menu').classList.add('hidden');
@@ -2485,7 +2483,7 @@ function initAdminPanel() {
   const actions = [
     { id: 'admin-clear-messages',  url: '/api/admin/messages',  label: 'сообщения',    confirm: 'Удалить ВСЕ сообщения?' },
     { id: 'admin-clear-chats',     url: '/api/admin/chats',     label: 'чаты',          confirm: 'Удалить ВСЕ чаты и сообщения?' },
-    { id: 'admin-clear-users',     url: '/api/admin/users',     label: 'пользователей', confirm: 'Удалить всех пользователей кроме админов?' },
+    { id: 'admin-clear-users',     url: '/api/admin/users',     label: 'пользователей', confirm: 'Удалить всех пользователей кроме вас?' },
     { id: 'admin-clear-sessions',  url: '/api/admin/sessions',  label: 'сессии',        confirm: 'Очистить неактивные сессии?' },
     { id: 'admin-clear-pushsubs',  url: '/api/admin/pushsubs',  label: 'push-подписки', confirm: 'Очистить все push-подписки?' },
   ];
