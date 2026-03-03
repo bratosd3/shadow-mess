@@ -36,5 +36,9 @@ Thumbs.db
 .vscode/
 .idea/
 
+# Test folder (local only)
+test/
+_test_temp/
+
 # Package lock (optional, can include)
 # package-lock.json

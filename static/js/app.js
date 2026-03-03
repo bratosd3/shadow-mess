@@ -1990,6 +1990,66 @@ function applyAllSettings(s) {
 }
 
 // ══════════════════════════════════════════════════════════
+// MOBILE KEYBOARD & VIEWPORT FIX
+// ══════════════════════════════════════════════════════════
+function initMobileKeyboardFix() {
+  if (window.innerWidth > 680) return;
+
+  // Fix iOS 100vh issue — use visual viewport
+  function setVH() {
+    const vh = (window.visualViewport?.height || window.innerHeight) * 0.01;
+    document.documentElement.style.setProperty('--vh', `${vh}px`);
+  }
+  setVH();
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', setVH);
+  } else {
+    window.addEventListener('resize', setVH);
+  }
+
+  // Scroll input into view when keyboard opens
+  const msgInput = $('msg-input');
+  if (msgInput) {
+    msgInput.addEventListener('focus', () => {
+      setTimeout(() => {
+        msgInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 300);
+    });
+  }
+
+  // Handle back button (Android hardware back)
+  window.addEventListener('popstate', () => {
+    const cp = $('chat-panel');
+    if (cp && cp.classList.contains('mobile-active')) {
+      cp.classList.remove('mobile-active');
+      $('back-btn')?.classList.add('hidden');
+      S.activeChat = null;
+      $('active-chat')?.classList.add('hidden');
+      $('welcome-screen')?.classList.remove('hidden');
+    }
+  });
+
+  // Push state when opening chat on mobile
+  const origOpenChat = window.openChat || null;
+  if (typeof openChat === 'function') {
+    const _origOpen = openChat;
+    // We can't easily wrap openChat, but we can listen for mobile-active
+    const observer = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        if (m.attributeName === 'class') {
+          const cp = $('chat-panel');
+          if (cp?.classList.contains('mobile-active')) {
+            history.pushState({ chatOpen: true }, '');
+          }
+        }
+      }
+    });
+    const cp = $('chat-panel');
+    if (cp) observer.observe(cp, { attributes: true, attributeFilter: ['class'] });
+  }
+}
+
+// ══════════════════════════════════════════════════════════
 // INIT
 // ══════════════════════════════════════════════════════════
 function initApp() {
@@ -2012,6 +2072,7 @@ function initApp() {
   requestNotifPerm();
   toggleSendVoiceBtn();
   updateMenuProfile();
+  initMobileKeyboardFix();
 }
 
 // ══════════════════════════════════════════════════════════
