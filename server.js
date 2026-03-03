@@ -848,7 +848,18 @@ io.on('connection', async (socket) => {
 // =============================================================================
 // Connect to MongoDB & Start Server
 // =============================================================================
-mongoose.connect(MONGO_URI)
+console.log('  ⏳  Подключение к MongoDB...');
+console.log('  URI:', MONGO_URI ? MONGO_URI.replace(/\/\/.*@/, '//***:***@') : '❌ НЕ ЗАДАН! Установи переменную MONGODB_URI');
+
+if (!MONGO_URI || MONGO_URI === 'mongodb://localhost:27017/shadowmess') {
+  console.error('  ❌  MONGODB_URI не задан! Добавь переменную окружения на Render.');
+  console.error('     Environment → Add Environment Variable → MONGODB_URI');
+}
+
+mongoose.connect(MONGO_URI, {
+  serverSelectionTimeoutMS: 15000,
+  socketTimeoutMS: 45000,
+})
   .then(() => {
     console.log('  ✅  MongoDB подключена');
     srv.listen(PORT, '0.0.0.0', () => {
@@ -862,5 +873,9 @@ mongoose.connect(MONGO_URI)
   })
   .catch(err => {
     console.error('  ❌  Ошибка подключения к MongoDB:', err.message);
+    console.error('  Проверь:');
+    console.error('    1. MONGODB_URI правильный');
+    console.error('    2. Network Access → Allow Access from Anywhere (0.0.0.0/0)');
+    console.error('    3. Логин/пароль для БД верные');
     process.exit(1);
   });
