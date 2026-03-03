@@ -100,12 +100,12 @@
 
     <!-- Header -->
     <div class="sidebar-header">
-      <button class="icon-btn" id="menu-btn" title="Меню">
+      <button class="icon-btn" id="menu-btn" title="Меню" data-hint="Открыть боковое меню с настройками, избранным и архивом">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
       </button>
       <div class="search-box">
         <svg class="search-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input id="search-input" type="text" placeholder="Поиск"/>
+        <input id="search-input" type="text" placeholder="Поиск" data-hint="Поиск чатов, пользователей и сообщений"/>
         <button class="icon-btn search-clear hidden" id="search-clear" style="width:20px;height:20px;font-size:12px">✕</button>
       </div>
     </div>
@@ -132,6 +132,10 @@
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
           Настройки
         </button>
+        <button class="side-menu-item hidden" id="menu-admin">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          Админ-панель
+        </button>
         <button class="side-menu-item" id="menu-logout">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
           Выйти
@@ -157,7 +161,7 @@
     <div class="search-results hidden" id="search-results"></div>
 
     <!-- FAB: New Chat -->
-    <button class="fab-new-chat" id="new-chat-btn" title="Новый чат">
+    <button class="fab-new-chat" id="new-chat-btn" title="Новый чат" data-hint="Создать новый личный чат или группу">
       <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
     </button>
   </aside>
@@ -188,10 +192,10 @@
           <div class="chat-header-status" id="chat-header-status"></div>
         </div>
         <div class="chat-header-actions">
-          <button class="icon-btn" id="call-audio-btn" title="Голосовой звонок">
+          <button class="icon-btn" id="call-audio-btn" title="Голосовой звонок" data-hint="Позвонить собеседнику (голос)">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.44 2 2 0 0 1 3.6 1.25h3a2 2 0 0 1 2 1.72c.127.96.362 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.81a16 16 0 0 0 6.29 6.29l.91-.92a2 2 0 0 1 2.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
           </button>
-          <button class="icon-btn" id="call-video-btn" title="Видеозвонок">
+          <button class="icon-btn" id="call-video-btn" title="Видеозвонок" data-hint="Видеозвонок с камерой и микрофоном">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
           </button>
           <button class="icon-btn" id="chat-search-btn" title="Поиск">
@@ -262,24 +266,24 @@
 
       <!-- Message input -->
       <div class="message-input-wrap">
-        <button class="icon-btn" id="attach-btn" title="Прикрепить файл">
+        <button class="icon-btn" id="attach-btn" title="Прикрепить файл" data-hint="Отправить фото, видео или документ (до 100 МБ)">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
         </button>
         <input type="file" id="file-input" class="hidden" accept="*/*" multiple/>
 
         <div class="message-input-box">
           <textarea id="msg-input" placeholder="Написать сообщение..." rows="1" maxlength="4096"></textarea>
-          <button class="icon-btn" id="emoji-btn" title="Эмодзи" style="width:28px;height:28px;font-size:18px;flex-shrink:0">☺</button>
+          <button class="icon-btn" id="emoji-btn" title="Эмодзи" data-hint="Открыть панель эмодзи и стикеров" style="width:28px;height:28px;font-size:18px;flex-shrink:0">☺</button>
           <button class="icon-btn" id="sticker-btn" title="Стикеры" style="width:28px;height:28px;flex-shrink:0">
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
           </button>
         </div>
 
-        <button class="voice-record-btn" id="voice-record-btn" title="Голосовое сообщение">
+        <button class="voice-record-btn" id="voice-record-btn" title="Голосовое сообщение" data-hint="Зажмите для записи голосового сообщения">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
         </button>
 
-        <button class="send-btn hidden" id="send-btn" title="Отправить">
+        <button class="send-btn hidden" id="send-btn" title="Отправить" data-hint="Отправить сообщение (Enter)">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
         </button>
       </div>
@@ -505,6 +509,7 @@
           <div class="toggle-row"><span>Автозагрузка медиа</span><label class="toggle-switch"><input type="checkbox" id="set-auto-media" checked/><span class="toggle-slider"></span></label></div>
           <div class="toggle-row"><span>Время в 24ч формате</span><label class="toggle-switch"><input type="checkbox" id="set-time24" checked/><span class="toggle-slider"></span></label></div>
           <div class="toggle-row"><span>Группировать сообщения</span><label class="toggle-switch"><input type="checkbox" id="set-group-msgs" checked/><span class="toggle-slider"></span></label></div>
+          <div class="toggle-row"><span>Расширенные подсказки</span><label class="toggle-switch"><input type="checkbox" id="set-hints"/><span class="toggle-slider"></span></label></div>
 
           <h4>Язык / Language</h4>
           <div class="field-group">
@@ -731,6 +736,90 @@
       <button class="call-ctrl-btn call-end-btn" id="end-call-btn" title="Завершить">
         <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56-.35-.12-.74-.03-1.01.24l-1.57 1.97c-2.83-1.35-5.48-3.9-6.89-6.83l1.95-1.66c.27-.28.35-.67.24-1.02-.37-1.11-.56-2.3-.56-3.53 0-.54-.45-.99-.99-.99H4.19C3.65 3 3 3.24 3 3.99 3 13.28 10.73 21 20.01 21c.71 0 .99-.63.99-1.18v-3.45c0-.54-.45-.99-.99-.99z"/></svg>
       </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ WELCOME WIZARD (первый запуск) ═══ -->
+<div class="wizard-overlay hidden" id="welcome-wizard">
+  <div class="wizard-card">
+    <div class="wizard-logo">
+      <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="var(--accent)" stroke-width="1.5"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+    </div>
+    <h2 class="wizard-title">Добро пожаловать в Shadow Message!</h2>
+    <p class="wizard-desc">Настройте мессенджер под себя</p>
+
+    <div class="wizard-steps" id="wizard-steps">
+      <!-- Шаг 1: Уведомления -->
+      <div class="wizard-step active" data-step="1">
+        <div class="wizard-step-icon">🔔</div>
+        <h3>Уведомления</h3>
+        <p>Разрешите уведомления чтобы не пропустить новые сообщения</p>
+        <button class="btn-primary" id="wizard-notif-btn">Разрешить уведомления</button>
+        <div class="wizard-step-status" id="wizard-notif-status"></div>
+      </div>
+
+      <!-- Шаг 2: Подсказки -->
+      <div class="wizard-step" data-step="2">
+        <div class="wizard-step-icon">💡</div>
+        <h3>Расширенные подсказки</h3>
+        <p>Включите подсказки чтобы видеть описания всех кнопок и функций</p>
+        <label class="wizard-toggle">
+          <input type="checkbox" id="wizard-hints-toggle" checked/>
+          <span class="wizard-toggle-slider"></span>
+          <span>Включить подсказки</span>
+        </label>
+      </div>
+
+      <!-- Шаг 3: Тема -->
+      <div class="wizard-step" data-step="3">
+        <div class="wizard-step-icon">🎨</div>
+        <h3>Выберите тему</h3>
+        <div class="wizard-themes">
+          <button class="wizard-theme-btn active" data-theme="light"><span class="wt-preview" style="background:#fff;border:1px solid #ddd"></span>Светлая</button>
+          <button class="wizard-theme-btn" data-theme="dark"><span class="wt-preview" style="background:#1a1a2e"></span>Тёмная</button>
+          <button class="wizard-theme-btn" data-theme="midnight"><span class="wt-preview" style="background:#0a0a1a"></span>Полночь</button>
+          <button class="wizard-theme-btn" data-theme="ocean"><span class="wt-preview" style="background:#0c2d48"></span>Океан</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="wizard-nav">
+      <button class="btn-secondary" id="wizard-skip">Пропустить</button>
+      <div class="wizard-dots" id="wizard-dots">
+        <span class="wizard-dot active" data-dot="1"></span>
+        <span class="wizard-dot" data-dot="2"></span>
+        <span class="wizard-dot" data-dot="3"></span>
+      </div>
+      <button class="btn-primary" id="wizard-next">Далее</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ ADMIN PANEL ═══ -->
+<div class="overlay hidden" id="admin-overlay">
+  <div class="panel admin-panel">
+    <div class="panel-header">
+      <button class="back-btn" id="admin-back">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <h3>Админ-панель</h3>
+    </div>
+    <div class="panel-body" style="padding:16px">
+      <div class="admin-stats" id="admin-stats">
+        <div class="admin-stat"><span class="admin-stat-num" id="stat-users">—</span><span class="admin-stat-label">Пользователей</span></div>
+        <div class="admin-stat"><span class="admin-stat-num" id="stat-chats">—</span><span class="admin-stat-label">Чатов</span></div>
+        <div class="admin-stat"><span class="admin-stat-num" id="stat-messages">—</span><span class="admin-stat-label">Сообщений</span></div>
+        <div class="admin-stat"><span class="admin-stat-num" id="stat-sessions">—</span><span class="admin-stat-label">Сессий</span></div>
+      </div>
+      <h4 style="margin:20px 0 10px;color:var(--text-secondary)">Очистка данных</h4>
+      <button class="btn-danger admin-action-btn" id="admin-clear-messages">🗑 Очистить все сообщения</button>
+      <button class="btn-danger admin-action-btn" id="admin-clear-chats">🗑 Удалить все чаты</button>
+      <button class="btn-danger admin-action-btn" id="admin-clear-users">🗑 Удалить пользователей (кроме админов)</button>
+      <button class="btn-danger admin-action-btn" id="admin-clear-sessions">🗑 Очистить неактивные сессии</button>
+      <button class="btn-danger admin-action-btn" id="admin-clear-pushsubs">🗑 Очистить push-подписки</button>
+      <hr style="border:none;border-top:1px solid var(--border);margin:16px 0"/>
+      <button class="btn-danger admin-action-btn" id="admin-full-reset" style="background:#c0392b">⚠️ Полный сброс (удалить ВСЁ)</button>
     </div>
   </div>
 </div>

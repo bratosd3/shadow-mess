@@ -295,6 +295,9 @@ async function onLogin({ token, user }, isRegister = false) {
   initApp();
   subscribeToPush();
 
+  // Показать визард при первом запуске (после регистрации)
+  if (isRegister) showWelcomeWizard();
+
   requestAnimationFrame(() => {
     setTimeout(() => $('app').classList.remove('app-enter'), 800);
   });
@@ -337,10 +340,10 @@ function initSocket() {
   socket.on('chat_updated',       chat => { const i=S.chats.findIndex(c=>c.id===chat.id); if(i!==-1){S.chats[i]={...S.chats[i],...chat}; renderChatList();} });
   socket.on('chat_deleted',       ({chatId}) => { S.chats=S.chats.filter(c=>c.id!==chatId); if(S.activeChat?.id===chatId){S.activeChat=null; $('active-chat').classList.add('hidden'); $('welcome-screen').classList.remove('hidden');} renderChatList(); });
   socket.on('call_incoming',      handleIncomingCall);
-  socket.on('call_answered',      d => window.callsModule?.onAnswer(d));
+  socket.on('call_answered',      d => { stopDialTone(); playCallConnectSound(); window.callsModule?.onAnswer(d); });
   socket.on('call_ice',           d => window.callsModule?.onIce(d));
-  socket.on('call_rejected',      () => { hideCallOverlays(); showToast('Звонок отклонён', 'info'); });
-  socket.on('call_ended',         () => { window.callsModule?.onEnded(); });
+  socket.on('call_rejected',      () => { stopDialTone(); hideCallOverlays(); showToast('Звонок отклонён', 'info'); });
+  socket.on('call_ended',         () => { stopDialTone(); stopRingtone(); playCallEndSound(); window.callsModule?.onEnded(); });
   socket.on('session_revoked',    () => { showToast('Сессия завершена', 'info'); setTimeout(() => logout(), 1500); });
 }
 
@@ -1583,6 +1586,9 @@ function initSettings() {
     const time24 = $('set-time24')?.checked !== false;
     const groupMessages = $('set-group-msgs')?.checked !== false;
     const language = $('set-language')?.value || 'ru';
+    // Подсказки (hints)
+    const hintsEnabled = !!$('set-hints')?.checked;
+    toggleHints(hintsEnabled);
     try {
       await API.put('/api/me', { settings: { theme, fontSize, accentColor, bubbleStyle, compactMode, chatWallpaper, sendByEnter, uiAnimations, autoMedia, time24, groupMessages, language } });
       S.user.settings = { ...S.user.settings, theme, fontSize, accentColor, bubbleStyle, compactMode, chatWallpaper, sendByEnter, uiAnimations, autoMedia, time24, groupMessages, language };
@@ -1698,6 +1704,8 @@ function openSettings() {
   if (time24El) time24El.checked = u.settings?.time24 !== false;
   const grpMsgEl = $('set-group-msgs');
   if (grpMsgEl) grpMsgEl.checked = u.settings?.groupMessages !== false;
+  const hintsEl = $('set-hints');
+  if (hintsEl) hintsEl.checked = localStorage.getItem('sm_hints') === 'true';
   const langEl = $('set-language');
   if (langEl) langEl.value = u.settings?.language || 'ru';
 
@@ -1829,19 +1837,26 @@ function handleIncomingCall({ from, fromName, fromAvatarColor, offer, callType }
   $('inc-call-name').textContent = fromName || 'Неизвестный';
   $('inc-call-type').textContent = callType === 'video' ? '📹 Видеозвонок' : '📞 Голосовой звонок';
   $('incoming-call').classList.remove('hidden');
-  if (S.notif.calls && S.notif.sound) playNotifSound();
+  // Звук рингтона (циклический)
+  if (S.notif.calls && S.notif.sound) playRingtone();
   $('inc-accept-btn').onclick = () => {
+    stopRingtone();
     $('incoming-call').classList.add('hidden');
+    playCallConnectSound();
     startActiveCall(from, fromName, fromAvatarColor || '#333333');
     window.callsModule?.acceptCall(from, offer, callType);
   };
   $('inc-reject-btn').onclick = () => {
+    stopRingtone();
     $('incoming-call').classList.add('hidden');
     S.socket?.emit('call_reject', { to: from });
   };
 }
 
 function hideCallOverlays() {
+  stopRingtone();
+  stopDialTone();
+  playCallEndSound();
   $('incoming-call').classList.add('hidden');
   $('active-call-overlay').classList.add('hidden');
 }
@@ -1870,6 +1885,7 @@ function initCallButtons() {
       ? c.members?.find(id => id !== S.user?.id)
       : c.members?.find(id => id !== S.user?.id);
     if (!otherId) return;
+    playDialTone();
     startActiveCall(otherId, c.displayName, c.displayAvatarColor || '#333333');
     window.callsModule?.startCall(otherId, 'audio');
   });
@@ -1879,10 +1895,11 @@ function initCallButtons() {
       ? c.members?.find(id => id !== S.user?.id)
       : c.members?.find(id => id !== S.user?.id);
     if (!otherId) return;
+    playDialTone();
     startActiveCall(otherId, c.displayName, c.displayAvatarColor || '#333333');
     window.callsModule?.startCall(otherId, 'video');
   });
-  on('end-call-btn', 'click', () => { clearInterval(_callTimerInt); $('active-call-overlay').classList.add('hidden'); window.callsModule?.endCall(); });
+  on('end-call-btn', 'click', () => { stopDialTone(); stopRingtone(); playCallEndSound(); clearInterval(_callTimerInt); $('active-call-overlay').classList.add('hidden'); window.callsModule?.endCall(); });
   on('toggle-mute',  'click', () => { const m = window.callsModule?.toggleMute(); $('toggle-mute').classList.toggle('muted', m); });
   on('toggle-video', 'click', () => { window.callsModule?.toggleVideo(); });
   on('toggle-speaker', 'click', () => showToast('Переключение динамика', 'info'));
@@ -1920,20 +1937,116 @@ function initBackBtn() {
 
 // ══════════════════════════════════════════════════════════
 // ══════════════════════════════════════════════════════════
-// NOTIFICATION SOUND
+// NOTIFICATION SOUND & CALL SOUNDS
 // ══════════════════════════════════════════════════════════
 let _notifAudioCtx = null;
+function getAudioCtx() {
+  if (!_notifAudioCtx) _notifAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (_notifAudioCtx.state === 'suspended') _notifAudioCtx.resume();
+  return _notifAudioCtx;
+}
+
 function playNotifSound() {
   try {
-    if (!_notifAudioCtx) _notifAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const ctx = _notifAudioCtx;
-    if (ctx.state === 'suspended') ctx.resume();
+    const ctx = getAudioCtx();
     const osc = ctx.createOscillator(), g = ctx.createGain();
     osc.connect(g); g.connect(ctx.destination);
     osc.type = 'sine'; osc.frequency.setValueAtTime(880, ctx.currentTime);
     g.gain.setValueAtTime(0.15, ctx.currentTime);
     g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35);
     osc.start(); osc.stop(ctx.currentTime + 0.35);
+  } catch {}
+}
+
+// ── Рингтон входящего звонка (циклический) ────────────────────────────
+let _ringtoneInterval = null;
+let _ringtoneNodes = [];
+
+function playRingtone() {
+  stopRingtone();
+  const playBurst = () => {
+    try {
+      const ctx = getAudioCtx();
+      // Мелодичный рингтон: два тона
+      [698, 880].forEach((freq, i) => {
+        const osc = ctx.createOscillator(), g = ctx.createGain();
+        osc.connect(g); g.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, ctx.currentTime + i * 0.15);
+        g.gain.setValueAtTime(0, ctx.currentTime);
+        g.gain.linearRampToValueAtTime(0.2, ctx.currentTime + i * 0.15 + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.15 + 0.4);
+        osc.start(ctx.currentTime + i * 0.15);
+        osc.stop(ctx.currentTime + i * 0.15 + 0.4);
+        _ringtoneNodes.push(osc, g);
+      });
+    } catch {}
+  };
+  playBurst();
+  _ringtoneInterval = setInterval(playBurst, 2000);
+}
+
+function stopRingtone() {
+  clearInterval(_ringtoneInterval);
+  _ringtoneInterval = null;
+  _ringtoneNodes.forEach(n => { try { n.disconnect(); } catch {} });
+  _ringtoneNodes = [];
+}
+
+// ── Звук дозвона (исходящий вызов) ──────────────────────────────────
+let _dialInterval = null;
+function playDialTone() {
+  stopDialTone();
+  const playBeep = () => {
+    try {
+      const ctx = getAudioCtx();
+      const osc = ctx.createOscillator(), g = ctx.createGain();
+      osc.connect(g); g.connect(ctx.destination);
+      osc.type = 'sine'; osc.frequency.setValueAtTime(440, ctx.currentTime);
+      g.gain.setValueAtTime(0.12, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
+      osc.start(); osc.stop(ctx.currentTime + 0.8);
+    } catch {}
+  };
+  playBeep();
+  _dialInterval = setInterval(playBeep, 3000);
+}
+
+function stopDialTone() {
+  clearInterval(_dialInterval);
+  _dialInterval = null;
+}
+
+// ── Звук соединения / завершения ────────────────────────────────────
+function playCallConnectSound() {
+  try {
+    const ctx = getAudioCtx();
+    [523, 659, 784].forEach((freq, i) => {
+      const osc = ctx.createOscillator(), g = ctx.createGain();
+      osc.connect(g); g.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, ctx.currentTime + i * 0.1);
+      g.gain.setValueAtTime(0.15, ctx.currentTime + i * 0.1);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.1 + 0.2);
+      osc.start(ctx.currentTime + i * 0.1);
+      osc.stop(ctx.currentTime + i * 0.1 + 0.2);
+    });
+  } catch {}
+}
+
+function playCallEndSound() {
+  try {
+    const ctx = getAudioCtx();
+    [600, 400].forEach((freq, i) => {
+      const osc = ctx.createOscillator(), g = ctx.createGain();
+      osc.connect(g); g.connect(ctx.destination);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, ctx.currentTime + i * 0.15);
+      g.gain.setValueAtTime(0.12, ctx.currentTime + i * 0.15);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.15 + 0.25);
+      osc.start(ctx.currentTime + i * 0.15);
+      osc.stop(ctx.currentTime + i * 0.15 + 0.25);
+    });
   } catch {}
 }
 
@@ -2134,6 +2247,159 @@ function urlBase64ToUint8Array(base64String) {
 }
 
 // ══════════════════════════════════════════════════════════
+// WELCOME WIZARD (первый запуск)
+// ══════════════════════════════════════════════════════════
+function showWelcomeWizard() {
+  // Проверяем, был ли уже показан
+  if (localStorage.getItem('sm_wizard_done')) return;
+
+  const overlay = $('welcome-wizard');
+  if (!overlay) return;
+  overlay.classList.remove('hidden');
+
+  let currentStep = 1;
+  const totalSteps = 3;
+
+  function goToStep(step) {
+    currentStep = step;
+    overlay.querySelectorAll('.wizard-step').forEach(s => s.classList.remove('active'));
+    overlay.querySelector(`[data-step="${step}"]`)?.classList.add('active');
+    overlay.querySelectorAll('.wizard-dot').forEach(d => d.classList.toggle('active', +d.dataset.dot === step));
+    $('wizard-next').textContent = step >= totalSteps ? 'Готово!' : 'Далее';
+  }
+
+  // Кнопка разрешения уведомлений
+  on('wizard-notif-btn', 'click', async () => {
+    if ('Notification' in window) {
+      const perm = await Notification.requestPermission();
+      $('wizard-notif-status').textContent = perm === 'granted' ? '✅ Уведомления разрешены!' : '⚠️ Уведомления отклонены';
+      if (perm === 'granted') subscribeToPush();
+    }
+  });
+
+  // Выбор темы
+  overlay.querySelectorAll('.wizard-theme-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      overlay.querySelectorAll('.wizard-theme-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      applyTheme(btn.dataset.theme);
+    });
+  });
+
+  // Далее / Готово
+  on('wizard-next', 'click', () => {
+    if (currentStep < totalSteps) {
+      goToStep(currentStep + 1);
+    } else {
+      finishWizard();
+    }
+  });
+
+  // Пропустить
+  on('wizard-skip', 'click', finishWizard);
+
+  function finishWizard() {
+    // Применяем настройки
+    const hintsEnabled = $('wizard-hints-toggle')?.checked;
+    if (hintsEnabled) {
+      document.body.classList.add('hints-enabled');
+      localStorage.setItem('sm_hints', 'true');
+    }
+    const selectedTheme = overlay.querySelector('.wizard-theme-btn.active')?.dataset.theme || 'light';
+    applyTheme(selectedTheme);
+    // Сохраняем тему на сервер
+    API.put('/api/me', { settings: { theme: selectedTheme } }).catch(() => {});
+
+    localStorage.setItem('sm_wizard_done', 'true');
+    overlay.classList.add('hidden');
+  }
+}
+
+// ══════════════════════════════════════════════════════════
+// EXTENDED TOOLTIPS (подсказки)
+// ══════════════════════════════════════════════════════════
+function initHints() {
+  if (localStorage.getItem('sm_hints') === 'true') {
+    document.body.classList.add('hints-enabled');
+  }
+}
+
+function toggleHints(enabled) {
+  document.body.classList.toggle('hints-enabled', enabled);
+  localStorage.setItem('sm_hints', enabled ? 'true' : 'false');
+}
+
+// ══════════════════════════════════════════════════════════
+// ADMIN PANEL
+// ══════════════════════════════════════════════════════════
+function initAdminPanel() {
+  // Показать кнопку в меню если пользователь админ
+  if (S.user?.isAdmin) {
+    $('menu-admin')?.classList.remove('hidden');
+  }
+
+  on('menu-admin', 'click', async () => {
+    $('side-menu').classList.add('hidden');
+    $('admin-overlay').classList.remove('hidden');
+    // Загрузить статистику
+    try {
+      const stats = await API.get('/api/admin/stats');
+      $('stat-users').textContent = stats.users;
+      $('stat-chats').textContent = stats.chats;
+      $('stat-messages').textContent = stats.messages;
+      $('stat-sessions').textContent = stats.sessions;
+    } catch (err) {
+      showToast('Ошибка загрузки статистики', 'error');
+    }
+  });
+
+  on('admin-back', 'click', () => $('admin-overlay').classList.add('hidden'));
+
+  // Обработчики кнопок очистки
+  const actions = [
+    { id: 'admin-clear-messages',  url: '/api/admin/messages',  label: 'сообщения',    confirm: 'Удалить ВСЕ сообщения?' },
+    { id: 'admin-clear-chats',     url: '/api/admin/chats',     label: 'чаты',          confirm: 'Удалить ВСЕ чаты и сообщения?' },
+    { id: 'admin-clear-users',     url: '/api/admin/users',     label: 'пользователей', confirm: 'Удалить всех пользователей кроме админов?' },
+    { id: 'admin-clear-sessions',  url: '/api/admin/sessions',  label: 'сессии',        confirm: 'Очистить неактивные сессии?' },
+    { id: 'admin-clear-pushsubs',  url: '/api/admin/pushsubs',  label: 'push-подписки', confirm: 'Очистить все push-подписки?' },
+  ];
+
+  actions.forEach(({ id, url, label, confirm: confirmMsg }) => {
+    on(id, 'click', async () => {
+      if (!window.confirm(confirmMsg)) return;
+      try {
+        const result = await API.del(url);
+        const count = result.deleted || result.deletedChats || result.deletedMessages || 0;
+        showToast(`Удалено: ${label} (${count})`, 'success');
+        // Обновить статистику
+        $('menu-admin')?.click();
+      } catch (err) {
+        showToast(err.message || 'Ошибка', 'error');
+      }
+    });
+  });
+
+  on('admin-full-reset', 'click', async () => {
+    if (!window.confirm('⚠️ ВНИМАНИЕ! Это удалит ВСЕ данные кроме вашего аккаунта. Продолжить?')) return;
+    if (!window.confirm('Вы точно уверены? Это действие нельзя отменить!')) return;
+    try {
+      const result = await API.del('/api/admin/reset');
+      showToast(`Полный сброс: удалено ${result.deletedMessages} сообщений, ${result.deletedChats} чатов, ${result.deletedUsers} пользователей`, 'success');
+      // Перезагрузить чаты
+      S.chats = [];
+      S.activeChat = null;
+      S.messages = [];
+      $('active-chat')?.classList.add('hidden');
+      $('welcome-screen')?.classList.remove('hidden');
+      renderChatList();
+      $('menu-admin')?.click();
+    } catch (err) {
+      showToast(err.message || 'Ошибка', 'error');
+    }
+  });
+}
+
+// ══════════════════════════════════════════════════════════
 // INIT
 // ══════════════════════════════════════════════════════════
 function initApp() {
@@ -2157,6 +2423,8 @@ function initApp() {
   toggleSendVoiceBtn();
   updateMenuProfile();
   initMobileKeyboardFix();
+  initHints();
+  initAdminPanel();
 }
 
 // ══════════════════════════════════════════════════════════
@@ -2187,6 +2455,7 @@ function initApp() {
       await loadChats();
       initApp();
       subscribeToPush();
+      showWelcomeWizard();
     } catch {
       S.token = null;
       localStorage.removeItem('sm_token');

@@ -27,31 +27,32 @@ const STATIC_DIR  = path.join(__dirname, 'static');
 const UPLOADS_DIR = path.join(__dirname, 'uploads');
 
 // ── VAPID keys for Web Push ───────────────────────────────────────────────
+// Ключи сохраняются в MongoDB чтобы не терялись при перезапусках на Render.
+// Если есть в env — используются оттуда. Иначе — из БД или генерируются новые.
 let VAPID_PUBLIC  = process.env.VAPID_PUBLIC_KEY  || '';
 let VAPID_PRIVATE = process.env.VAPID_PRIVATE_KEY || '';
-if (!VAPID_PUBLIC || !VAPID_PRIVATE) {
-  const keys = webpush.generateVAPIDKeys();
-  VAPID_PUBLIC  = keys.publicKey;
-  VAPID_PRIVATE = keys.privateKey;
-  console.log('  ⚠️  VAPID ключи сгенерированы (сохрани в переменные окружения!):');
-  console.log('  VAPID_PUBLIC_KEY=' + VAPID_PUBLIC);
-  console.log('  VAPID_PRIVATE_KEY=' + VAPID_PRIVATE);
-}
-webpush.setVapidDetails('mailto:shadow@mess.app', VAPID_PUBLIC, VAPID_PRIVATE);
+let vapidReady    = false; // будет true после initVapid()
 
 // ── Directories ────────────────────────────────────────────────────────────
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
 // =============================================================================
-// Mongoose Models
+// Mongoose Models (оптимизированные)
 // =============================================================================
+
+// ── Config: хранит настройки сервера (VAPID ключи и т.д.) ─────────────────
+const configSchema = new mongoose.Schema({
+  _id:   { type: String },
+  value: { type: mongoose.Schema.Types.Mixed },
+});
+const Config = mongoose.model('Config', configSchema);
 
 const userSchema = new mongoose.Schema({
   _id:           { type: String, default: uuidv4 },
   username:      { type: String, required: true, unique: true, lowercase: true, trim: true },
   displayName:   { type: String, required: true, trim: true },
   passwordHash:  { type: String, required: true },
-  avatar:        { type: String, default: null },
+  avatar:        String,
   avatarColor:   { type: String, default: () => `hsl(${Math.floor(Math.random()*360)},65%,55%)` },
   bio:           { type: String, default: '' },
   phone:         { type: String, default: '' },
@@ -60,6 +61,7 @@ const userSchema = new mongoose.Schema({
   online:        { type: Boolean, default: false },
   lastSeen:      { type: Date, default: Date.now },
   createdAt:     { type: Date, default: Date.now },
+  isAdmin:       { type: Boolean, default: false },
   settings: {
     theme:            { type: String, default: 'light' },
     fontSize:         { type: Number, default: 14 },
@@ -74,8 +76,6 @@ const userSchema = new mongoose.Schema({
     privAllowForward: { type: Boolean, default: true },
     privReadReceipts: { type: Boolean, default: true },
     privShowTyping:   { type: Boolean, default: true },
-    secE2E:           { type: Boolean, default: false },
-    sec2FA:           { type: Boolean, default: false },
     language:         { type: String, default: 'ru' },
     accentColor:      { type: String, default: '' },
     bubbleStyle:      { type: String, default: 'rounded' },
@@ -83,19 +83,20 @@ const userSchema = new mongoose.Schema({
     chatWallpaper:    { type: String, default: 'dots' },
     sendByEnter:      { type: Boolean, default: true },
   }
-}, { _id: false });
+}, { _id: false, timestamps: false });
 userSchema.set('toJSON', {
   virtuals: true,
-  transform: (doc, ret) => { ret.id = ret._id; delete ret.__v; return ret; }
+  transform: (doc, ret) => { ret.id = ret._id; delete ret.__v; delete ret.passwordHash; return ret; }
 });
 const User = mongoose.model('User', userSchema);
 
+// Сессии: TTL index — автоудаление через 30 дней
 const sessionSchema = new mongoose.Schema({
   _id:       { type: String, default: uuidv4 },
   userId:    { type: String, required: true, index: true },
   device:    { type: String, default: 'Unknown' },
   ip:        { type: String, default: '' },
-  createdAt: { type: Date, default: Date.now },
+  createdAt: { type: Date, default: Date.now, expires: 2592000 }, // 30 дней
   active:    { type: Boolean, default: true },
 }, { _id: false });
 sessionSchema.set('toJSON', {
@@ -108,18 +109,19 @@ const chatSchema = new mongoose.Schema({
   _id:            { type: String, default: uuidv4 },
   type:           { type: String, enum: ['private', 'group', 'channel'], default: 'private' },
   members:        [{ type: String }],
-  name:           { type: String, default: null },
+  name:           String,
   description:    { type: String, default: '' },
-  avatar:         { type: String, default: null },
-  avatarColor:    { type: String, default: null },
+  avatar:         String,
+  avatarColor:    String,
   createdAt:      { type: Date, default: Date.now },
-  createdBy:      { type: String, default: null },
+  createdBy:      String,
   admins:         [{ type: String }],
   pinned:         { type: Boolean, default: false },
   muted:          { type: Boolean, default: false },
   archived:       { type: Boolean, default: false },
-  pinnedMessage:  { type: String, default: null },
+  pinnedMessage:  String,
 }, { _id: false });
+chatSchema.index({ members: 1 });
 chatSchema.set('toJSON', {
   virtuals: true,
   transform: (doc, ret) => { ret.id = ret._id; delete ret.__v; return ret; }
@@ -131,27 +133,29 @@ const messageSchema = new mongoose.Schema({
   chatId:           { type: String, required: true, index: true },
   senderId:         { type: String, required: true },
   senderName:       { type: String, default: '' },
-  senderAvatar:     { type: String, default: null },
-  senderAvatarColor:{ type: String, default: null },
+  senderAvatar:     String,
+  senderAvatarColor:String,
   type:             { type: String, default: 'text' },
   text:             { type: String, default: '' },
-  fileName:         { type: String, default: null },
-  fileSize:         { type: Number, default: null },
-  fileUrl:          { type: String, default: null },
-  fileMime:         { type: String, default: null },
+  fileName:         String,
+  fileSize:         Number,
+  fileUrl:          String,
+  fileMime:         String,
   timestamp:        { type: Date, default: Date.now },
-  editedAt:         { type: Date, default: null },
-  replyTo:          { type: String, default: null },
-  forwardFrom:      { type: String, default: null },
+  editedAt:         Date,
+  replyTo:          String,
+  forwardFrom:      String,
   reactions:        { type: mongoose.Schema.Types.Mixed, default: {} },
   readBy:           [{ type: String }],
 }, { _id: false });
+messageSchema.index({ chatId: 1, timestamp: -1 });
 messageSchema.set('toJSON', {
   virtuals: true,
   transform: (doc, ret) => { ret.id = ret._id; delete ret.__v; return ret; }
 });
 const Message = mongoose.model('Message', messageSchema);
 
+// Push-подписки для уведомлений
 const pushSubSchema = new mongoose.Schema({
   _id:          { type: String, default: uuidv4 },
   userId:       { type: String, required: true, index: true },
@@ -160,8 +164,9 @@ const pushSubSchema = new mongoose.Schema({
     p256dh: { type: String, required: true },
     auth:   { type: String, required: true },
   },
-  createdAt:    { type: Date, default: Date.now },
+  createdAt:    { type: Date, default: Date.now, expires: 2592000 }, // 30 дней, обновляется при re-subscribe
 }, { _id: false });
+pushSubSchema.index({ userId: 1, endpoint: 1 }, { unique: true });
 const PushSub = mongoose.model('PushSub', pushSubSchema);
 
 // ── Multer ────────────────────────────────────────────────────────────────
@@ -195,6 +200,38 @@ function sanitizeUser(u) {
   const obj = u.toJSON ? u.toJSON() : { ...u };
   delete obj.passwordHash;
   return obj;
+}
+
+// ── VAPID init (вызывается после подключения к MongoDB) ───────────────────
+async function initVapid() {
+  if (VAPID_PUBLIC && VAPID_PRIVATE) {
+    webpush.setVapidDetails('mailto:shadow@mess.app', VAPID_PUBLIC, VAPID_PRIVATE);
+    vapidReady = true;
+    console.log('  🔑  VAPID ключи загружены из env');
+    return;
+  }
+  // Попробуем достать из БД
+  const stored = await Config.findById('vapid');
+  if (stored?.value?.publicKey && stored?.value?.privateKey) {
+    VAPID_PUBLIC  = stored.value.publicKey;
+    VAPID_PRIVATE = stored.value.privateKey;
+    webpush.setVapidDetails('mailto:shadow@mess.app', VAPID_PUBLIC, VAPID_PRIVATE);
+    vapidReady = true;
+    console.log('  🔑  VAPID ключи загружены из БД');
+    return;
+  }
+  // Генерируем и сохраняем в БД
+  const keys = webpush.generateVAPIDKeys();
+  VAPID_PUBLIC  = keys.publicKey;
+  VAPID_PRIVATE = keys.privateKey;
+  await Config.findOneAndUpdate(
+    { _id: 'vapid' },
+    { value: { publicKey: VAPID_PUBLIC, privateKey: VAPID_PRIVATE } },
+    { upsert: true }
+  );
+  webpush.setVapidDetails('mailto:shadow@mess.app', VAPID_PUBLIC, VAPID_PRIVATE);
+  vapidReady = true;
+  console.log('  🔑  VAPID ключи сгенерированы и сохранены в БД (автоматически!)');
 }
 
 // ── Online tracking ────────────────────────────────────────────────────────
@@ -308,6 +345,86 @@ app.post('/api/push/unsubscribe', authMiddleware, async (req, res) => {
   }
 });
 
+// ── Admin: очистка базы данных ────────────────────────────────────────────
+// Первый зарегистрированный пользователь — автоматически админ.
+// Остальные могут получить isAdmin через БД.
+function adminMiddleware(req, res, next) {
+  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+  User.findById(req.user.id).then(u => {
+    if (!u?.isAdmin) return res.status(403).json({ error: 'Нет прав администратора' });
+    next();
+  }).catch(() => res.status(500).json({ error: 'Ошибка' }));
+}
+
+// Статистика БД
+app.get('/api/admin/stats', authMiddleware, adminMiddleware, async (req, res) => {
+  const [users, chats, messages, sessions, pushSubs] = await Promise.all([
+    User.countDocuments(),
+    Chat.countDocuments(),
+    Message.countDocuments(),
+    Session.countDocuments(),
+    PushSub.countDocuments(),
+  ]);
+  res.json({ users, chats, messages, sessions, pushSubs });
+});
+
+// Очистка сообщений (всех или конкретного чата)
+app.delete('/api/admin/messages', authMiddleware, adminMiddleware, async (req, res) => {
+  const { chatId } = req.query;
+  const filter = chatId ? { chatId } : {};
+  const result = await Message.deleteMany(filter);
+  res.json({ deleted: result.deletedCount });
+});
+
+// Очистка всех чатов и их сообщений
+app.delete('/api/admin/chats', authMiddleware, adminMiddleware, async (req, res) => {
+  const [msgs, chats] = await Promise.all([
+    Message.deleteMany({}),
+    Chat.deleteMany({}),
+  ]);
+  res.json({ deletedChats: chats.deletedCount, deletedMessages: msgs.deletedCount });
+});
+
+// Удаление всех пользователей кроме админов
+app.delete('/api/admin/users', authMiddleware, adminMiddleware, async (req, res) => {
+  const admins = await User.find({ isAdmin: true }).select('_id');
+  const adminIds = admins.map(a => a._id);
+  const result = await User.deleteMany({ _id: { $nin: adminIds } });
+  // Удаляем чаты и сообщения этих пользователей
+  await Session.deleteMany({ userId: { $nin: adminIds } });
+  res.json({ deleted: result.deletedCount });
+});
+
+// Очистка сессий
+app.delete('/api/admin/sessions', authMiddleware, adminMiddleware, async (req, res) => {
+  const result = await Session.deleteMany({ active: false });
+  res.json({ deleted: result.deletedCount });
+});
+
+// Очистка push-подписок
+app.delete('/api/admin/pushsubs', authMiddleware, adminMiddleware, async (req, res) => {
+  const result = await PushSub.deleteMany({});
+  res.json({ deleted: result.deletedCount });
+});
+
+// Полный сброс — удаляет ВСЁ кроме текущего админа
+app.delete('/api/admin/reset', authMiddleware, adminMiddleware, async (req, res) => {
+  const [msgs, chats, sessions, pushSubs] = await Promise.all([
+    Message.deleteMany({}),
+    Chat.deleteMany({}),
+    Session.deleteMany({ userId: { $ne: req.user.id } }),
+    PushSub.deleteMany({}),
+  ]);
+  const users = await User.deleteMany({ _id: { $ne: req.user.id } });
+  res.json({
+    deletedMessages: msgs.deletedCount,
+    deletedChats: chats.deletedCount,
+    deletedUsers: users.deletedCount,
+    deletedSessions: sessions.deletedCount,
+    deletedPushSubs: pushSubs.deletedCount,
+  });
+});
+
 // ── Register ──────────────────────────────────────────────────────────────
 app.post('/api/register', async (req, res) => {
   try {
@@ -323,10 +440,13 @@ app.post('/api/register', async (req, res) => {
     if (exists) return res.status(400).json({ error: 'Логин уже занят' });
 
     const passwordHash = await bcrypt.hash(password, 10);
+    // Первый пользователь — автоматически администратор
+    const userCount = await User.countDocuments();
     const user = await User.create({
       username: username.toLowerCase().trim(),
       displayName: displayName.trim(),
       passwordHash,
+      isAdmin: userCount === 0,
     });
 
     const sessionId = uuidv4();
@@ -963,14 +1083,16 @@ mongoose.connect(MONGO_URI, {
   serverSelectionTimeoutMS: 15000,
   socketTimeoutMS: 45000,
 })
-  .then(() => {
+  .then(async () => {
     console.log('  ✅  MongoDB подключена');
+    await initVapid();
     srv.listen(PORT, '0.0.0.0', () => {
       console.log('\n' + '═'.repeat(55));
       console.log('  🌑  Shadow Mess v2.0 — запущен!');
       console.log('═'.repeat(55));
       console.log(`  Порт:           ${PORT}`);
       console.log(`  MongoDB:        подключена`);
+      console.log(`  VAPID:          ${vapidReady ? 'OK' : '❌'}`);
       console.log('═'.repeat(55) + '\n');
     });
   })
