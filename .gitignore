@@ -1,0 +1,40 @@
+# Dependencies
+node_modules/
+
+# Python (not used in production)
+venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Uploads (user-generated content)
+uploads/*
+!uploads/.gitkeep
+
+# Logs
+logs/*
+!logs/.gitkeep
+
+# Old JSON data
+data/
+
+# Cloudflare local tools & logs
+cloudflare/
+tools/
+
+# Local-only config with secrets
+config.ini
+tunnel_url.txt
+links.txt
+.env
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Package lock (optional, can include)
+# package-lock.json
