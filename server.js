@@ -283,8 +283,11 @@ async function sendPushToUser(userId, payload) {
 }
 
 async function sendPushForMessage(msg, chat) {
-  const offlineMembers = (chat.members || []).filter(uid => uid !== msg.senderId && !isOnline(uid));
-  if (!offlineMembers.length) return;
+  if (!vapidReady) return;
+  // Отправляем пуш всем участникам кроме отправителя
+  // (даже если online — приложение может быть свёрнуто)
+  const recipients = (chat.members || []).filter(uid => uid !== msg.senderId);
+  if (!recipients.length) return;
   const payload = {
     title: msg.senderName || 'Shadow Message',
     body: msg.text || (msg.type === 'image' ? '📷 Фото' : msg.type === 'voice' ? '🎤 Голосовое' : '📎 Файл'),
@@ -293,7 +296,7 @@ async function sendPushForMessage(msg, chat) {
     chatId: msg.chatId,
     url: '/'
   };
-  await Promise.allSettled(offlineMembers.map(uid => sendPushToUser(uid, payload)));
+  await Promise.allSettled(recipients.map(uid => sendPushToUser(uid, payload)));
 }
 
 // =============================================================================
@@ -311,6 +314,7 @@ app.get('/sw.js', (req, res) => {
 
 // ── Push subscription endpoints ───────────────────────────────────────────
 app.get('/api/push/vapid', (req, res) => {
+  if (!vapidReady || !VAPID_PUBLIC) return res.status(503).json({ error: 'VAPID not ready' });
   res.json({ publicKey: VAPID_PUBLIC });
 });
 
@@ -899,7 +903,17 @@ app.post('/api/chats/:id/messages', authMiddleware, async (req, res) => {
     readBy:       [req.user.id]
   });
 
-  io.to(req.params.id).emit('new_message', msg.toJSON());
+  // Отправляем через сокет ТОЛЬКО другим участникам (не отправителю)
+  const senderSockets = onlineUsers.get(req.user.id);
+  if (senderSockets) {
+    // broadcast to room except sender's sockets
+    for (const sid of senderSockets) {
+      io.sockets.sockets.get(sid)?.to(req.params.id).emit('new_message', msg.toJSON());
+      break; // достаточно одного broadcast
+    }
+  } else {
+    io.to(req.params.id).emit('new_message', msg.toJSON());
+  }
   sendPushForMessage(msg, chat).catch(() => {});
   res.json(msg.toJSON());
 });
@@ -929,7 +943,15 @@ app.post('/api/chats/:id/upload', authMiddleware, upload.single('file'), async (
     readBy:       [req.user.id]
   });
 
-  io.to(req.params.id).emit('new_message', msg.toJSON());
+  const senderSockets = onlineUsers.get(req.user.id);
+  if (senderSockets) {
+    for (const sid of senderSockets) {
+      io.sockets.sockets.get(sid)?.to(req.params.id).emit('new_message', msg.toJSON());
+      break;
+    }
+  } else {
+    io.to(req.params.id).emit('new_message', msg.toJSON());
+  }
   sendPushForMessage(msg, chat).catch(() => {});
   res.json(msg.toJSON());
 });

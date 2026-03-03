@@ -134,6 +134,90 @@ function applyTheme(t) {
   if (r) r.checked = true;
 }
 
+// ── Language / i18n ──────────────────────────────────────
+const _i18n = {
+  ru: {
+    search:         'Поиск',
+    newMsg:         'Написать сообщение...',
+    tabs:           { all: 'Все', personal: 'Личные', groups: 'Группы', channels: 'Каналы' },
+    welcome:        'Выберите чат',
+    welcomeSub:     'Выберите чат из списка или создайте новый',
+    noChats:        'Нет чатов',
+    settings:       'Настройки',
+    profile:        'Профиль',
+    appearance:     'Оформление',
+    notifications:  'Уведомления',
+    privacy:        'Приватность',
+    security:       'Безопасность',
+    sessions:       'Сессии',
+    logoutBtn:      'Выйти',
+    adminPanel:     'Админ-панель',
+    favourites:     'Избранное',
+    archive:        'Архив',
+    contacts:       'Контакты',
+  },
+  en: {
+    search:         'Search',
+    newMsg:         'Type a message...',
+    tabs:           { all: 'All', personal: 'Private', groups: 'Groups', channels: 'Channels' },
+    welcome:        'Select a chat',
+    welcomeSub:     'Select a chat from the list or create a new one',
+    noChats:        'No chats',
+    settings:       'Settings',
+    profile:        'Profile',
+    appearance:     'Appearance',
+    notifications:  'Notifications',
+    privacy:        'Privacy',
+    security:       'Security',
+    sessions:       'Sessions',
+    logoutBtn:      'Logout',
+    adminPanel:     'Admin Panel',
+    favourites:     'Favourites',
+    archive:        'Archive',
+    contacts:       'Contacts',
+  }
+};
+
+function applyLanguage(lang) {
+  const t = _i18n[lang] || _i18n.ru;
+  document.documentElement.lang = lang || 'ru';
+
+  // Обновляем статические тексты в интерфейсе
+  const map = {
+    'search-input':    { attr: 'placeholder', val: t.search },
+    'msg-input':       { attr: 'placeholder', val: t.newMsg },
+    'welcome-sub':     { attr: 'text', val: t.welcomeSub },
+    'no-chats-text':   { attr: 'text', val: t.noChats },
+    'menu-settings':   { attr: 'text', val: t.settings },
+    'menu-favourites': { attr: 'text', val: t.favourites },
+    'menu-archive':    { attr: 'text', val: t.archive },
+    'menu-admin':      { attr: 'text', val: t.adminPanel },
+    'menu-logout':     { attr: 'text', val: t.logoutBtn },
+  };
+
+  for (const [id, { attr, val }] of Object.entries(map)) {
+    const el = $(id);
+    if (!el) continue;
+    if (attr === 'text') {
+      // Для кнопок меню: заменяем только текстовые узлы, сохраняя SVG
+      const textNodes = Array.from(el.childNodes).filter(n => n.nodeType === 3 && n.textContent.trim());
+      if (textNodes.length) {
+        textNodes.forEach(n => n.textContent = '\n          ' + val + '\n        ');
+      } else if (!el.querySelector('svg')) {
+        el.textContent = val;
+      }
+    } else if (attr === 'placeholder') {
+      el.placeholder = val;
+    }
+  }
+
+  // Табы
+  document.querySelectorAll('.sidebar-tab').forEach(tab => {
+    const key = tab.dataset.tab;
+    if (key && t.tabs[key]) tab.textContent = t.tabs[key];
+  });
+}
+
 function applyFontSize(sz) {
   document.documentElement.style.setProperty('--font-size', sz + 'px');
   const range = $('font-size-range');
@@ -321,6 +405,7 @@ function logout() {
 // SOCKET
 // ══════════════════════════════════════════════════════════
 function initSocket() {
+  if (S.socket) { S.socket.disconnect(); S.socket = null; }
   const socket = io({ auth: { token: S.token } });
   S.socket = socket;
 
@@ -878,10 +963,12 @@ async function sendMessage() {
   }
 
   try {
-    await API.post(`/api/chats/${S.activeChat.id}/messages`, {
+    const msg = await API.post(`/api/chats/${S.activeChat.id}/messages`, {
       text,
       replyTo: S.replyTo?.id || null,
     });
+    // Показываем своё сообщение из ответа API (сокет не шлёт отправителю)
+    handleNewMessage(msg);
     inp.value = ''; inp.style.height = 'auto';
     hideReplyPreview();
     toggleSendVoiceBtn();
@@ -893,7 +980,10 @@ async function uploadFile() {
   if (!files.length || !S.activeChat) return;
   for (const f of files) {
     const fd = new FormData(); fd.append('file', f);
-    try { await API.up(`/api/chats/${S.activeChat.id}/upload`, fd); }
+    try {
+      const msg = await API.up(`/api/chats/${S.activeChat.id}/upload`, fd);
+      handleNewMessage(msg);
+    }
     catch (e) { showToast(e.message, 'error'); }
   }
   $('file-input').value = '';
@@ -927,7 +1017,10 @@ async function sendVoiceMessage() {
   const fd = new FormData();
   fd.append('file', blob, 'voice.webm');
   fd.append('type', 'voice');
-  try { await API.up(`/api/chats/${S.activeChat.id}/upload`, fd); }
+  try {
+    const msg = await API.up(`/api/chats/${S.activeChat.id}/upload`, fd);
+    handleNewMessage(msg);
+  }
   catch (e) { showToast(e.message, 'error'); }
 }
 
@@ -1594,7 +1687,8 @@ function initSettings() {
       S.user.settings = { ...S.user.settings, theme, fontSize, accentColor, bubbleStyle, compactMode, chatWallpaper, sendByEnter, uiAnimations, autoMedia, time24, groupMessages, language };
       // Apply animation toggle
       document.body.classList.toggle('no-animations', !uiAnimations);
-      showToast('Оформление сохранено', 'success');
+      applyLanguage(language);
+      showToast(language === 'en' ? 'Appearance saved' : 'Оформление сохранено', 'success');
     } catch (e) { showToast(e.message, 'error'); }
   });
 
@@ -1958,7 +2052,7 @@ function playNotifSound() {
   } catch {}
 }
 
-// ── Рингтон входящего звонка (циклический) ────────────────────────────
+// ── Рингтон входящего звонка (реалистичный телефонный) ────────────
 let _ringtoneInterval = null;
 let _ringtoneNodes = [];
 
@@ -1967,23 +2061,30 @@ function playRingtone() {
   const playBurst = () => {
     try {
       const ctx = getAudioCtx();
-      // Мелодичный рингтон: два тона
-      [698, 880].forEach((freq, i) => {
-        const osc = ctx.createOscillator(), g = ctx.createGain();
-        osc.connect(g); g.connect(ctx.destination);
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(freq, ctx.currentTime + i * 0.15);
-        g.gain.setValueAtTime(0, ctx.currentTime);
-        g.gain.linearRampToValueAtTime(0.2, ctx.currentTime + i * 0.15 + 0.02);
-        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i * 0.15 + 0.4);
-        osc.start(ctx.currentTime + i * 0.15);
-        osc.stop(ctx.currentTime + i * 0.15 + 0.4);
-        _ringtoneNodes.push(osc, g);
+      const now = ctx.currentTime;
+      // Настоящий телефонный рингтон: два наложенных тона (425 + 480 Hz)
+      // Два коротких звонка с паузой
+      const ringPairs = [[0, 0.4], [0.5, 0.9]];
+      ringPairs.forEach(([start, end]) => {
+        [425, 480].forEach(freq => {
+          const osc = ctx.createOscillator();
+          const g = ctx.createGain();
+          osc.connect(g); g.connect(ctx.destination);
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(freq, now);
+          g.gain.setValueAtTime(0, now + start);
+          g.gain.linearRampToValueAtTime(0.08, now + start + 0.02);
+          g.gain.setValueAtTime(0.08, now + end - 0.02);
+          g.gain.linearRampToValueAtTime(0, now + end);
+          osc.start(now + start);
+          osc.stop(now + end + 0.01);
+          _ringtoneNodes.push(osc, g);
+        });
       });
     } catch {}
   };
   playBurst();
-  _ringtoneInterval = setInterval(playBurst, 2000);
+  _ringtoneInterval = setInterval(playBurst, 2200);
 }
 
 function stopRingtone() {
@@ -1993,28 +2094,36 @@ function stopRingtone() {
   _ringtoneNodes = [];
 }
 
-// ── Звук дозвона (исходящий вызов) ──────────────────────────────────
+// ── Звук дозвона (исходящий — гудки как в телефоне) ──────────────
 let _dialInterval = null;
+let _dialNodes = [];
 function playDialTone() {
   stopDialTone();
   const playBeep = () => {
     try {
       const ctx = getAudioCtx();
+      const now = ctx.currentTime;
+      // Реалистичный КПВ (длинные гудки): 425 Hz, 1 сек звучит, 3 сек пауза
       const osc = ctx.createOscillator(), g = ctx.createGain();
       osc.connect(g); g.connect(ctx.destination);
-      osc.type = 'sine'; osc.frequency.setValueAtTime(440, ctx.currentTime);
-      g.gain.setValueAtTime(0.12, ctx.currentTime);
-      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
-      osc.start(); osc.stop(ctx.currentTime + 0.8);
+      osc.type = 'sine'; osc.frequency.setValueAtTime(425, now);
+      g.gain.setValueAtTime(0, now);
+      g.gain.linearRampToValueAtTime(0.08, now + 0.02);
+      g.gain.setValueAtTime(0.08, now + 0.98);
+      g.gain.linearRampToValueAtTime(0, now + 1.0);
+      osc.start(now); osc.stop(now + 1.05);
+      _dialNodes.push(osc, g);
     } catch {}
   };
   playBeep();
-  _dialInterval = setInterval(playBeep, 3000);
+  _dialInterval = setInterval(playBeep, 4000);
 }
 
 function stopDialTone() {
   clearInterval(_dialInterval);
   _dialInterval = null;
+  _dialNodes.forEach(n => { try { n.disconnect(); } catch {} });
+  _dialNodes = [];
 }
 
 // ── Звук соединения / завершения ────────────────────────────────────
@@ -2105,6 +2214,7 @@ function applyAllSettings(s) {
   applyBubbleStyle(s?.bubbleStyle || 'rounded');
   applyCompactMode(!!s?.compactMode);
   applyWallpaper(s?.chatWallpaper || 'dots');
+  applyLanguage(s?.language || 'ru');
   document.body.classList.toggle('no-animations', s?.uiAnimations === false);
 }
 
@@ -2213,16 +2323,32 @@ async function subscribeToPush() {
     const existing = await reg.pushManager.getSubscription();
     if (existing) {
       // Re-send to server in case it was lost
-      await API.post('/api/push/subscribe', existing.toJSON());
+      try { await API.post('/api/push/subscribe', existing.toJSON()); } catch {}
       return;
     }
 
     // Ask permission
     const permission = await Notification.requestPermission();
-    if (permission !== 'granted') return;
+    if (permission !== 'granted') {
+      console.warn('Push: notification permission denied');
+      return;
+    }
 
-    // Get VAPID public key
-    const { publicKey } = await API.get('/api/push/vapid');
+    // Get VAPID public key (с повторной попыткой)
+    let publicKey;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const resp = await API.get('/api/push/vapid');
+        publicKey = resp.publicKey;
+        break;
+      } catch {
+        await new Promise(r => setTimeout(r, 2000));
+      }
+    }
+    if (!publicKey) {
+      console.warn('Push: VAPID key not available');
+      return;
+    }
     const applicationServerKey = urlBase64ToUint8Array(publicKey);
 
     const subscription = await reg.pushManager.subscribe({
@@ -2402,7 +2528,10 @@ function initAdminPanel() {
 // ══════════════════════════════════════════════════════════
 // INIT
 // ══════════════════════════════════════════════════════════
+let _appInitialized = false;
 function initApp() {
+  if (_appInitialized) return; // предотвращаем двойную инициализацию
+  _appInitialized = true;
   initInput();
   initPickers();
   initChatSearch();
@@ -2455,7 +2584,6 @@ function initApp() {
       await loadChats();
       initApp();
       subscribeToPush();
-      showWelcomeWizard();
     } catch {
       S.token = null;
       localStorage.removeItem('sm_token');

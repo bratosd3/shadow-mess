@@ -5,10 +5,15 @@
 'use strict';
 
 window.callsModule = (() => {
-  const STUN_SERVERS = [
+  // Бесплатные TURN серверы для надёжного NAT traversal
+  const ICE_SERVERS = [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
     { urls: 'stun:stun.cloudflare.com:3478'  },
+    // Open Relay TURN (бесплатный, работает для тестов)
+    { urls: 'turn:openrelay.metered.ca:80',       username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: 'turn:openrelay.metered.ca:443',      username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
   ];
 
   let pc             = null;   // RTCPeerConnection
@@ -27,7 +32,7 @@ window.callsModule = (() => {
   }
 
   function createPC() {
-    pc = new RTCPeerConnection({ iceServers: STUN_SERVERS });
+    pc = new RTCPeerConnection({ iceServers: ICE_SERVERS, iceCandidatePoolSize: 5 });
 
     pc.onicecandidate = ({ candidate }) => {
       if (candidate && currentPeer) {
@@ -56,10 +61,20 @@ window.callsModule = (() => {
   async function getLocalStream(type) {
     const constraints = {
       audio: true,
-      video: type === 'video' ? { width: { ideal: 640 }, height: { ideal: 480 } } : false
+      video: type === 'video' ? { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' } : false
     };
     try {
       localStream = await navigator.mediaDevices.getUserMedia(constraints);
+      // Для аудио-звонков добавляем пустой video-трек чтобы демонстрация экрана работала
+      if (type !== 'video') {
+        const canvas = Object.assign(document.createElement('canvas'), { width: 2, height: 2 });
+        const ctx2d = canvas.getContext('2d');
+        ctx2d.fillRect(0, 0, 2, 2);
+        const dummyStream = canvas.captureStream(1);
+        const dummyTrack = dummyStream.getVideoTracks()[0];
+        dummyTrack.enabled = false;
+        localStream.addTrack(dummyTrack);
+      }
       const localVideo = document.getElementById('local-video');
       if (localVideo) localVideo.srcObject = localStream;
       return localStream;
@@ -105,7 +120,7 @@ window.callsModule = (() => {
 
       const offer = await pc.createOffer({
         offerToReceiveAudio: true,
-        offerToReceiveVideo: type === 'video'
+        offerToReceiveVideo: true    // всегда true для поддержки демонстрации
       });
       await pc.setLocalDescription(offer);
 
