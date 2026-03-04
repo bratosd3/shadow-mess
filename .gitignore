@@ -18,9 +18,6 @@ logs/*
 # Old JSON data
 data/
 
-# NeDB database files
-db_data/
-
 # Cloudflare local tools & logs
 cloudflare/
 tools/
@@ -49,4 +46,3 @@ _test_temp/
 # Admin tools with secret key (local only)
 admin.bat
 admin.py
-start_local.bat
