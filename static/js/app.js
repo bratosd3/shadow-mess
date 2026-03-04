@@ -3029,6 +3029,9 @@ async function subscribeToPush() {
     const permission = await Notification.requestPermission();
     if (permission !== 'granted') {
       console.warn('Push: notification permission denied');
+      if (permission === 'denied') {
+        showToast('Push-уведомления заблокированы. Разрешите их в настройках браузера.', 'error');
+      }
       return;
     }
 

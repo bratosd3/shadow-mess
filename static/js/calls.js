@@ -492,9 +492,16 @@ window.callsModule = (() => {
 
   function toggleMute() {
     if (!localStream) return isMuted;
-    // Toggle all audio tracks (both original and processed)
-    localStream.getAudioTracks().forEach(t => { t.enabled = isMuted; });
     isMuted = !isMuted;
+
+    // Use gain node mute when noise suppression is active to keep AudioContext alive
+    // (disabling tracks can kill the audio session on mobile, muting remote audio too)
+    if (_noiseNode && _noiseNode.gain) {
+      _noiseNode.gain.gain.value = isMuted ? 0 : 1.6;
+    } else {
+      // Fallback: toggle track.enabled when no noise suppression chain
+      localStream.getAudioTracks().forEach(t => { t.enabled = !isMuted; });
+    }
 
     // Notify peer about mic status
     if (currentPeer) {

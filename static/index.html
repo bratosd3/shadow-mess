@@ -1040,7 +1040,7 @@
 <script>
 // Register Service Worker for push notifications
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('/static/sw.js').catch(e => console.warn('SW register failed:', e));
+  navigator.serviceWorker.register('/sw.js').catch(e => console.warn('SW register failed:', e));
 }
 </script>
 </body>
