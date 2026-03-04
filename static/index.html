@@ -598,12 +598,13 @@
         <!-- Notifications -->
         <div class="settings-section" id="section-notifications">
           <h4>Уведомления</h4>
-          <div class="toggle-row" style="margin-bottom:10px;padding:12px;background:var(--bg-secondary);border-radius:10px;">
-            <div style="flex:1">
+          <div class="toggle-row" style="margin-bottom:10px;padding:12px;background:var(--bg-secondary);border-radius:10px;flex-wrap:wrap;">
+            <div style="flex:1;min-width:200px;">
               <span style="font-weight:600;">Push-уведомления (браузер)</span>
               <div id="push-status-text" style="font-size:12px;color:var(--text-secondary);margin-top:2px;">Проверка...</div>
             </div>
             <button class="btn-primary" id="push-enable-btn" style="min-width:130px;height:34px;font-size:13px;">Включить</button>
+            <div id="push-help-text" style="width:100%;font-size:12px;color:#f59e0b;margin-top:8px;line-height:1.6;display:none;background:rgba(245,158,11,0.08);padding:10px 12px;border-radius:8px;"></div>
           </div>
           <div class="toggle-row"><span>Уведомления о сообщениях</span><label class="toggle-switch"><input type="checkbox" id="notif-messages" checked/><span class="toggle-slider"></span></label></div>
           <div class="toggle-row"><span>Звук уведомлений</span><label class="toggle-switch"><input type="checkbox" id="notif-sound" checked/><span class="toggle-slider"></span></label></div>

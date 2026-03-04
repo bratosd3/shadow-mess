@@ -3051,8 +3051,25 @@ function updatePushStatusUI() {
     statusEl.style.color = '#ef4444';
     btn.textContent = 'Как включить?';
     btn.disabled = false;
+    // Show inline help
+    const helpEl = $('push-help-text');
+    if (helpEl) {
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      const isAndroid = /Android/i.test(navigator.userAgent);
+      if (isAndroid) {
+        helpEl.innerHTML = '📱 <b>Как разблокировать:</b><br>1. Нажмите <b>⋮</b> (три точки справа вверху)<br>2. <b>Настройки</b> → <b>Настройки сайтов</b><br>3. <b>Уведомления</b> → найдите этот сайт<br>4. Переключите на <b>«Разрешить»</b><br>5. Обновите страницу';
+      } else if (isIOS) {
+        const browser = navigator.userAgent.includes('CriOS') ? 'Chrome' : 'Safari';
+        helpEl.innerHTML = '📱 <b>Как разблокировать:</b><br>1. Откройте <b>Настройки iPhone</b><br>2. <b>' + browser + '</b> → <b>Уведомления</b><br>3. Разрешите для этого сайта<br>4. Обновите страницу';
+      } else {
+        helpEl.innerHTML = '💻 <b>Как разблокировать:</b><br>1. Нажмите 🔒 слева от адреса сайта<br>2. <b>Разрешения</b> → <b>Уведомления</b><br>3. Выберите <b>«Разрешить»</b><br>4. Обновите страницу';
+      }
+      helpEl.style.display = 'block';
+    }
   } else if (perm === 'granted') {
     // Check if actually subscribed
+    const helpEl2 = $('push-help-text');
+    if (helpEl2) helpEl2.style.display = 'none';
     navigator.serviceWorker.ready.then(reg => {
       reg.pushManager.getSubscription().then(sub => {
         if (sub) {
@@ -3073,6 +3090,8 @@ function updatePushStatusUI() {
     statusEl.style.color = 'var(--text-secondary)';
     btn.textContent = 'Включить';
     btn.disabled = false;
+    const helpEl = $('push-help-text');
+    if (helpEl) helpEl.style.display = 'none';
   }
 }
 
@@ -3110,9 +3129,26 @@ async function subscribeToPush(manual = false) {
     // Ask permission (will show browser prompt only if 'default')
     const permission = await Notification.requestPermission();
     if (permission !== 'granted') {
-      console.warn('Push: notification permission denied');
+      console.warn('Push: notification permission result:', permission);
       if (manual) {
-        showToast('Вы отклонили запрос. Чтобы включить позже — нажмите 🔒 слева от адреса сайта.', 'warning');
+        // After requestPermission, check if it's now permanently denied
+        const afterPerm = Notification.permission;
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        const isAndroid = /Android/i.test(navigator.userAgent);
+        if (afterPerm === 'denied') {
+          // User denied or browser auto-blocked — show how to unblock
+          if (isAndroid) {
+            showToast('Уведомления заблокированы. Чтобы разблокировать:\n1. Нажмите ⋮ (три точки) → Настройки\n2. Настройки сайтов → Уведомления\n3. Найдите этот сайт и нажмите «Разрешить»\n4. Обновите страницу', 'error');
+          } else if (isIOS) {
+            const browser = navigator.userAgent.includes('CriOS') ? 'Chrome' : 'Safari';
+            showToast('Уведомления заблокированы. Откройте Настройки iPhone → ' + browser + ' → Уведомления → Разрешить для этого сайта. Затем обновите страницу.', 'error');
+          } else {
+            showToast('Уведомления заблокированы. Нажмите 🔒 слева от адреса сайта → Разрешения → Уведомления → Разрешить. Затем обновите страницу.', 'error');
+          }
+        } else {
+          // Permission is still 'default' — prompt was dismissed, can try again
+          showToast('Запрос был закрыт. Нажмите «Включить» ещё раз и выберите «Разрешить» в появившемся окне.', 'warning');
+        }
       }
       return;
     }
