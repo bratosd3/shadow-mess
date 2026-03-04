@@ -75,8 +75,17 @@ window.callsModule = (() => {
         dummyTrack.enabled = false;
         localStream.addTrack(dummyTrack);
       }
+      // Only show local video for video calls
       const localVideo = document.getElementById('local-video');
-      if (localVideo) localVideo.srcObject = localStream;
+      if (localVideo) {
+        if (type === 'video') {
+          localVideo.srcObject = localStream;
+          localVideo.style.display = '';
+        } else {
+          localVideo.srcObject = null;
+          localVideo.style.display = 'none';
+        }
+      }
       return localStream;
     } catch (err) {
       window.showToast?.('Нет доступа к микрофону/камере', 'error');

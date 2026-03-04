@@ -2099,8 +2099,23 @@ button, .icon-btn, .send-btn, .fab-new-chat, .call-btn, .call-ctrl-btn {
 
 .active-call-card {
   padding: 0; overflow: hidden;
-  min-width: 360px; max-width: 90vw; min-height: 320px; position: relative;
+  min-width: 360px; max-width: 90vw; min-height: 280px; position: relative;
 }
+
+/* Audio call dedicated view */
+.call-audio-view {
+  width: 100%; min-height: 280px;
+  display: flex; align-items: center; justify-content: center;
+}
+.call-audio-bg {
+  text-align: center; padding: 40px 30px;
+  background: linear-gradient(135deg, rgba(0,0,0,.85), rgba(30,30,50,.9));
+  width: 100%; min-height: 280px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+
+/* Video call view */
+.call-video-view { position: relative; }
 
 .remote-video { width: 100%; min-height: 320px; max-height: 80vh; object-fit: contain; background: #000; display: block; }
 
@@ -2134,6 +2149,45 @@ button, .icon-btn, .send-btn, .fab-new-chat, .call-btn, .call-ctrl-btn {
 .call-ctrl-btn.muted { background: rgba(239,68,68,.12); border-color: var(--danger); }
 .call-end-btn { background: var(--danger) !important; border-color: var(--danger) !important; color: #fff; }
 .call-end-btn:hover { background: #dc2626 !important; transform: scale(1.08); }
+
+/* ═ Minimized call bar ═ */
+.call-mini-bar {
+  position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%);
+  z-index: 301;
+  background: var(--bg-modal);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  border: 1px solid var(--border-mid);
+  border-radius: var(--radius-full);
+  padding: 8px 16px;
+  display: flex; align-items: center; gap: 14px;
+  box-shadow: var(--shadow-lg);
+  animation: slideUp .3s var(--ease-out-expo);
+  cursor: pointer;
+  min-width: 280px;
+}
+.call-mini-info { display: flex; align-items: center; gap: 10px; flex: 1; }
+.call-mini-pulse {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--success);
+  box-shadow: 0 0 8px rgba(34,197,94,.5);
+  animation: pulse-dot 1.5s infinite;
+}
+@keyframes pulse-dot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.6;transform:scale(1.3)} }
+.call-mini-name { font-weight: 600; font-size: 13px; color: var(--text-primary); }
+.call-mini-timer { font-size: 12px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.call-mini-actions { display: flex; gap: 6px; }
+.call-mini-btn {
+  width: 32px; height: 32px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; border: 1px solid var(--border-mid);
+  background: var(--bg-hover); cursor: pointer;
+  transition: all .2s ease;
+}
+.call-mini-btn:hover { background: var(--accent-light); border-color: var(--accent); }
+.call-mini-end { background: rgba(239,68,68,.1); border-color: rgba(239,68,68,.3); color: var(--danger); }
+.call-mini-end:hover { background: rgba(239,68,68,.2); }
+@keyframes slideUp { from { opacity:0; transform: translateX(-50%) translateY(20px); } to { opacity:1; transform: translateX(-50%) translateY(0); } }
 
 /* ══ TOASTS ═══════════════════════════════════════════════════ */
 .toast-container {
@@ -2871,6 +2925,65 @@ body[data-theme="rose"] .reaction-item.own { background: rgba(244,63,94,.15); bo
 .theme-preview.theme-forest  { background: linear-gradient(to bottom, #0f1e14 40%, #0a150e 60%); border-bottom: 3px solid #22c55e; }
 .theme-preview.theme-sunset  { background: linear-gradient(to bottom, #1e170f 40%, #18120a 60%); border-bottom: 3px solid #f59e0b; }
 .theme-preview.theme-rose    { background: linear-gradient(to bottom, #1c0f16 40%, #150a10 60%); border-bottom: 3px solid #f43f5e; }
+
+/* ═══ THEME CONTRAST FIX ═══ */
+/* Ensure buttons are always visible on all dark themes */
+body[data-theme="dark"] .app .btn-primary,
+body[data-theme="midnight"] .app .btn-primary,
+body[data-theme="ocean"] .app .btn-primary,
+body[data-theme="forest"] .app .btn-primary,
+body[data-theme="sunset"] .app .btn-primary,
+body[data-theme="rose"] .app .btn-primary {
+  background: var(--gradient-btn);
+  color: var(--text-on-accent);
+  border: none;
+}
+body[data-theme="dark"] .app .btn-secondary,
+body[data-theme="midnight"] .app .btn-secondary,
+body[data-theme="ocean"] .app .btn-secondary,
+body[data-theme="forest"] .app .btn-secondary,
+body[data-theme="sunset"] .app .btn-secondary,
+body[data-theme="rose"] .app .btn-secondary {
+  background: var(--accent-light);
+  color: var(--accent);
+  border-color: var(--border-mid);
+}
+body[data-theme="dark"] .chat-searchbar input,
+body[data-theme="midnight"] .chat-searchbar input,
+body[data-theme="ocean"] .chat-searchbar input,
+body[data-theme="forest"] .chat-searchbar input,
+body[data-theme="sunset"] .chat-searchbar input,
+body[data-theme="rose"] .chat-searchbar input {
+  background: var(--bg-input);
+  color: var(--text-primary);
+  border-color: var(--border-mid);
+}
+/* Ensure password toggle is visible on dark auth */
+body[data-theme="dark"] .pw-toggle,
+body[data-theme="midnight"] .pw-toggle,
+body[data-theme="ocean"] .pw-toggle,
+body[data-theme="forest"] .pw-toggle,
+body[data-theme="sunset"] .pw-toggle,
+body[data-theme="rose"] .pw-toggle {
+  color: var(--text-secondary);
+}
+body[data-theme="dark"] .pw-toggle:hover,
+body[data-theme="midnight"] .pw-toggle:hover,
+body[data-theme="ocean"] .pw-toggle:hover,
+body[data-theme="forest"] .pw-toggle:hover,
+body[data-theme="sunset"] .pw-toggle:hover,
+body[data-theme="rose"] .pw-toggle:hover {
+  color: var(--text-primary);
+}
+/* Ensure field hints are visible */
+body[data-theme="dark"] .field-group .hint,
+body[data-theme="midnight"] .field-group .hint,
+body[data-theme="ocean"] .field-group .hint,
+body[data-theme="forest"] .field-group .hint,
+body[data-theme="sunset"] .field-group .hint,
+body[data-theme="rose"] .field-group .hint {
+  color: var(--text-muted);
+}
 
 /* ══ EXPANDED SETTINGS UI ═════════════════════════════════════ */
 

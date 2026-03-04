@@ -393,6 +393,47 @@ app.delete('/api/admin/users', adminKeyMiddleware, async (req, res) => {
   res.json({ deleted: result.deletedCount });
 });
 
+// Список пользователей (для admin panel)
+app.get('/api/admin/users', adminKeyMiddleware, async (req, res) => {
+  const users = await User.find({}, 'username displayName createdAt lastSeen bio').sort({ createdAt: -1 });
+  res.json(users);
+});
+
+// Удаление конкретного пользователя + его данных
+app.delete('/api/admin/users/:id', adminKeyMiddleware, async (req, res) => {
+  const userId = req.params.id;
+  const user = await User.findById(userId);
+  if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
+  // Удалить сессии
+  const sessions = await Session.deleteMany({ userId });
+  // Удалить push-подписки
+  const pushSubs = await PushSub.deleteMany({ userId });
+  // Удалить сообщения пользователя
+  const messages = await Message.deleteMany({ senderId: userId });
+  // Удалить пользователя из чатов и чистить пустые
+  const chats = await Chat.find({ members: userId });
+  let deletedChats = 0;
+  for (const chat of chats) {
+    chat.members = chat.members.filter(m => m !== userId);
+    if (chat.members.length === 0) {
+      await Message.deleteMany({ chatId: chat._id.toString() });
+      await chat.deleteOne();
+      deletedChats++;
+    } else {
+      await chat.save();
+    }
+  }
+  await user.deleteOne();
+  res.json({
+    deleted: true,
+    username: user.username,
+    deletedSessions: sessions.deletedCount,
+    deletedPushSubs: pushSubs.deletedCount,
+    deletedMessages: messages.deletedCount,
+    deletedChats,
+  });
+});
+
 // Очистка сессий
 app.delete('/api/admin/sessions', adminKeyMiddleware, async (req, res) => {
   const result = await Session.deleteMany({ active: false });

@@ -424,8 +424,8 @@ function initSocket() {
   socket.on('call_incoming',      handleIncomingCall);
   socket.on('call_answered',      d => { stopDialTone(); playCallConnectSound(); window.callsModule?.onAnswer(d); });
   socket.on('call_ice',           d => window.callsModule?.onIce(d));
-  socket.on('call_rejected',      () => { stopDialTone(); hideCallOverlays(); showToast('Звонок отклонён', 'info'); });
-  socket.on('call_ended',         () => { stopDialTone(); stopRingtone(); playCallEndSound(); window.callsModule?.onEnded(); });
+  socket.on('call_rejected',      () => { stopDialTone(); hideCallOverlays(); clearInterval(_callTimerInt); showToast('Звонок отклонён', 'info'); });
+  socket.on('call_ended',         () => { stopDialTone(); stopRingtone(); playCallEndSound(); clearInterval(_callTimerInt); $('call-mini-bar')?.classList.add('hidden'); window.callsModule?.onEnded(); });
   socket.on('session_revoked',    () => { showToast('Сессия завершена', 'info'); setTimeout(() => logout(), 1500); });
 }
 
@@ -1104,20 +1104,26 @@ async function deleteMsg(msgId) {
 
 function showReactionPicker(msg) {
   const picker = $('reaction-picker');
-  picker.classList.remove('hidden');
-  const row = document.querySelector(`[data-msgid="${msg.id}"]`);
-  if (row) {
-    const rc = row.getBoundingClientRect();
-    picker.style.left = Math.min(rc.left, window.innerWidth - 230) + 'px';
-    picker.style.top  = Math.max(rc.top - 54, 10) + 'px';
-  }
+  // Delay showing to avoid the current click event immediately hiding it
+  requestAnimationFrame(() => {
+    picker.classList.remove('hidden');
+    const row = document.querySelector(`[data-msgid="${msg.id}"]`);
+    if (row) {
+      const rc = row.getBoundingClientRect();
+      picker.style.left = Math.min(rc.left, window.innerWidth - 230) + 'px';
+      picker.style.top  = Math.max(rc.top - 54, 10) + 'px';
+    }
+  });
   picker.onclick = e => {
     const em = e.target.dataset.emoji;
     if (em) { reactMsg(msg.id, em); picker.classList.add('hidden'); }
   };
 }
 document.addEventListener('click', e => {
-  if (!$('reaction-picker')?.contains(e.target)) $('reaction-picker')?.classList.add('hidden');
+  const picker = $('reaction-picker');
+  if (picker && !picker.classList.contains('hidden') && !picker.contains(e.target)) {
+    picker.classList.add('hidden');
+  }
 });
 
 function pinMessage(msg) {
@@ -1680,8 +1686,8 @@ function initSettings() {
     const hintsEnabled = !!$('set-hints')?.checked;
     toggleHints(hintsEnabled);
     try {
-      await API.put('/api/me', { settings: { theme, fontSize, accentColor, bubbleStyle, compactMode, chatWallpaper, sendByEnter, uiAnimations, autoMedia, time24, groupMessages, language } });
-      S.user.settings = { ...S.user.settings, theme, fontSize, accentColor, bubbleStyle, compactMode, chatWallpaper, sendByEnter, uiAnimations, autoMedia, time24, groupMessages, language };
+      const user = await API.put('/api/me', { settings: { theme, fontSize, accentColor, bubbleStyle, compactMode, chatWallpaper, sendByEnter, uiAnimations, autoMedia, time24, groupMessages, language } });
+      S.user = user;
       // Apply animation toggle
       document.body.classList.toggle('no-animations', !uiAnimations);
       applyLanguage(language);
@@ -1934,7 +1940,7 @@ function handleIncomingCall({ from, fromName, fromAvatarColor, offer, callType }
     stopRingtone();
     $('incoming-call').classList.add('hidden');
     playCallConnectSound();
-    startActiveCall(from, fromName, fromAvatarColor || '#333333');
+    startActiveCall(from, fromName, fromAvatarColor || '#333333', callType);
     window.callsModule?.acceptCall(from, offer, callType);
   };
   $('inc-reject-btn').onclick = () => {
@@ -1950,14 +1956,50 @@ function hideCallOverlays() {
   playCallEndSound();
   $('incoming-call').classList.add('hidden');
   $('active-call-overlay').classList.add('hidden');
+  $('call-mini-bar')?.classList.add('hidden');
+  S._callMinimized = false;
 }
 
-function startActiveCall(userId, name, avatarColor) {
-  renderAvatar($('active-call-avatar'), { displayName: name, avatarColor }, 'avatar-sm');
-  $('active-call-name').textContent = name || '';
-  $('call-timer').textContent = '00:00';
+let _activeCallType = 'audio';
+let _activeCallName = '';
+
+function startActiveCall(userId, name, avatarColor, type) {
+  _activeCallType = type || 'audio';
+  _activeCallName = name || '';
+
+  // Audio view
+  if (_activeCallType !== 'video') {
+    renderAvatar($('active-call-avatar-big'), { displayName: name, avatarColor }, 'avatar-xxl');
+    $('active-call-name-audio').textContent = name || '';
+    $('call-timer-audio').textContent = '00:00';
+    $('call-audio-view')?.classList.remove('hidden');
+    $('call-video-view')?.classList.add('hidden');
+  } else {
+    // Video view
+    renderAvatar($('active-call-avatar'), { displayName: name, avatarColor }, 'avatar-sm');
+    $('active-call-name').textContent = name || '';
+    $('call-timer').textContent = '00:00';
+    $('call-audio-view')?.classList.add('hidden');
+    $('call-video-view')?.classList.remove('hidden');
+  }
+
   $('active-call-overlay').classList.remove('hidden');
+  $('call-mini-bar')?.classList.add('hidden');
+  S._callMinimized = false;
   startCallTimer();
+}
+
+function minimizeCall() {
+  $('active-call-overlay').classList.add('hidden');
+  $('call-mini-bar')?.classList.remove('hidden');
+  $('call-mini-name').textContent = _activeCallName || 'Звонок';
+  S._callMinimized = true;
+}
+
+function expandCall() {
+  $('call-mini-bar')?.classList.add('hidden');
+  $('active-call-overlay').classList.remove('hidden');
+  S._callMinimized = false;
 }
 
 let _callTimerInt;
@@ -1965,7 +2007,11 @@ function startCallTimer() {
   let sec = 0; clearInterval(_callTimerInt);
   _callTimerInt = setInterval(() => {
     sec++;
-    $('call-timer').textContent = `${String(Math.floor(sec/60)).padStart(2,'0')}:${String(sec%60).padStart(2,'0')}`;
+    const t = `${String(Math.floor(sec/60)).padStart(2,'0')}:${String(sec%60).padStart(2,'0')}`;
+    // Update all timer displays
+    const ct = $('call-timer'); if (ct) ct.textContent = t;
+    const cta = $('call-timer-audio'); if (cta) cta.textContent = t;
+    const cmt = $('call-mini-timer'); if (cmt) cmt.textContent = t;
   }, 1000);
 }
 
@@ -1977,7 +2023,7 @@ function initCallButtons() {
       : c.members?.find(id => id !== S.user?.id);
     if (!otherId) return;
     playDialTone();
-    startActiveCall(otherId, c.displayName, c.displayAvatarColor || '#333333');
+    startActiveCall(otherId, c.displayName, c.displayAvatarColor || '#333333', 'audio');
     window.callsModule?.startCall(otherId, 'audio');
   });
   on('call-video-btn', 'click', () => {
@@ -1987,12 +2033,20 @@ function initCallButtons() {
       : c.members?.find(id => id !== S.user?.id);
     if (!otherId) return;
     playDialTone();
-    startActiveCall(otherId, c.displayName, c.displayAvatarColor || '#333333');
+    startActiveCall(otherId, c.displayName, c.displayAvatarColor || '#333333', 'video');
     window.callsModule?.startCall(otherId, 'video');
   });
-  on('end-call-btn', 'click', () => { stopDialTone(); stopRingtone(); playCallEndSound(); clearInterval(_callTimerInt); $('active-call-overlay').classList.add('hidden'); window.callsModule?.endCall(); });
+  on('end-call-btn', 'click', () => { stopDialTone(); stopRingtone(); playCallEndSound(); clearInterval(_callTimerInt); $('active-call-overlay').classList.add('hidden'); $('call-mini-bar')?.classList.add('hidden'); window.callsModule?.endCall(); });
   on('toggle-mute',  'click', () => { const m = window.callsModule?.toggleMute(); $('toggle-mute').classList.toggle('muted', m); });
-  on('toggle-video', 'click', () => { window.callsModule?.toggleVideo(); });
+  on('toggle-video', 'click', () => {
+    window.callsModule?.toggleVideo();
+    // When user enables video during audio call, switch to video view
+    if (_activeCallType === 'audio') {
+      _activeCallType = 'video';
+      $('call-audio-view')?.classList.add('hidden');
+      $('call-video-view')?.classList.remove('hidden');
+    }
+  });
   on('toggle-speaker', 'click', () => showToast('Переключение динамика', 'info'));
   on('toggle-screen', 'click', async () => {
     const btn = $('toggle-screen');
@@ -2011,6 +2065,13 @@ function initCallButtons() {
       }
     }
   });
+  // Minimize / expand call
+  on('minimize-call-btn', 'click', () => minimizeCall());
+  on('call-mini-expand', 'click', (e) => { e.stopPropagation(); expandCall(); });
+  on('call-mini-end', 'click', (e) => { e.stopPropagation(); stopDialTone(); stopRingtone(); playCallEndSound(); clearInterval(_callTimerInt); $('call-mini-bar')?.classList.add('hidden'); window.callsModule?.endCall(); });
+  on('call-mini-mute', 'click', (e) => { e.stopPropagation(); const m = window.callsModule?.toggleMute(); $('toggle-mute').classList.toggle('muted', m); $('call-mini-mute').textContent = m ? '🔇' : '🎙'; });
+  // Click on mini bar to expand
+  $('call-mini-bar')?.addEventListener('click', () => expandCall());
 }
 
 // ══════════════════════════════════════════════════════════

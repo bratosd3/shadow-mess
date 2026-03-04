@@ -43,5 +43,6 @@ _test_temp/
 # Package lock (optional, can include)
 # package-lock.json
 
-# Admin tool with secret key (local only)
+# Admin tools with secret key (local only)
 admin.bat
+admin.py
