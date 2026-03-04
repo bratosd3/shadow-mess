@@ -598,6 +598,13 @@
         <!-- Notifications -->
         <div class="settings-section" id="section-notifications">
           <h4>Уведомления</h4>
+          <div class="toggle-row" style="margin-bottom:10px;padding:12px;background:var(--bg-secondary);border-radius:10px;">
+            <div style="flex:1">
+              <span style="font-weight:600;">Push-уведомления (браузер)</span>
+              <div id="push-status-text" style="font-size:12px;color:var(--text-secondary);margin-top:2px;">Проверка...</div>
+            </div>
+            <button class="btn-primary" id="push-enable-btn" style="min-width:130px;height:34px;font-size:13px;">Включить</button>
+          </div>
           <div class="toggle-row"><span>Уведомления о сообщениях</span><label class="toggle-switch"><input type="checkbox" id="notif-messages" checked/><span class="toggle-slider"></span></label></div>
           <div class="toggle-row"><span>Звук уведомлений</span><label class="toggle-switch"><input type="checkbox" id="notif-sound" checked/><span class="toggle-slider"></span></label></div>
           <div class="toggle-row"><span>Уведомления о звонках</span><label class="toggle-switch"><input type="checkbox" id="notif-calls" checked/><span class="toggle-slider"></span></label></div>
@@ -1040,6 +1047,14 @@
 <script>
 // Register Service Worker for push notifications
 if ('serviceWorker' in navigator) {
+  // Clean up old SW registered at wrong path
+  navigator.serviceWorker.getRegistrations().then(regs => {
+    regs.forEach(r => {
+      if (r.scope && r.scope.includes('/static')) {
+        r.unregister().then(() => console.log('Old SW unregistered:', r.scope));
+      }
+    });
+  });
   navigator.serviceWorker.register('/sw.js').catch(e => console.warn('SW register failed:', e));
 }
 </script>

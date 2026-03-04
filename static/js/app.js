@@ -2205,6 +2205,25 @@ function initSettings() {
     } catch (e) { showToast(e.message, 'error'); }
   });
 
+  // Push enable button in settings
+  on('push-enable-btn', 'click', async () => {
+    const btn = $('push-enable-btn');
+    const statusEl = $('push-status-text');
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      showToast('Браузер не поддерживает push-уведомления', 'error');
+      return;
+    }
+    btn.disabled = true;
+    btn.textContent = 'Подождите...';
+    try {
+      await subscribeToPush(true);
+      updatePushStatusUI();
+    } catch (e) {
+      showToast('Ошибка: ' + (e.message || e), 'error');
+    }
+    btn.disabled = false;
+  });
+
   on('save-notifications-btn', 'click', async () => {
     S.notif.messages  = $('notif-messages').checked;
     S.notif.sound     = $('notif-sound').checked;
@@ -2323,6 +2342,7 @@ function openSettings() {
   $('notif-mentions').checked = S.notif.mentions;
   const notifPrevEl = $('notif-preview');
   if (notifPrevEl) notifPrevEl.checked = u.settings?.notifPreview !== false;
+  updatePushStatusUI();
 
   // Privacy
   $('priv-lastseen').checked = u.settings?.privShowLastSeen !== false;
@@ -3012,7 +3032,51 @@ function initMobileKeyboardFix() {
 // ══════════════════════════════════════════════════════════
 // PUSH NOTIFICATIONS SUBSCRIPTION
 // ══════════════════════════════════════════════════════════
-async function subscribeToPush() {
+function updatePushStatusUI() {
+  const btn = $('push-enable-btn');
+  const statusEl = $('push-status-text');
+  if (!btn || !statusEl) return;
+
+  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+    statusEl.textContent = 'Браузер не поддерживает push';
+    statusEl.style.color = 'var(--text-secondary)';
+    btn.textContent = 'Не поддерживается';
+    btn.disabled = true;
+    return;
+  }
+
+  const perm = typeof Notification !== 'undefined' ? Notification.permission : 'default';
+  if (perm === 'denied') {
+    statusEl.textContent = '❌ Заблокированы в браузере';
+    statusEl.style.color = '#ef4444';
+    btn.textContent = 'Как включить?';
+    btn.disabled = false;
+  } else if (perm === 'granted') {
+    // Check if actually subscribed
+    navigator.serviceWorker.ready.then(reg => {
+      reg.pushManager.getSubscription().then(sub => {
+        if (sub) {
+          statusEl.textContent = '✅ Включены и активны';
+          statusEl.style.color = '#22c55e';
+          btn.textContent = '✓ Включены';
+          btn.disabled = true;
+        } else {
+          statusEl.textContent = '⚠ Разрешены, но не подписаны';
+          statusEl.style.color = '#f59e0b';
+          btn.textContent = 'Подписаться';
+          btn.disabled = false;
+        }
+      });
+    });
+  } else {
+    statusEl.textContent = 'Не настроены';
+    statusEl.style.color = 'var(--text-secondary)';
+    btn.textContent = 'Включить';
+    btn.disabled = false;
+  }
+}
+
+async function subscribeToPush(manual = false) {
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
   try {
     const reg = await navigator.serviceWorker.ready;
@@ -3022,20 +3086,33 @@ async function subscribeToPush() {
     if (existing) {
       // Re-send to server in case it was lost
       try { await API.post('/api/push/subscribe', existing.toJSON()); } catch {}
+      if (manual) showToast('Push-уведомления уже активны ✓', 'success');
       return;
     }
 
-    // Ask permission
+    // Check current permission
+    const currentPerm = typeof Notification !== 'undefined' ? Notification.permission : 'default';
+
+    if (currentPerm === 'denied') {
+      // Permission permanently denied — show platform-specific instructions
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      const isAndroid = /Android/i.test(navigator.userAgent);
+      if (isIOS) {
+        showToast('Push заблокированы. Откройте Настройки iPhone → ' + (navigator.userAgent.includes('CriOS') ? 'Chrome' : 'Safari') + ' → Уведомления → Разрешить для этого сайта.', 'error');
+      } else if (isAndroid) {
+        showToast('Push заблокированы. Нажмите ⋮ (меню) в браузере → Настройки → Настройки сайтов → Уведомления → найдите этот сайт → Разрешить.', 'error');
+      } else {
+        showToast('Push заблокированы. Нажмите 🔒 слева от адреса сайта → Разрешения → Уведомления → Разрешить. Затем обновите страницу.', 'error');
+      }
+      return;
+    }
+
+    // Ask permission (will show browser prompt only if 'default')
     const permission = await Notification.requestPermission();
     if (permission !== 'granted') {
       console.warn('Push: notification permission denied');
-      if (permission === 'denied') {
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-        const isAndroid = /Android/i.test(navigator.userAgent);
-        let hint = 'Откройте настройки браузера → Разрешения сайтов → Уведомления → Разрешить для этого сайта.';
-        if (isIOS) hint = 'Откройте Настройки iPhone → Safari → Уведомления → найдите этот сайт и разрешите.';
-        else if (isAndroid) hint = 'Нажмите 🔒 слева от адресной строки → Разрешения → Уведомления → Разрешить.';
-        showToast('Push-уведомления заблокированы. ' + hint, 'error');
+      if (manual) {
+        showToast('Вы отклонили запрос. Чтобы включить позже — нажмите 🔒 слева от адреса сайта.', 'warning');
       }
       return;
     }
@@ -3053,6 +3130,7 @@ async function subscribeToPush() {
     }
     if (!publicKey) {
       console.warn('Push: VAPID key not available');
+      if (manual) showToast('Сервер push-уведомлений временно недоступен. Попробуйте позже.', 'error');
       return;
     }
     const applicationServerKey = urlBase64ToUint8Array(publicKey);
@@ -3064,8 +3142,10 @@ async function subscribeToPush() {
 
     await API.post('/api/push/subscribe', subscription.toJSON());
     console.log('Push subscription active');
+    if (manual) showToast('Push-уведомления включены ✓', 'success');
   } catch (err) {
     console.warn('Push subscription failed:', err);
+    if (manual) showToast('Ошибка подписки: ' + (err.message || err), 'error');
   }
 }
 
