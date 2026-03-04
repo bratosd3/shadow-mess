@@ -2,7 +2,7 @@
 // Shadow Mess — Service Worker (PWA + Push Notifications + Caching)
 // =============================================================================
 
-const CACHE_NAME = 'shadow-mess-v8';
+const CACHE_NAME = 'shadow-mess-v10';
 const ASSETS = [
   '/',
   '/static/icons/icon-192.svg',
@@ -93,18 +93,42 @@ self.addEventListener('push', event => {
 self.addEventListener('notificationclick', event => {
   event.notification.close();
 
-  if (event.action === 'close') return;
+  const notifData = event.notification.data || {};
+  const isCall = notifData.type === 'call';
 
+  if (event.action === 'close') {
+    // If declining a call, message the client to reject
+    if (isCall) {
+      event.waitUntil(
+        clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
+          for (const client of clientList) {
+            if (client.url.includes(self.location.origin)) {
+              client.postMessage({ type: 'call_reject_from_notification', callFrom: notifData.callFrom });
+              return;
+            }
+          }
+        })
+      );
+    }
+    return;
+  }
+
+  // 'open' action or default click
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
-      // Focus existing window if open
+      // Try to find existing window and focus it
       for (const client of clientList) {
         if (client.url.includes(self.location.origin) && 'focus' in client) {
+          // Tell client to show incoming call UI / accept
+          if (isCall) {
+            client.postMessage({ type: 'call_answer_from_notification', callFrom: notifData.callFrom });
+          }
           return client.focus();
         }
       }
-      // Otherwise open new window
-      return clients.openWindow(event.notification.data?.url || '/');
+      // Open new window with call hint
+      const url = isCall ? `/?answerCall=${notifData.callFrom || ''}` : (notifData.url || '/');
+      return clients.openWindow(url);
     })
   );
 });

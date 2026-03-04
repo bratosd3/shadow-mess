@@ -18,6 +18,8 @@
     height: 100vh;
     height: 100dvh;
     overflow: hidden;
+    overscroll-behavior: none;
+    -webkit-text-size-adjust: 100%;
   }
 
   /* ── Auth screen ── */
@@ -1008,5 +1010,42 @@
   @media (max-width: 680px) {
     .auth-screen { padding-top: calc(16px + env(safe-area-inset-top, 0)); }
     body { overscroll-behavior: none; }
+    /* Prevent pull-to-refresh in standalone */
+    html, body { touch-action: manipulation; }
+    /* iOS standalone bounce fix */
+    .messages-area,
+    .chat-list,
+    .modal-body {
+      overscroll-behavior-y: contain;
+    }
   }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   iOS FIXES
+   ═══════════════════════════════════════════════════════════ */
+@supports (-webkit-touch-callout: none) {
+  /* iOS Safari — fix 100vh includes address bar */
+  body, .app, .sidebar, .chat-panel, .active-chat {
+    height: -webkit-fill-available;
+  }
+  /* Fix iOS scroll momentum glitches */
+  .messages-area,
+  .chat-list,
+  .modal-body,
+  .settings-content {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+  }
+  /* Fix iOS input zoom */
+  input, textarea, select {
+    font-size: 16px !important;
+  }
+  /* Fix iOS audio element rendering */
+  audio { display: none; }
+  /* Fix iOS standalone text selection */
+  body { -webkit-user-select: none; user-select: none; }
+  .message-bubble, .message-text, textarea, input { -webkit-user-select: text; user-select: text; }
+  /* Fix iOS tap delay */
+  * { -webkit-tap-highlight-color: transparent; }
 }

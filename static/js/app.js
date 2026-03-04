@@ -558,6 +558,7 @@ function initSocket() {
   socket.on('call_ice',           d => window.callsModule?.onIce(d));
   socket.on('call_renegotiate',   d => window.callsModule?.onRenegotiate(d));
   socket.on('call_accepting',     () => { stopDialTone(); stopRingtone(); });
+  socket.on('call_busy',          () => { stopDialTone(); hideCallOverlays(); clearInterval(_callTimerInt); showToast('Абонент занят — уже в звонке', 'info'); window.callsModule?.endCall(); });
   socket.on('call_rejected',      () => { stopDialTone(); hideCallOverlays(); clearInterval(_callTimerInt); showToast('Звонок отклонён', 'info'); });
   socket.on('call_ended',         () => { stopDialTone(); stopRingtone(); playCallEndSound(); clearInterval(_callTimerInt); $('call-mini-bar')?.classList.add('hidden'); $('sidebar-call-indicator')?.classList.add('hidden'); showToast('📞 Звонок завершён', 'info'); window.callsModule?.onEnded(); });
   socket.on('call_status',        d => window.callsModule?.onPeerStatus(d));
@@ -2593,6 +2594,13 @@ function initPinnedBar() {
 // CALLS
 // ══════════════════════════════════════════════════════════
 function handleIncomingCall({ from, fromName, fromAvatarColor, offer, callType }) {
+  // If already in a call, auto-reject the new incoming call
+  if (window.callsModule?.isInCall()) {
+    S.socket?.emit('call_reject', { to: from });
+    showToast('Входящий звонок отклонён — вы уже в звонке', 'info');
+    return;
+  }
+
   renderAvatar($('inc-call-avatar'), { displayName: fromName, avatarColor: fromAvatarColor || '#333333' }, 'avatar-lg');
   $('inc-call-name').textContent = fromName || 'Неизвестный';
   $('inc-call-type').textContent = callType === 'video' ? '📹 Видеозвонок' : '📞 Голосовой звонок';
@@ -2652,6 +2660,12 @@ function handleIncomingCall({ from, fromName, fromAvatarColor, offer, callType }
   newAccept.addEventListener('touchend', doAccept);
   newReject.addEventListener('click', doReject);
   newReject.addEventListener('touchend', doReject);
+
+  // Auto-answer if triggered by notification click (answerCall URL param)
+  if (S._autoAnswerFrom && S._autoAnswerFrom === from) {
+    S._autoAnswerFrom = null;
+    setTimeout(() => doAccept(new Event('click')), 500);
+  }
 }
 
 function hideCallOverlays() {
@@ -3645,6 +3659,39 @@ function initApp() {
   updateMenuProfile();
   initMobileKeyboardFix();
   initHints();
+
+  // Listen for Service Worker messages (call answer / reject from notification)
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('message', event => {
+      const data = event.data;
+      if (!data) return;
+      if (data.type === 'call_answer_from_notification') {
+        // User clicked "Ответить" on push notification — auto-accept pending call
+        if (S._pendingCall) {
+          const acceptBtn = $('inc-accept-btn');
+          if (acceptBtn) acceptBtn.click();
+        }
+      }
+      if (data.type === 'call_reject_from_notification') {
+        // User clicked "Отклонить" on push notification
+        if (S._pendingCall) {
+          const rejectBtn = $('inc-reject-btn');
+          if (rejectBtn) rejectBtn.click();
+        }
+      }
+    });
+  }
+
+  // Check URL for answerCall param (from notification when app was closed)
+  const urlParams = new URLSearchParams(window.location.search);
+  const answerCallFrom = urlParams.get('answerCall');
+  if (answerCallFrom) {
+    // Remove query param from URL
+    window.history.replaceState({}, '', '/');
+    // Wait for incoming call to arrive via socket, then auto-accept
+    S._autoAnswerFrom = answerCallFrom;
+    setTimeout(() => { S._autoAnswerFrom = null; }, 15000); // expire after 15s
+  }
 }
 
 // ══════════════════════════════════════════════════════════

@@ -1117,6 +1117,10 @@ io.on('connection', async (socket) => {
   });
 
   // ── WebRTC Signaling ─────────────────────────────────────────────────────
+  // --- Active calls tracking (busy state) ---
+  if (!global._activeCalls) global._activeCalls = new Map(); // userId → peerId
+  const activeCalls = global._activeCalls;
+
   // --- Group call rooms ---
   // groupCallRooms: Map<chatId, Set<userId>>
   if (!global._groupCallRooms) global._groupCallRooms = new Map();
@@ -1125,6 +1129,14 @@ io.on('connection', async (socket) => {
   socket.on('call_offer', async ({ to, offer, callType, renegotiate }) => {
     const caller = await User.findById(userId);
     const targetSockets = onlineUsers.get(to);
+
+    // If not renegotiation, check if target is busy
+    if (!renegotiate && activeCalls.has(to)) {
+      // Target already in a call — send busy signal back to caller
+      socket.emit('call_busy', { from: to });
+      return;
+    }
+
     if (targetSockets) {
       targetSockets.forEach(sid => {
         io.to(sid).emit(renegotiate ? 'call_renegotiate' : 'call_incoming', {
@@ -1147,18 +1159,24 @@ io.on('connection', async (socket) => {
         icon: '/static/icons/icon-192.svg',
         tag: `call-${userId}`,
         type: 'call',
+        callFrom: userId,
         url: '/'
       }).catch(() => {});
     }
   });
 
   socket.on('call_answer', ({ to, answer }) => {
+    // Both users are now in a call
+    activeCalls.set(userId, to);
+    activeCalls.set(to, userId);
     const targetSockets = onlineUsers.get(to);
     if (targetSockets) targetSockets.forEach(sid => io.to(sid).emit('call_answered', { from: userId, answer }));
   });
 
   // Мгновенный сигнал «принимаю» — останавливает гудки у звонящего до завершения WebRTC
   socket.on('call_accepting', ({ to }) => {
+    activeCalls.set(userId, to);
+    activeCalls.set(to, userId);
     const targetSockets = onlineUsers.get(to);
     if (targetSockets) targetSockets.forEach(sid => io.to(sid).emit('call_accepting', { from: userId }));
   });
@@ -1174,6 +1192,9 @@ io.on('connection', async (socket) => {
   });
 
   socket.on('call_end', ({ to }) => {
+    // Clear busy state for both users
+    activeCalls.delete(userId);
+    activeCalls.delete(to);
     const targetSockets = onlineUsers.get(to);
     if (targetSockets) targetSockets.forEach(sid => io.to(sid).emit('call_ended', { from: userId }));
   });
@@ -1256,6 +1277,15 @@ io.on('connection', async (socket) => {
 
   // ── Disconnect ───────────────────────────────────────────────────────────
   socket.on('disconnect', () => {
+    // Clean up active call state
+    const peerId = activeCalls.get(userId);
+    if (peerId) {
+      activeCalls.delete(userId);
+      activeCalls.delete(peerId);
+      // Notify peer that call ended
+      const peerSockets = onlineUsers.get(peerId);
+      if (peerSockets) peerSockets.forEach(sid => io.to(sid).emit('call_ended', { from: userId }));
+    }
     setUserOffline(userId, socket.id);
   });
 });

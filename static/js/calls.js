@@ -34,78 +34,55 @@ window.callsModule = (() => {
   function getSocket() { return window.State?.socket || null; }
   function isMobile()  { return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent); }
 
+  function isIOS() { return /iPhone|iPad|iPod/i.test(navigator.userAgent); }
+
   // ── Noise suppression via Web Audio ────────────────────
   function applyNoiseSuppression(stream) {
     if (!stream || !stream.getAudioTracks().length) return stream;
+
+    // Skip Web Audio processing on iOS — causes audio crackling and glitches
+    // iOS already has good built-in echo cancellation + noise suppression
+    if (isIOS()) return stream;
+
     try {
       _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+      // Resume AudioContext immediately (needed for some browsers)
+      if (_audioCtx.state === 'suspended') {
+        _audioCtx.resume().catch(() => {});
+      }
+
       const source = _audioCtx.createMediaStreamSource(stream);
       const dest = _audioCtx.createMediaStreamDestination();
 
       // Highpass filter removes low-frequency rumble/hum
       const highpass = _audioCtx.createBiquadFilter();
       highpass.type = 'highpass';
-      highpass.frequency.value = 100;
-      highpass.Q.value = 0.8;
-
-      // Second highpass for sharper roll-off
-      const highpass2 = _audioCtx.createBiquadFilter();
-      highpass2.type = 'highpass';
-      highpass2.frequency.value = 75;
-      highpass2.Q.value = 0.5;
+      highpass.frequency.value = 85;
+      highpass.Q.value = 0.7;
 
       // Lowpass removes high-frequency hiss
       const lowpass = _audioCtx.createBiquadFilter();
       lowpass.type = 'lowpass';
-      lowpass.frequency.value = 13000;
+      lowpass.frequency.value = 14000;
 
-      // Notch filter to remove 50/60 Hz mains hum
-      const notch = _audioCtx.createBiquadFilter();
-      notch.type = 'notch';
-      notch.frequency.value = 50;
-      notch.Q.value = 30;
-
-      // Compressor to normalize levels and reduce background noise
+      // Compressor to normalize levels
       const compressor = _audioCtx.createDynamicsCompressor();
-      compressor.threshold.value = -45;
+      compressor.threshold.value = -40;
       compressor.knee.value = 30;
-      compressor.ratio.value = 16;
+      compressor.ratio.value = 12;
       compressor.attack.value = 0.003;
-      compressor.release.value = 0.15;
+      compressor.release.value = 0.2;
 
-      // Noise gate via ScriptProcessor (threshold-based)
-      const bufSize = 2048;
-      const gateNode = _audioCtx.createScriptProcessor(bufSize, 1, 1);
-      let _gateOpen = false;
-      const GATE_THRESHOLD = 0.008;
-      const GATE_ATTACK = 0.005;
-      const GATE_RELEASE = 0.05;
-      let _gateGain = 0;
-      gateNode.onaudioprocess = (e) => {
-        const input = e.inputBuffer.getChannelData(0);
-        const output = e.outputBuffer.getChannelData(0);
-        let rms = 0;
-        for (let i = 0; i < input.length; i++) rms += input[i] * input[i];
-        rms = Math.sqrt(rms / input.length);
-        const target = rms > GATE_THRESHOLD ? 1 : 0;
-        const rate = target > _gateGain ? GATE_ATTACK : GATE_RELEASE;
-        for (let i = 0; i < input.length; i++) {
-          _gateGain += (target - _gateGain) * rate;
-          output[i] = input[i] * _gateGain;
-        }
-      };
-
-      // Gain boost to compensate compression
+      // Gain boost
       const gain = _audioCtx.createGain();
-      gain.gain.value = 1.6;
+      gain.gain.value = 1.5;
 
+      // Simple chain — no ScriptProcessor (causes crackling on mobile)
       source.connect(highpass);
-      highpass.connect(highpass2);
-      highpass2.connect(notch);
-      notch.connect(lowpass);
+      highpass.connect(lowpass);
       lowpass.connect(compressor);
-      compressor.connect(gateNode);
-      gateNode.connect(gain);
+      compressor.connect(gain);
       gain.connect(dest);
 
       // Replace audio track in the original stream
@@ -116,7 +93,7 @@ window.callsModule = (() => {
 
       // Keep reference to stop original track later
       processedTrack._origTrack = origTrack;
-      _noiseNode = { source, highpass, highpass2, notch, lowpass, compressor, gateNode, gain, dest };
+      _noiseNode = { source, highpass, lowpass, compressor, gain, dest };
     } catch (e) {
       console.warn('[calls] Noise suppression failed:', e);
     }
@@ -497,7 +474,7 @@ window.callsModule = (() => {
     // Use gain node mute when noise suppression is active to keep AudioContext alive
     // (disabling tracks can kill the audio session on mobile, muting remote audio too)
     if (_noiseNode && _noiseNode.gain) {
-      _noiseNode.gain.gain.value = isMuted ? 0 : 1.6;
+      _noiseNode.gain.gain.value = isMuted ? 0 : 1.5;
     } else {
       // Fallback: toggle track.enabled when no noise suppression chain
       localStream.getAudioTracks().forEach(t => { t.enabled = !isMuted; });
