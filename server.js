@@ -1,6 +1,6 @@
 // =============================================================================
-// Shadow Mess v2.0 — Node.js Backend (NeDB — встроенная файловая БД)
-// Express + Socket.io + WebRTC signaling + JWT Auth
+// Shadow Mess v2.0 — Node.js Backend (MongoDB)
+// Express + Socket.io + WebRTC signaling + JWT Auth + Mongoose
 // =============================================================================
 
 const express    = require('express');
@@ -13,7 +13,7 @@ const { v4: uuidv4 } = require('uuid');
 const cors       = require('cors');
 const fs         = require('fs');
 const path       = require('path');
-const Datastore  = require('nedb-promises');
+const mongoose   = require('mongoose');
 const webpush    = require('web-push');
 
 const app  = express();
@@ -22,10 +22,10 @@ const io   = new Server(srv, { cors: { origin: '*', credentials: true } });
 
 const PORT        = process.env.PORT || 5000;
 const JWT_SECRET  = process.env.JWT_SECRET || 'shadow_mess_jwt_secret_v2_2026';
+const MONGO_URI   = process.env.MONGODB_URI || 'mongodb://localhost:27017/shadowmess';
 const ADMIN_KEY   = process.env.ADMIN_KEY || 'shadow_admin_secret_2026';
 const STATIC_DIR  = path.join(__dirname, 'static');
 const UPLOADS_DIR = path.join(__dirname, 'uploads');
-const DB_DIR      = path.join(__dirname, 'db_data');
 
 // ── VAPID keys for Web Push ───────────────────────────────────────────────
 // Ключи сохраняются в MongoDB чтобы не терялись при перезапусках на Render.
@@ -36,205 +36,138 @@ let vapidReady    = false; // будет true после initVapid()
 
 // ── Directories ────────────────────────────────────────────────────────────
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-if (!fs.existsSync(DB_DIR))      fs.mkdirSync(DB_DIR, { recursive: true });
 
 // =============================================================================
-// NeDB Models (встроенная файловая БД — без MongoDB)
+// Mongoose Models (оптимизированные)
 // =============================================================================
-
-function createModel(name, options = {}) {
-  const db = Datastore.create({ filename: path.join(DB_DIR, `${name}.db`), autoload: true });
-  const defaults = options.defaults || {};
-
-  function enhance(doc) {
-    if (!doc) return doc;
-    if (Array.isArray(doc)) return doc.map(enhance);
-    Object.defineProperties(doc, {
-      toJSON: {
-        value: function () {
-          const o = {};
-          for (const k of Object.keys(this)) o[k] = this[k];
-          o.id = o._id;
-          if (name === 'users') delete o.passwordHash;
-          return o;
-        },
-        configurable: true,
-      },
-      save: {
-        value: async function () {
-          const d = {};
-          for (const k of Object.keys(this)) if (k !== '_id') d[k] = this[k];
-          await db.update({ _id: this._id }, { $set: d });
-          return this;
-        },
-        configurable: true,
-      },
-      deleteOne: {
-        value: async function () { await db.remove({ _id: this._id }); },
-        configurable: true,
-      },
-      markModified: {
-        value: function () {}, // no-op for NeDB
-        configurable: true,
-      },
-    });
-    return doc;
-  }
-
-  function normalizeUpdate(update) {
-    if (!update) return update;
-    const hasOps = Object.keys(update).some(k => k.startsWith('$'));
-    if (hasOps) return update;
-    const s = { ...update };
-    delete s._id;
-    return { $set: s };
-  }
-
-  const model = {
-    _db: db,
-
-    find(query = {}) {
-      const cursor = db.find(query);
-      const origExec = cursor.exec.bind(cursor);
-      cursor.exec = function () {
-        return origExec().then(docs => docs.map(d => enhance(d)));
-      };
-      cursor.then = function (res, rej) {
-        return this.exec().then(res, rej);
-      };
-      return cursor;
-    },
-
-    async findOne(query) {
-      return enhance(await db.findOne(query));
-    },
-
-    async findById(id) {
-      return enhance(await db.findOne({ _id: id }));
-    },
-
-    async create(data) {
-      const doc = {};
-      for (const [k, v] of Object.entries(defaults)) {
-        doc[k] = typeof v === 'function' ? v() : v;
-      }
-      Object.assign(doc, data);
-      if (!doc._id) doc._id = uuidv4();
-      return enhance(await db.insert(doc));
-    },
-
-    async findByIdAndUpdate(id, update, opts = {}) {
-      await db.update({ _id: id }, normalizeUpdate(update));
-      if (opts.new) return enhance(await db.findOne({ _id: id }));
-      return null;
-    },
-
-    async findOneAndUpdate(query, update, opts = {}) {
-      await db.update(query, normalizeUpdate(update), { upsert: !!opts.upsert });
-      return enhance(await db.findOne(query));
-    },
-
-    async findByIdAndDelete(id) {
-      const doc = await db.findOne({ _id: id });
-      if (doc) await db.remove({ _id: id });
-      return enhance(doc);
-    },
-
-    async findOneAndDelete(query) {
-      const doc = await db.findOne(query);
-      if (doc) await db.remove({ _id: doc._id });
-      return enhance(doc);
-    },
-
-    async updateMany(query, update) {
-      const n = await db.update(query, normalizeUpdate(update), { multi: true });
-      return { modifiedCount: n };
-    },
-
-    async deleteMany(query = {}) {
-      const n = await db.remove(query, { multi: true });
-      return { deletedCount: n };
-    },
-
-    async countDocuments(query = {}) {
-      return db.count(query);
-    },
-
-    ensureIndex(opts) {
-      return db.ensureIndex(opts);
-    },
-  };
-
-  if (options.indexes) {
-    options.indexes.forEach(idx => model.ensureIndex(idx));
-  }
-
-  return model;
-}
 
 // ── Config: хранит настройки сервера (VAPID ключи и т.д.) ─────────────────
-const Config = createModel('config');
-
-const User = createModel('users', {
-  defaults: {
-    avatarColor: () => `hsl(${Math.floor(Math.random() * 360)},65%,55%)`,
-    bio: '', phone: '', firstName: '', lastName: '',
-    online: false,
-    lastSeen: () => new Date(),
-    createdAt: () => new Date(),
-    settings: () => ({
-      theme: 'light', fontSize: 14, notifications: true, soundEnabled: true,
-      notifCalls: true, notifMentions: true, notifPreview: true,
-      privShowLastSeen: true, privShowOnline: true, privShowAvatar: true,
-      privAllowForward: true, privReadReceipts: true, privShowTyping: true,
-      language: 'ru', accentColor: '', bubbleStyle: 'rounded',
-      compactMode: false, chatWallpaper: 'dots', sendByEnter: true,
-    }),
-  },
-  indexes: [{ fieldName: 'username', unique: true }],
+const configSchema = new mongoose.Schema({
+  _id:   { type: String },
+  value: { type: mongoose.Schema.Types.Mixed },
 });
+const Config = mongoose.model('Config', configSchema);
 
-// Сессии: TTL реализован через периодическую очистку
-const Session = createModel('sessions', {
-  defaults: {
-    device: 'Unknown', ip: '',
-    createdAt: () => new Date(), active: true,
-  },
-  indexes: [{ fieldName: 'userId' }],
+const userSchema = new mongoose.Schema({
+  _id:           { type: String, default: uuidv4 },
+  username:      { type: String, required: true, unique: true, lowercase: true, trim: true },
+  displayName:   { type: String, required: true, trim: true },
+  passwordHash:  { type: String, required: true },
+  avatar:        String,
+  avatarColor:   { type: String, default: () => `hsl(${Math.floor(Math.random()*360)},65%,55%)` },
+  bio:           { type: String, default: '' },
+  phone:         { type: String, default: '' },
+  firstName:     { type: String, default: '' },
+  lastName:      { type: String, default: '' },
+  online:        { type: Boolean, default: false },
+  lastSeen:      { type: Date, default: Date.now },
+  createdAt:     { type: Date, default: Date.now },
+  settings: {
+    theme:            { type: String, default: 'light' },
+    fontSize:         { type: Number, default: 14 },
+    notifications:    { type: Boolean, default: true },
+    soundEnabled:     { type: Boolean, default: true },
+    notifCalls:       { type: Boolean, default: true },
+    notifMentions:    { type: Boolean, default: true },
+    notifPreview:     { type: Boolean, default: true },
+    privShowLastSeen: { type: Boolean, default: true },
+    privShowOnline:   { type: Boolean, default: true },
+    privShowAvatar:   { type: Boolean, default: true },
+    privAllowForward: { type: Boolean, default: true },
+    privReadReceipts: { type: Boolean, default: true },
+    privShowTyping:   { type: Boolean, default: true },
+    language:         { type: String, default: 'ru' },
+    accentColor:      { type: String, default: '' },
+    bubbleStyle:      { type: String, default: 'rounded' },
+    compactMode:      { type: Boolean, default: false },
+    chatWallpaper:    { type: String, default: 'dots' },
+    sendByEnter:      { type: Boolean, default: true },
+  }
+}, { _id: false, timestamps: false });
+userSchema.set('toJSON', {
+  virtuals: true,
+  transform: (doc, ret) => { ret.id = ret._id; delete ret.__v; delete ret.passwordHash; return ret; }
 });
+const User = mongoose.model('User', userSchema);
 
-const Chat = createModel('chats', {
-  defaults: {
-    type: 'private', members: () => [], description: '',
-    admins: () => [], pinned: false, muted: false, archived: false,
-    createdAt: () => new Date(),
-  },
-  indexes: [{ fieldName: 'members' }],
+// Сессии: TTL index — автоудаление через 30 дней
+const sessionSchema = new mongoose.Schema({
+  _id:       { type: String, default: uuidv4 },
+  userId:    { type: String, required: true, index: true },
+  device:    { type: String, default: 'Unknown' },
+  ip:        { type: String, default: '' },
+  createdAt: { type: Date, default: Date.now, expires: 2592000 }, // 30 дней
+  active:    { type: Boolean, default: true },
+}, { _id: false });
+sessionSchema.set('toJSON', {
+  virtuals: true,
+  transform: (doc, ret) => { ret.id = ret._id; delete ret.__v; return ret; }
 });
+const Session = mongoose.model('Session', sessionSchema);
 
-const Message = createModel('messages', {
-  defaults: {
-    senderName: '', type: 'text', text: '',
-    reactions: () => ({}), readBy: () => [],
-    timestamp: () => new Date(),
-  },
-  indexes: [{ fieldName: 'chatId' }, { fieldName: 'timestamp' }],
+const chatSchema = new mongoose.Schema({
+  _id:            { type: String, default: uuidv4 },
+  type:           { type: String, enum: ['private', 'group', 'channel'], default: 'private' },
+  members:        [{ type: String }],
+  name:           String,
+  description:    { type: String, default: '' },
+  avatar:         String,
+  avatarColor:    String,
+  createdAt:      { type: Date, default: Date.now },
+  createdBy:      String,
+  admins:         [{ type: String }],
+  pinned:         { type: Boolean, default: false },
+  muted:          { type: Boolean, default: false },
+  archived:       { type: Boolean, default: false },
+  pinnedMessage:  String,
+}, { _id: false });
+chatSchema.index({ members: 1 });
+chatSchema.set('toJSON', {
+  virtuals: true,
+  transform: (doc, ret) => { ret.id = ret._id; delete ret.__v; return ret; }
 });
+const Chat = mongoose.model('Chat', chatSchema);
+
+const messageSchema = new mongoose.Schema({
+  _id:              { type: String, default: uuidv4 },
+  chatId:           { type: String, required: true, index: true },
+  senderId:         { type: String, required: true },
+  senderName:       { type: String, default: '' },
+  senderAvatar:     String,
+  senderAvatarColor:String,
+  type:             { type: String, default: 'text' },
+  text:             { type: String, default: '' },
+  fileName:         String,
+  fileSize:         Number,
+  fileUrl:          String,
+  fileMime:         String,
+  timestamp:        { type: Date, default: Date.now },
+  editedAt:         Date,
+  replyTo:          String,
+  forwardFrom:      String,
+  reactions:        { type: mongoose.Schema.Types.Mixed, default: {} },
+  readBy:           [{ type: String }],
+}, { _id: false });
+messageSchema.index({ chatId: 1, timestamp: -1 });
+messageSchema.set('toJSON', {
+  virtuals: true,
+  transform: (doc, ret) => { ret.id = ret._id; delete ret.__v; return ret; }
+});
+const Message = mongoose.model('Message', messageSchema);
 
 // Push-подписки для уведомлений
-const PushSub = createModel('pushsubs', {
-  defaults: { createdAt: () => new Date() },
-  indexes: [{ fieldName: 'userId' }],
-});
-
-// TTL cleanup: удаление просроченных сессий и push-подписок (каждый час)
-setInterval(async () => {
-  const ttl = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-  try {
-    await Session._db.remove({ createdAt: { $lt: ttl } }, { multi: true });
-    await PushSub._db.remove({ createdAt: { $lt: ttl } }, { multi: true });
-  } catch (e) { console.error('TTL cleanup error:', e); }
-}, 60 * 60 * 1000);
+const pushSubSchema = new mongoose.Schema({
+  _id:          { type: String, default: uuidv4 },
+  userId:       { type: String, required: true, index: true },
+  endpoint:     { type: String, required: true },
+  keys: {
+    p256dh: { type: String, required: true },
+    auth:   { type: String, required: true },
+  },
+  createdAt:    { type: Date, default: Date.now, expires: 2592000 }, // 30 дней, обновляется при re-subscribe
+}, { _id: false });
+pushSubSchema.index({ userId: 1, endpoint: 1 }, { unique: true });
+const PushSub = mongoose.model('PushSub', pushSubSchema);
 
 // ── Multer ────────────────────────────────────────────────────────────────
 const storage = multer.diskStorage({
@@ -823,7 +756,7 @@ app.post('/api/chats', authMiddleware, async (req, res) => {
 
   const existing = await Chat.findOne({
     type: 'private',
-    $and: [{ members: req.user.id }, { members: userId }]
+    members: { $all: [req.user.id, userId], $size: 2 }
   });
   if (existing) return res.json(existing.toJSON());
 
@@ -1265,16 +1198,26 @@ io.on('connection', async (socket) => {
 });
 
 // =============================================================================
-// Start Server (NeDB — встроенная файловая БД, без внешних зависимостей)
+// Connect to MongoDB & Start Server
 // =============================================================================
 // Поддержка .env файла (без зависимости dotenv)
 try { const envFile = fs.readFileSync(path.join(__dirname, '.env'), 'utf-8');
   envFile.split('\n').forEach(line => { const m = line.match(/^([A-Z_]+)\s*=\s*(.+)/); if (m && !process.env[m[1]]) process.env[m[1]] = m[2].trim().replace(/^["']|["']$/g,''); });
 } catch {}
+// Перечитываем MONGO_URI после .env
+const FINAL_MONGO = process.env.MONGODB_URI || MONGO_URI;
 
-(async () => {
-  try {
-    console.log('  ⏳  Инициализация NeDB...');
+const isLocal = FINAL_MONGO.includes('localhost') || FINAL_MONGO.includes('127.0.0.1');
+console.log('  ⏳  Подключение к MongoDB...');
+console.log('  URI:', FINAL_MONGO.replace(/\/\/.*@/, '//***:***@'));
+console.log(`  Режим: ${isLocal ? '💻 Локальная БД (без ограничений)' : '☁️  Облачная БД'}`);
+
+mongoose.connect(FINAL_MONGO, {
+  serverSelectionTimeoutMS: 15000,
+  socketTimeoutMS: 45000,
+})
+  .then(async () => {
+    console.log('  ✅  MongoDB подключена');
     // Сброс online-статуса всех пользователей при старте сервера
     await User.updateMany({}, { online: false });
     console.log('  🔄  Онлайн-статусы сброшены');
@@ -1284,12 +1227,16 @@ try { const envFile = fs.readFileSync(path.join(__dirname, '.env'), 'utf-8');
       console.log('  🌑  Shadow Mess v2.0 — запущен!');
       console.log('═'.repeat(55));
       console.log(`  Порт:           ${PORT}`);
-      console.log(`  База данных:    NeDB (${DB_DIR})`);
+      console.log(`  MongoDB:        подключена`);
       console.log(`  VAPID:          ${vapidReady ? 'OK' : '❌'}`);
       console.log('═'.repeat(55) + '\n');
     });
-  } catch (err) {
-    console.error('  ❌  Ошибка запуска:', err);
+  })
+  .catch(err => {
+    console.error('  ❌  Ошибка подключения к MongoDB:', err.message);
+    console.error('  Проверь:');
+    console.error('    1. MONGODB_URI правильный');
+    console.error('    2. Network Access → Allow Access from Anywhere (0.0.0.0/0)');
+    console.error('    3. Логин/пароль для БД верные');
     process.exit(1);
-  }
-})();
+  });

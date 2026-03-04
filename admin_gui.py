@@ -110,8 +110,8 @@ class GlowButton(tk.Canvas):
         self._color = color
         self._text = text
         self._cmd = command
-        self._w = width
-        self._h = height
+        self._bw = width
+        self._bh = height
         self._hover = False
         self._draw()
         self.bind('<Enter>', self._on_enter)
@@ -120,7 +120,7 @@ class GlowButton(tk.Canvas):
 
     def _draw(self):
         self.delete('all')
-        w, h = self._w, self._h
+        w, h = self._bw, self._bh
         c = self._color
         if self._hover:
             # Glow shadow
