@@ -437,6 +437,13 @@ function initSocket() {
   socket.on('group_call_user_left',   d => window.groupCallModule?.onUserLeft(d));
   socket.on('group_call_members',     d => window.groupCallModule?.onMembersUpdate(d));
   socket.on('group_call_mic_status',  d => window.groupCallModule?.onMicStatus(d));
+
+  // Реконнект — обновляем онлайн-статусы из API
+  socket.on('connect', () => {
+    if (S.chats.length > 0) {
+      loadChats().catch(() => {});
+    }
+  });
 }
 
 // ══════════════════════════════════════════════════════════
@@ -904,16 +911,26 @@ function hideTyping(userId) {
 }
 
 function updateOnlineStatus(userId, online, lastSeen) {
+  // Обновляем все чаты в кэше
   S.chats.forEach(c => {
-    if (c.type === 'private' && c.members?.includes(userId)) { c.online = online; if (lastSeen) c.lastSeen = lastSeen; }
+    if (c.type === 'private' && c.members?.includes(userId)) {
+      c.online = online;
+      if (lastSeen) c.lastSeen = lastSeen;
+    }
     c.membersInfo?.forEach(m => { if (m.id === userId) m.online = online; });
   });
+
+  // Обновляем activeChat напрямую (раньше не обновлялся → баг)
   if (S.activeChat?.type === 'private' && S.activeChat.members?.includes(userId)) {
-    const chat = S.chats.find(c => c.id === S.activeChat.id) || S.activeChat;
-    // Обновляем аватарку в шапке чата (зелёная точка)
+    S.activeChat.online = online;
+    if (lastSeen) S.activeChat.lastSeen = lastSeen;
     const headerAv = $('chat-header-avatar');
-    renderAvatar(headerAv, { displayName: chat.displayName, avatar: chat.displayAvatar, avatarColor: chat.displayAvatarColor, online });
-    updateChatStatus(chat);
+    renderAvatar(headerAv, { displayName: S.activeChat.displayName, avatar: S.activeChat.displayAvatar, avatarColor: S.activeChat.displayAvatarColor, online });
+    updateChatStatus(S.activeChat);
+  }
+  // Групповые чаты — обновляем статус
+  if (S.activeChat?.type === 'group') {
+    updateChatStatus(S.activeChat);
   }
   renderChatList();
 }
@@ -949,16 +966,79 @@ function initInput() {
 
   // Voice record
   on('voice-record-btn', 'click', toggleVoiceRecord);
+
+  // Paste image from clipboard (PrtSc / Ctrl+V)
+  document.addEventListener('paste', handlePasteImage);
+}
+
+async function handlePasteImage(e) {
+  if (!S.activeChat) return;
+  const items = e.clipboardData?.items;
+  if (!items) return;
+
+  for (const item of items) {
+    if (item.type.startsWith('image/')) {
+      e.preventDefault();
+      const file = item.getAsFile();
+      if (!file) continue;
+
+      const ext = item.type.split('/')[1] || 'png';
+      const name = `screenshot_${Date.now()}.${ext}`;
+      const renamedFile = new File([file], name, { type: file.type });
+
+      // Показываем превью и спрашиваем подтверждение
+      const url = URL.createObjectURL(renamedFile);
+      const confirmed = await showPastePreview(url, name);
+      URL.revokeObjectURL(url);
+
+      if (confirmed) {
+        const fd = new FormData();
+        fd.append('file', renamedFile);
+        try {
+          const msg = await API.up(`/api/chats/${S.activeChat.id}/upload`, fd);
+          handleNewMessage(msg);
+          showToast('Скриншот отправлен', 'success');
+        } catch (err) { showToast(err.message, 'error'); }
+      }
+      break; // только 1 изображение за раз
+    }
+  }
+}
+
+function showPastePreview(url, name) {
+  return new Promise(resolve => {
+    const overlay = document.createElement('div');
+    overlay.className = 'paste-preview-overlay';
+    overlay.innerHTML = `
+      <div class="paste-preview-card">
+        <div class="paste-preview-header">📋 Вставка изображения</div>
+        <img src="${url}" class="paste-preview-img" alt="preview"/>
+        <div class="paste-preview-name">${escHtml(name)}</div>
+        <div class="paste-preview-actions">
+          <button class="paste-btn paste-btn-cancel">Отмена</button>
+          <button class="paste-btn paste-btn-send">Отправить</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    overlay.querySelector('.paste-btn-send').addEventListener('click', () => { overlay.remove(); resolve(true); });
+    overlay.querySelector('.paste-btn-cancel').addEventListener('click', () => { overlay.remove(); resolve(false); });
+    overlay.addEventListener('click', e => { if (e.target === overlay) { overlay.remove(); resolve(false); } });
+    // Esc
+    const onKey = e => { if (e.key === 'Escape') { overlay.remove(); resolve(false); document.removeEventListener('keydown', onKey); } };
+    document.addEventListener('keydown', onKey);
+  });
 }
 
 function toggleSendVoiceBtn() {
+  const isMobile = window.innerWidth <= 680;
+  if (isMobile) {
+    // На мобильных: всегда только кнопка отправки, голосовая скрыта (CSS)
+    return;
+  }
   const has = $('msg-input').value.trim().length > 0;
   $('send-btn').classList.toggle('hidden', !has);
   $('voice-record-btn').classList.toggle('hidden', has);
-  // На мобильных: всегда показываем кнопку отправки
-  if (window.innerWidth <= 680) {
-    $('send-btn').classList.remove('hidden');
-  }
 }
 
 let _isSending = false;

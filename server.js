@@ -1200,20 +1200,27 @@ io.on('connection', async (socket) => {
 // =============================================================================
 // Connect to MongoDB & Start Server
 // =============================================================================
+// Поддержка .env файла (без зависимости dotenv)
+try { const envFile = fs.readFileSync(path.join(__dirname, '.env'), 'utf-8');
+  envFile.split('\n').forEach(line => { const m = line.match(/^([A-Z_]+)\s*=\s*(.+)/); if (m && !process.env[m[1]]) process.env[m[1]] = m[2].trim().replace(/^["']|["']$/g,''); });
+} catch {}
+// Перечитываем MONGO_URI после .env
+const FINAL_MONGO = process.env.MONGODB_URI || MONGO_URI;
+
+const isLocal = FINAL_MONGO.includes('localhost') || FINAL_MONGO.includes('127.0.0.1');
 console.log('  ⏳  Подключение к MongoDB...');
-console.log('  URI:', MONGO_URI ? MONGO_URI.replace(/\/\/.*@/, '//***:***@') : '❌ НЕ ЗАДАН! Установи переменную MONGODB_URI');
+console.log('  URI:', FINAL_MONGO.replace(/\/\/.*@/, '//***:***@'));
+console.log(`  Режим: ${isLocal ? '💻 Локальная БД (без ограничений)' : '☁️  Облачная БД'}`);
 
-if (!MONGO_URI || MONGO_URI === 'mongodb://localhost:27017/shadowmess') {
-  console.error('  ❌  MONGODB_URI не задан! Добавь переменную окружения на Render.');
-  console.error('     Environment → Add Environment Variable → MONGODB_URI');
-}
-
-mongoose.connect(MONGO_URI, {
+mongoose.connect(FINAL_MONGO, {
   serverSelectionTimeoutMS: 15000,
   socketTimeoutMS: 45000,
 })
   .then(async () => {
     console.log('  ✅  MongoDB подключена');
+    // Сброс online-статуса всех пользователей при старте сервера
+    await User.updateMany({}, { online: false });
+    console.log('  🔄  Онлайн-статусы сброшены');
     await initVapid();
     srv.listen(PORT, '0.0.0.0', () => {
       console.log('\n' + '═'.repeat(55));
