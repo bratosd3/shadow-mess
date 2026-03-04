@@ -149,6 +149,7 @@ const messageSchema = new mongoose.Schema({
   readBy:           [{ type: String }],
 }, { _id: false });
 messageSchema.index({ chatId: 1, timestamp: -1 });
+messageSchema.index({ chatId: 1, senderId: 1 }); // для подсчёта непрочитанных
 messageSchema.set('toJSON', {
   virtuals: true,
   transform: (doc, ret) => { ret.id = ret._id; delete ret.__v; return ret; }
@@ -600,7 +601,7 @@ app.post('/api/me/avatar', authMiddleware, upload.single('avatar'), async (req, 
 
 // ── Get sessions ──────────────────────────────────────────────────────────
 app.get('/api/me/sessions', authMiddleware, async (req, res) => {
-  const sessions = await Session.find({ userId: req.user.id, active: true });
+  const sessions = await Session.find({ userId: req.user.id, active: true }).lean();
   const currentSid = req.user.sid || null;
   const result = sessions.map(s => {
     const ua = s.device || '';
@@ -656,51 +657,63 @@ app.get('/api/users/search', authMiddleware, async (req, res) => {
   const users = await User.find({
     _id: { $ne: req.user.id },
     $or: [{ username: regex }, { displayName: regex }]
-  }).limit(20);
+  }).select('-passwordHash -__v').limit(20).lean();
 
   const results = users.map(u => {
-    const r = sanitizeUser(u);
-    r.online = (u.settings?.privShowOnline !== false) ? isOnline(u._id) : false;
-    if (u.settings?.privShowAvatar === false) r.avatar = null;
-    return r;
+    u.id = u._id;
+    u.online = (u.settings?.privShowOnline !== false) ? isOnline(u._id) : false;
+    if (u.settings?.privShowAvatar === false) u.avatar = null;
+    return u;
   });
   res.json(results);
 });
 
 // ── Get user by id ────────────────────────────────────────────────────────
 app.get('/api/users/:id', authMiddleware, async (req, res) => {
-  const user = await User.findById(req.params.id);
+  const user = await User.findById(req.params.id).lean();
   if (!user) return res.status(404).json({ error: 'Not found' });
-  const result = sanitizeUser(user);
-  if (user.settings?.privShowOnline === false) result.online = false;
-  else result.online = isOnline(user._id);
-  if (user.settings?.privShowAvatar === false) result.avatar = null;
-  if (user.settings?.privShowLastSeen === false) result.lastSeen = null;
-  res.json(result);
+  user.id = user._id;
+  delete user.passwordHash; delete user.__v;
+  if (user.settings?.privShowOnline === false) user.online = false;
+  else user.online = isOnline(user._id);
+  if (user.settings?.privShowAvatar === false) user.avatar = null;
+  if (user.settings?.privShowLastSeen === false) user.lastSeen = null;
+  res.json(user);
 });
 
-// ── Get chats ─────────────────────────────────────────────────────────────
+// ── Get chats (оптимизировано v2.7) ───────────────────────────────────────
 app.get('/api/chats', authMiddleware, async (req, res) => {
   try {
-    const chats = await Chat.find({ members: req.user.id });
+    const uid = req.user.id;
+    const chats = await Chat.find({ members: uid }).lean();
+    if (!chats.length) return res.json([]);
     const chatIds = chats.map(c => c._id);
 
-    const allMessages = await Message.find({ chatId: { $in: chatIds } }).sort({ timestamp: 1 });
-    const userIds = [...new Set(chats.flatMap(c => c.members))];
-    const users = await User.find({ _id: { $in: userIds } });
-    const userMap = {};
-    users.forEach(u => { userMap[u._id] = u; });
+    // Агрегация: последнее сообщение + непрочитанные за один pipeline
+    const [lastMsgAgg, unreadAgg, users] = await Promise.all([
+      Message.aggregate([
+        { $match: { chatId: { $in: chatIds } } },
+        { $sort: { chatId: 1, timestamp: -1 } },
+        { $group: { _id: '$chatId', doc: { $first: '$$ROOT' } } },
+      ]),
+      Message.aggregate([
+        { $match: { chatId: { $in: chatIds }, senderId: { $ne: uid }, readBy: { $nin: [uid] } } },
+        { $group: { _id: '$chatId', count: { $sum: 1 } } },
+      ]),
+      User.find({ _id: { $in: [...new Set(chats.flatMap(c => c.members))] } }).lean(),
+    ]);
 
-    const msgByChat = {};
-    allMessages.forEach(m => {
-      if (!msgByChat[m.chatId]) msgByChat[m.chatId] = [];
-      msgByChat[m.chatId].push(m);
-    });
+    const lastMsgMap = {};
+    lastMsgAgg.forEach(a => { const d = a.doc; d.id = d._id; lastMsgMap[a._id] = d; });
+    const unreadMap = {};
+    unreadAgg.forEach(a => { unreadMap[a._id] = a.count; });
+    const userMap = {};
+    users.forEach(u => { u.id = u._id; userMap[u._id] = u; });
 
     const result = chats.map(c => {
-      const chatMsgs = msgByChat[c._id] || [];
-      const lastMsg = chatMsgs.length ? chatMsgs[chatMsgs.length - 1] : null;
-      const unread = chatMsgs.filter(m => m.senderId !== req.user.id && !(m.readBy || []).includes(req.user.id)).length;
+      c.id = c._id;
+      const lastMsg = lastMsgMap[c._id] || null;
+      const unread = unreadMap[c._id] || 0;
 
       let displayName = c.name;
       let displayAvatar = c.avatar;
@@ -708,7 +721,7 @@ app.get('/api/chats', authMiddleware, async (req, res) => {
       let onlineStatus = false;
 
       if (c.type === 'private') {
-        const otherId = c.members.find(id => id !== req.user.id);
+        const otherId = c.members.find(id => id !== uid);
         const other = userMap[otherId];
         if (other) {
           displayName = other.displayName;
@@ -719,12 +732,12 @@ app.get('/api/chats', authMiddleware, async (req, res) => {
       }
 
       return {
-        ...c.toJSON(),
+        ...c,
         displayName,
         displayAvatar,
         displayAvatarColor,
         online: onlineStatus,
-        lastMessage: lastMsg ? lastMsg.toJSON() : null,
+        lastMessage: lastMsg,
         unreadCount: unread,
         membersInfo: c.type === 'group'
           ? c.members.map(mid => {
@@ -897,8 +910,9 @@ app.get('/api/chats/:id/messages', authMiddleware, async (req, res) => {
     }
   }
 
-  const messages = await Message.find(query).sort({ timestamp: -1 }).limit(limit);
+  const messages = await Message.find(query).sort({ timestamp: -1 }).limit(limit).lean();
   messages.reverse();
+  messages.forEach(m => { m.id = m._id; delete m.__v; });
 
   // Mark as read
   const result = await Message.updateMany(
@@ -909,7 +923,7 @@ app.get('/api/chats/:id/messages', authMiddleware, async (req, res) => {
     io.to(req.params.id).emit('messages_read', { chatId: req.params.id, userId: req.user.id });
   }
 
-  res.json(messages.map(m => m.toJSON()));
+  res.json(messages);
 });
 
 // ── Send message ──────────────────────────────────────────────────────────
@@ -951,41 +965,57 @@ app.post('/api/chats/:id/messages', authMiddleware, async (req, res) => {
 });
 
 // ── Upload file in chat ───────────────────────────────────────────────────
-app.post('/api/chats/:id/upload', authMiddleware, upload.single('file'), async (req, res) => {
-  const chat = await Chat.findById(req.params.id);
-  if (!chat || !chat.members.includes(req.user.id)) return res.status(403).json({ error: 'Forbidden' });
-  if (!req.file) return res.status(400).json({ error: 'No file' });
-
-  const sender = await User.findById(req.user.id);
-  const isImage = req.file.mimetype.startsWith('image/');
-  const isVoice = req.file.mimetype.startsWith('audio/') || (req.body.type === 'voice');
-
-  const msg = await Message.create({
-    chatId:       req.params.id,
-    senderId:     req.user.id,
-    senderName:   sender ? sender.displayName : '',
-    senderAvatar: sender ? sender.avatar : null,
-    senderAvatarColor: sender ? sender.avatarColor : null,
-    type:         isVoice ? 'voice' : isImage ? 'image' : 'file',
-    text:         '',
-    fileName:     req.file.originalname,
-    fileSize:     req.file.size,
-    fileUrl:      `/uploads/${req.file.filename}`,
-    fileMime:     req.file.mimetype,
-    readBy:       [req.user.id]
-  });
-
-  const senderSockets = onlineUsers.get(req.user.id);
-  if (senderSockets) {
-    for (const sid of senderSockets) {
-      io.sockets.sockets.get(sid)?.to(req.params.id).emit('new_message', msg.toJSON());
-      break;
+app.post('/api/chats/:id/upload', authMiddleware, (req, res, next) => {
+  // Ensure uploads dir exists (Render ephemeral FS)
+  if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+  upload.single('file')(req, res, (err) => {
+    if (err) {
+      console.error('Multer error:', err);
+      return res.status(400).json({ error: 'Ошибка загрузки файла: ' + err.message });
     }
-  } else {
-    io.to(req.params.id).emit('new_message', msg.toJSON());
+    next();
+  });
+}, async (req, res) => {
+  try {
+    const chat = await Chat.findById(req.params.id);
+    if (!chat) return res.status(404).json({ error: 'Чат не найден' });
+    if (!chat.members.includes(req.user.id)) return res.status(403).json({ error: 'Нет доступа к чату' });
+    if (!req.file) return res.status(400).json({ error: 'Файл не прикреплён' });
+
+    const sender = await User.findById(req.user.id);
+    const isImage = req.file.mimetype.startsWith('image/');
+    const isVoice = req.file.mimetype.startsWith('audio/') || (req.body.type === 'voice');
+
+    const msg = await Message.create({
+      chatId:       req.params.id,
+      senderId:     req.user.id,
+      senderName:   sender ? sender.displayName : '',
+      senderAvatar: sender ? sender.avatar : null,
+      senderAvatarColor: sender ? sender.avatarColor : null,
+      type:         isVoice ? 'voice' : isImage ? 'image' : 'file',
+      text:         '',
+      fileName:     req.file.originalname,
+      fileSize:     req.file.size,
+      fileUrl:      `/uploads/${req.file.filename}`,
+      fileMime:     req.file.mimetype,
+      readBy:       [req.user.id]
+    });
+
+    const senderSockets = onlineUsers.get(req.user.id);
+    if (senderSockets) {
+      for (const sid of senderSockets) {
+        io.sockets.sockets.get(sid)?.to(req.params.id).emit('new_message', msg.toJSON());
+        break;
+      }
+    } else {
+      io.to(req.params.id).emit('new_message', msg.toJSON());
+    }
+    sendPushForMessage(msg, chat).catch(() => {});
+    res.json(msg.toJSON());
+  } catch (err) {
+    console.error('Upload route error:', err);
+    res.status(500).json({ error: 'Ошибка сервера при загрузке' });
   }
-  sendPushForMessage(msg, chat).catch(() => {});
-  res.json(msg.toJSON());
 });
 
 // ── Edit message ──────────────────────────────────────────────────────────
@@ -1050,8 +1080,8 @@ io.on('connection', async (socket) => {
   const userId = socket.user.id;
   await setUserOnline(userId, socket.id);
 
-  // join all user's chat rooms
-  const chats = await Chat.find({ members: userId });
+  // join all user's chat rooms (только _id)
+  const chats = await Chat.find({ members: userId }).select('_id').lean();
   chats.forEach(c => socket.join(c._id));
 
   // ── Typing ──────────────────────────────────────────────────────────────

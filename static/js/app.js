@@ -2670,83 +2670,95 @@ function urlBase64ToUint8Array(base64String) {
 }
 
 // ══════════════════════════════════════════════════════════
-// WELCOME WIZARD (первый запуск)
+// WELCOME WIZARD (первый запуск) — v2.7 rewrite
 // ══════════════════════════════════════════════════════════
 function showWelcomeWizard() {
-  // Показываем каждый раз, пока пользователь не отметит "не показывать"
-  if (localStorage.getItem('sm_wizard_hidden')) return;
+  // v2.7: новый ключ, очищаем старые
+  try { localStorage.removeItem('sm_wizard_done'); } catch {}
+  try { localStorage.removeItem('sm_wizard_hidden'); } catch {}
 
-  const overlay = $('welcome-wizard');
-  if (!overlay) return;
+  const key = 'sm_wizard_v27';
+  if (localStorage.getItem(key) === 'hidden') return;
+
+  const overlay = document.getElementById('welcome-wizard');
+  if (!overlay) { console.warn('Wizard: overlay not found'); return; }
+
+  // Show overlay
+  overlay.style.display = '';
   overlay.classList.remove('hidden');
 
   let currentStep = 1;
   const totalSteps = 3;
+  const steps = overlay.querySelectorAll('.wizard-step');
+  const dots = overlay.querySelectorAll('.wizard-dot');
+  const nextBtn = document.getElementById('wizard-next');
+  const skipBtn = document.getElementById('wizard-skip');
+
+  if (!nextBtn || !skipBtn || steps.length === 0) {
+    console.warn('Wizard: missing elements');
+    return;
+  }
 
   function goToStep(step) {
     currentStep = step;
-    overlay.querySelectorAll('.wizard-step').forEach(s => {
-      const isActive = +s.dataset.step === step;
-      s.classList.toggle('active', isActive);
-      s.style.display = isActive ? '' : 'none';
+    steps.forEach(s => {
+      const active = parseInt(s.dataset.step) === step;
+      s.style.display = active ? '' : 'none';
+      s.classList.toggle('active', active);
     });
-    overlay.querySelectorAll('.wizard-dot').forEach(d => {
-      const isActive = +d.dataset.dot === step;
-      d.classList.toggle('active', isActive);
-      d.style.background = isActive ? 'var(--accent)' : 'var(--border)';
+    dots.forEach(d => {
+      const active = parseInt(d.dataset.dot) === step;
+      d.classList.toggle('active', active);
+      d.style.background = active ? 'var(--accent)' : 'var(--border)';
     });
-    $('wizard-next').textContent = step >= totalSteps ? 'Готово!' : 'Далее';
+    nextBtn.textContent = step >= totalSteps ? 'Готово!' : 'Далее';
   }
 
+  // IMPORTANT: activate step 1 immediately
+  goToStep(1);
+
   // ── Step 2: Permission buttons ──
-  const micStatus = $('wizard-mic-status');
-  const camStatus = $('wizard-cam-status');
-  const notifStatus = $('wizard-notif-status');
-
-  // Микрофон
-  on('wizard-mic-btn', 'click', async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach(t => t.stop());
-      micStatus.textContent = '✅';
-      micStatus.style.color = 'var(--success)';
-    } catch (e) {
-      micStatus.textContent = '❌';
-      micStatus.style.color = 'var(--danger)';
-    }
-  });
-
-  // Камера
-  on('wizard-cam-btn', 'click', async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      stream.getTracks().forEach(t => t.stop());
-      camStatus.textContent = '✅';
-      camStatus.style.color = 'var(--success)';
-    } catch (e) {
-      camStatus.textContent = '❌';
-      camStatus.style.color = 'var(--danger)';
-    }
-  });
-
-  // Уведомления
-  on('wizard-notif-btn', 'click', async () => {
-    if ('Notification' in window) {
-      const perm = await Notification.requestPermission();
-      if (perm === 'granted') {
-        notifStatus.textContent = '✅';
-        notifStatus.style.color = 'var(--success)';
-        subscribeToPush();
-      } else {
-        notifStatus.textContent = '❌';
-        notifStatus.style.color = 'var(--danger)';
+  function bindPerm(btnId, statusId, streamFn) {
+    const btn = document.getElementById(btnId);
+    const st = document.getElementById(statusId);
+    if (!btn || !st) return;
+    btn.addEventListener('click', async () => {
+      try {
+        const stream = await streamFn();
+        stream.getTracks().forEach(t => t.stop());
+        st.textContent = '✅';
+        st.style.color = 'var(--success)';
+      } catch {
+        st.textContent = '❌';
+        st.style.color = 'var(--danger)';
       }
-    } else {
-      notifStatus.textContent = '—';
-    }
-  });
+    });
+  }
+  bindPerm('wizard-mic-btn', 'wizard-mic-status',
+    () => navigator.mediaDevices.getUserMedia({ audio: true }));
+  bindPerm('wizard-cam-btn', 'wizard-cam-status',
+    () => navigator.mediaDevices.getUserMedia({ video: true }));
 
-  // ── Step 3: Выбор темы ──
+  // Notifications
+  const notifBtn = document.getElementById('wizard-notif-btn');
+  const notifSt = document.getElementById('wizard-notif-status');
+  if (notifBtn && notifSt) {
+    notifBtn.addEventListener('click', async () => {
+      if ('Notification' in window) {
+        try {
+          const perm = await Notification.requestPermission();
+          notifSt.textContent = perm === 'granted' ? '✅' : '❌';
+          notifSt.style.color = perm === 'granted' ? 'var(--success)' : 'var(--danger)';
+          if (perm === 'granted') subscribeToPush();
+        } catch {
+          notifSt.textContent = '❌';
+          notifSt.style.color = 'var(--danger)';
+        }
+      }
+    });
+  }
+
+  // ── Step 3: Theme selection ──
   overlay.querySelectorAll('.wizard-theme-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       overlay.querySelectorAll('.wizard-theme-btn').forEach(b => {
@@ -2761,8 +2773,8 @@ function showWelcomeWizard() {
     });
   });
 
-  // Далее / Готово
-  on('wizard-next', 'click', () => {
+  // ── Next / Done ──
+  nextBtn.addEventListener('click', () => {
     if (currentStep < totalSteps) {
       goToStep(currentStep + 1);
     } else {
@@ -2770,27 +2782,30 @@ function showWelcomeWizard() {
     }
   });
 
-  // Пропустить
-  on('wizard-skip', 'click', finishWizard);
+  // ── Skip ──
+  skipBtn.addEventListener('click', finishWizard);
+
+  // ── Close on overlay tap ──
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) finishWizard();
+  });
 
   function finishWizard() {
-    // Применяем настройки
-    const hintsEnabled = $('wizard-hints-toggle')?.checked;
-    if (hintsEnabled) {
+    const hintsEl = document.getElementById('wizard-hints-toggle');
+    if (hintsEl && hintsEl.checked) {
       document.body.classList.add('hints-enabled');
       localStorage.setItem('sm_hints', 'true');
     }
-    const selectedTheme = overlay.querySelector('.wizard-theme-btn.active')?.dataset.theme || 'light';
-    applyTheme(selectedTheme);
-    // Сохраняем тему на сервер
-    API.put('/api/me', { settings: { theme: selectedTheme } }).catch(() => {});
+    const theme = overlay.querySelector('.wizard-theme-btn.active')?.dataset?.theme || 'light';
+    applyTheme(theme);
+    API.put('/api/me', { settings: { theme } }).catch(() => {});
 
-    // "Не показывать снова" checkbox
-    const dontShow = $('wizard-dont-show');
+    const dontShow = document.getElementById('wizard-dont-show');
     if (dontShow && dontShow.checked) {
-      localStorage.setItem('sm_wizard_hidden', 'true');
+      localStorage.setItem(key, 'hidden');
     }
     overlay.classList.add('hidden');
+    overlay.style.display = 'none';
   }
 }
 
