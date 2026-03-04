@@ -1079,6 +1079,11 @@ io.on('connection', async (socket) => {
   });
 
   // ── WebRTC Signaling ─────────────────────────────────────────────────────
+  // --- Group call rooms ---
+  // groupCallRooms: Map<chatId, Set<userId>>
+  if (!global._groupCallRooms) global._groupCallRooms = new Map();
+  const groupCallRooms = global._groupCallRooms;
+
   socket.on('call_offer', async ({ to, offer, callType }) => {
     const caller = await User.findById(userId);
     const targetSockets = onlineUsers.get(to);
@@ -1114,6 +1119,76 @@ io.on('connection', async (socket) => {
   socket.on('call_end', ({ to }) => {
     const targetSockets = onlineUsers.get(to);
     if (targetSockets) targetSockets.forEach(sid => io.to(sid).emit('call_ended', { from: userId }));
+  });
+
+  // --- Group call signaling ---
+  socket.on('group_call_join', async ({ chatId }) => {
+    if (!groupCallRooms.has(chatId)) groupCallRooms.set(chatId, new Set());
+    const room = groupCallRooms.get(chatId);
+    const existingMembers = [...room];
+    room.add(userId);
+    const caller = await User.findById(userId);
+    const callerInfo = { id: userId, name: caller?.displayName || '', avatarColor: caller?.avatarColor || '#333' };
+    // Уведомляем всех существующих участников о новом
+    existingMembers.forEach(memberId => {
+      const sockets = onlineUsers.get(memberId);
+      if (sockets) sockets.forEach(sid => io.to(sid).emit('group_call_user_joined', { chatId, user: callerInfo, existingMembers: [] }));
+    });
+    // Новому участнику — список всех кто уже в звонке
+    const membersInfo = [];
+    for (const mid of existingMembers) {
+      const u = await User.findById(mid);
+      membersInfo.push({ id: mid, name: u?.displayName || '', avatarColor: u?.avatarColor || '#333' });
+    }
+    socket.emit('group_call_joined', { chatId, members: membersInfo });
+    // Обновляем список участников для всех
+    const allInfo = [...membersInfo, callerInfo];
+    room.forEach(mid => {
+      const sockets = onlineUsers.get(mid);
+      if (sockets) sockets.forEach(sid => io.to(sid).emit('group_call_members', { chatId, members: allInfo }));
+    });
+  });
+
+  socket.on('group_call_offer', ({ chatId, to, offer }) => {
+    const sockets = onlineUsers.get(to);
+    if (sockets) sockets.forEach(sid => io.to(sid).emit('group_call_offer', { chatId, from: userId, offer }));
+  });
+
+  socket.on('group_call_answer', ({ chatId, to, answer }) => {
+    const sockets = onlineUsers.get(to);
+    if (sockets) sockets.forEach(sid => io.to(sid).emit('group_call_answer', { chatId, from: userId, answer }));
+  });
+
+  socket.on('group_call_ice', ({ chatId, to, candidate }) => {
+    const sockets = onlineUsers.get(to);
+    if (sockets) sockets.forEach(sid => io.to(sid).emit('group_call_ice', { chatId, from: userId, candidate }));
+  });
+
+  socket.on('group_call_leave', ({ chatId }) => {
+    const room = groupCallRooms.get(chatId);
+    if (room) {
+      room.delete(userId);
+      if (room.size === 0) {
+        groupCallRooms.delete(chatId);
+      } else {
+        room.forEach(mid => {
+          const sockets = onlineUsers.get(mid);
+          if (sockets) sockets.forEach(sid => io.to(sid).emit('group_call_user_left', { chatId, userId }));
+        });
+      }
+    }
+  });
+
+  socket.on('group_call_toggle_mic', ({ chatId, muted }) => {
+    const room = groupCallRooms.get(chatId);
+    if (room) {
+      room.forEach(mid => {
+        if (mid !== userId) {
+          const sockets = onlineUsers.get(mid);
+          if (sockets) sockets.forEach(sid => io.to(sid).emit('group_call_mic_status', { chatId, userId, muted }));
+        }
+      });
+    }
   });
 
   // ── Disconnect ───────────────────────────────────────────────────────────

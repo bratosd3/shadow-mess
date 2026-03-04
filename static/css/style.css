@@ -2189,6 +2189,58 @@ button, .icon-btn, .send-btn, .fab-new-chat, .call-btn, .call-ctrl-btn {
 .call-mini-end:hover { background: rgba(239,68,68,.2); }
 @keyframes slideUp { from { opacity:0; transform: translateX(-50%) translateY(20px); } to { opacity:1; transform: translateX(-50%) translateY(0); } }
 
+/* ══ GROUP CALL ═══════════════════════════════════════════════ */
+.group-call-card {
+  background: linear-gradient(135deg, rgba(15,15,30,.97), rgba(25,25,50,.97));
+  backdrop-filter: blur(30px);
+  border-radius: var(--radius-xl);
+  padding: 24px;
+  width: 100%; max-width: 560px;
+  display: flex; flex-direction: column; align-items: center;
+  box-shadow: 0 20px 60px rgba(0,0,0,.5);
+  animation: fadeIn .3s ease;
+}
+.group-call-header {
+  text-align: center; margin-bottom: 20px;
+}
+.group-call-header h3 {
+  color: #fff; margin: 0; font-size: 18px; font-weight: 700;
+}
+.group-call-participants {
+  display: flex; flex-wrap: wrap; justify-content: center;
+  gap: 16px; padding: 16px 0; max-height: 340px; overflow-y: auto;
+  width: 100%;
+}
+.gc-participant {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 8px; width: 90px; position: relative;
+  animation: fadeIn .3s ease;
+}
+.gc-participant-name {
+  color: rgba(255,255,255,.85); font-size: 12px; font-weight: 600;
+  text-align: center; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; max-width: 80px;
+}
+.gc-participant-mic {
+  position: absolute; bottom: 20px; right: 10px;
+  width: 24px; height: 24px; border-radius: 50%;
+  background: rgba(34,197,94,.9);
+  display: flex; align-items: center; justify-content: center;
+  border: 2px solid rgba(15,15,30,.8);
+  transition: background .2s;
+}
+.gc-participant-mic.muted {
+  background: rgba(239,68,68,.9);
+}
+.gc-participant-mic svg {
+  stroke: #fff; width: 12px; height: 12px;
+}
+.group-call-controls {
+  display: flex; gap: 12px; margin-top: 16px;
+  padding-top: 16px; border-top: 1px solid rgba(255,255,255,.1);
+}
+@keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+
 /* ══ TOASTS ═══════════════════════════════════════════════════ */
 .toast-container {
   position: fixed; bottom: 24px; right: 24px; z-index: 500;
@@ -3569,35 +3621,24 @@ body, .sidebar, .chat-panel, .chat-header, .message-bubble,
 .btn-danger { color: #e74c3c !important; }
 
 /* =============================================================================
-   EXTENDED TOOLTIPS (подсказки)
+   EXTENDED TOOLTIPS (подсказки) — фиксированное позиционирование, не ломает flex
    ============================================================================= */
-body.hints-enabled [data-hint] { position: relative; }
 body.hints-enabled [data-hint]::after {
   content: attr(data-hint);
-  position: absolute; bottom: calc(100% + 8px); left: 50%;
-  transform: translateX(-50%) scale(0.9); transform-origin: bottom center;
+  position: fixed;
   background: var(--bg-primary); color: var(--text-primary);
   font-size: 11px; font-weight: 500; line-height: 1.4;
-  padding: 6px 10px; border-radius: 8px; white-space: nowrap; max-width: 200px;
+  padding: 6px 10px; border-radius: 8px; max-width: 200px;
   white-space: normal; text-align: center;
   box-shadow: 0 4px 16px rgba(0,0,0,.15);
   border: 1px solid var(--border);
   opacity: 0; pointer-events: none;
   transition: opacity .2s, transform .2s;
-  z-index: 9999;
+  transform: scale(0.9);
+  z-index: 99999;
+  left: var(--hint-x, 50%); top: var(--hint-y, 0);
 }
 body.hints-enabled [data-hint]:hover::after,
 body.hints-enabled [data-hint]:focus::after {
-  opacity: 1; transform: translateX(-50%) scale(1);
-}
-/* Мобильная адаптация — вместо hover при долгом нажатии */
-@media (max-width: 680px) {
-  body.hints-enabled [data-hint]::after {
-    bottom: auto; top: calc(100% + 8px);
-    transform-origin: top center;
-  }
-  body.hints-enabled [data-hint]:hover::after,
-  body.hints-enabled [data-hint]:focus::after {
-    transform: translateX(-50%) scale(1);
-  }
+  opacity: 1; transform: scale(1);
 }

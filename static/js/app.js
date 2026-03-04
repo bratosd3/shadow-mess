@@ -422,11 +422,21 @@ function initSocket() {
   socket.on('chat_updated',       chat => { const i=S.chats.findIndex(c=>c.id===chat.id); if(i!==-1){S.chats[i]={...S.chats[i],...chat}; renderChatList();} });
   socket.on('chat_deleted',       ({chatId}) => { S.chats=S.chats.filter(c=>c.id!==chatId); if(S.activeChat?.id===chatId){S.activeChat=null; $('active-chat').classList.add('hidden'); $('welcome-screen').classList.remove('hidden');} renderChatList(); });
   socket.on('call_incoming',      handleIncomingCall);
-  socket.on('call_answered',      d => { stopDialTone(); playCallConnectSound(); window.callsModule?.onAnswer(d); });
+  socket.on('call_answered',      d => { stopDialTone(); playCallConnectSound(); showToast('📞 Звонок начат', 'success'); window.callsModule?.onAnswer(d); });
   socket.on('call_ice',           d => window.callsModule?.onIce(d));
   socket.on('call_rejected',      () => { stopDialTone(); hideCallOverlays(); clearInterval(_callTimerInt); showToast('Звонок отклонён', 'info'); });
-  socket.on('call_ended',         () => { stopDialTone(); stopRingtone(); playCallEndSound(); clearInterval(_callTimerInt); $('call-mini-bar')?.classList.add('hidden'); window.callsModule?.onEnded(); });
+  socket.on('call_ended',         () => { stopDialTone(); stopRingtone(); playCallEndSound(); clearInterval(_callTimerInt); $('call-mini-bar')?.classList.add('hidden'); showToast('📞 Звонок завершён', 'info'); window.callsModule?.onEnded(); });
   socket.on('session_revoked',    () => { showToast('Сессия завершена', 'info'); setTimeout(() => logout(), 1500); });
+
+  // Group call signaling
+  socket.on('group_call_user_joined', d => window.groupCallModule?.onUserJoined(d));
+  socket.on('group_call_joined',      d => window.groupCallModule?.onJoined(d));
+  socket.on('group_call_offer',       d => window.groupCallModule?.onGroupOffer(d));
+  socket.on('group_call_answer',      d => window.groupCallModule?.onGroupAnswer(d));
+  socket.on('group_call_ice',         d => window.groupCallModule?.onGroupIce(d));
+  socket.on('group_call_user_left',   d => window.groupCallModule?.onUserLeft(d));
+  socket.on('group_call_members',     d => window.groupCallModule?.onMembersUpdate(d));
+  socket.on('group_call_mic_status',  d => window.groupCallModule?.onMicStatus(d));
 }
 
 // ══════════════════════════════════════════════════════════
@@ -569,7 +579,7 @@ async function openChat(chatId) {
 
   // Header
   const headerAv = $('chat-header-avatar');
-  renderAvatar(headerAv, { displayName: chat.displayName, avatar: chat.displayAvatar, avatarColor: chat.displayAvatarColor });
+  renderAvatar(headerAv, { displayName: chat.displayName, avatar: chat.displayAvatar, avatarColor: chat.displayAvatarColor, online: chat.online });
   $('chat-header-name').textContent = chat.displayName || '';
   updateChatStatus(chat);
 
@@ -899,7 +909,11 @@ function updateOnlineStatus(userId, online, lastSeen) {
     c.membersInfo?.forEach(m => { if (m.id === userId) m.online = online; });
   });
   if (S.activeChat?.type === 'private' && S.activeChat.members?.includes(userId)) {
-    updateChatStatus(S.chats.find(c => c.id === S.activeChat.id) || S.activeChat);
+    const chat = S.chats.find(c => c.id === S.activeChat.id) || S.activeChat;
+    // Обновляем аватарку в шапке чата (зелёная точка)
+    const headerAv = $('chat-header-avatar');
+    renderAvatar(headerAv, { displayName: chat.displayName, avatar: chat.displayAvatar, avatarColor: chat.displayAvatarColor, online });
+    updateChatStatus(chat);
   }
   renderChatList();
 }
@@ -1940,6 +1954,7 @@ function handleIncomingCall({ from, fromName, fromAvatarColor, offer, callType }
     stopRingtone();
     $('incoming-call').classList.add('hidden');
     playCallConnectSound();
+    showToast('📞 Звонок начат', 'success');
     startActiveCall(from, fromName, fromAvatarColor || '#333333', callType);
     window.callsModule?.acceptCall(from, offer, callType);
   };
@@ -2018,6 +2033,11 @@ function startCallTimer() {
 function initCallButtons() {
   on('call-audio-btn', 'click', () => {
     const c = S.activeChat; if (!c) return;
+    if (c.type === 'group') {
+      // Групповой звонок
+      startGroupCallUI(c);
+      return;
+    }
     const otherId = c.type === 'private'
       ? c.members?.find(id => id !== S.user?.id)
       : c.members?.find(id => id !== S.user?.id);
@@ -2028,6 +2048,10 @@ function initCallButtons() {
   });
   on('call-video-btn', 'click', () => {
     const c = S.activeChat; if (!c) return;
+    if (c.type === 'group') {
+      startGroupCallUI(c);
+      return;
+    }
     const otherId = c.type === 'private'
       ? c.members?.find(id => id !== S.user?.id)
       : c.members?.find(id => id !== S.user?.id);
@@ -2036,7 +2060,7 @@ function initCallButtons() {
     startActiveCall(otherId, c.displayName, c.displayAvatarColor || '#333333', 'video');
     window.callsModule?.startCall(otherId, 'video');
   });
-  on('end-call-btn', 'click', () => { stopDialTone(); stopRingtone(); playCallEndSound(); clearInterval(_callTimerInt); $('active-call-overlay').classList.add('hidden'); $('call-mini-bar')?.classList.add('hidden'); window.callsModule?.endCall(); });
+  on('end-call-btn', 'click', () => { stopDialTone(); stopRingtone(); playCallEndSound(); clearInterval(_callTimerInt); $('active-call-overlay').classList.add('hidden'); $('call-mini-bar')?.classList.add('hidden'); showToast('📞 Звонок завершён', 'info'); window.callsModule?.endCall(); });
   on('toggle-mute',  'click', () => { const m = window.callsModule?.toggleMute(); $('toggle-mute').classList.toggle('muted', m); });
   on('toggle-video', 'click', () => {
     window.callsModule?.toggleVideo();
@@ -2068,10 +2092,88 @@ function initCallButtons() {
   // Minimize / expand call
   on('minimize-call-btn', 'click', () => minimizeCall());
   on('call-mini-expand', 'click', (e) => { e.stopPropagation(); expandCall(); });
-  on('call-mini-end', 'click', (e) => { e.stopPropagation(); stopDialTone(); stopRingtone(); playCallEndSound(); clearInterval(_callTimerInt); $('call-mini-bar')?.classList.add('hidden'); window.callsModule?.endCall(); });
+  on('call-mini-end', 'click', (e) => { e.stopPropagation(); stopDialTone(); stopRingtone(); playCallEndSound(); clearInterval(_callTimerInt); $('call-mini-bar')?.classList.add('hidden'); showToast('📞 Звонок завершён', 'info'); window.callsModule?.endCall(); });
   on('call-mini-mute', 'click', (e) => { e.stopPropagation(); const m = window.callsModule?.toggleMute(); $('toggle-mute').classList.toggle('muted', m); $('call-mini-mute').textContent = m ? '🔇' : '🎙'; });
   // Click on mini bar to expand
   $('call-mini-bar')?.addEventListener('click', () => expandCall());
+
+  // Group call controls
+  on('gc-toggle-mute', 'click', () => {
+    const m = window.groupCallModule?.toggleMute();
+    $('gc-toggle-mute')?.classList.toggle('muted', m);
+  });
+  on('gc-end-call', 'click', () => endGroupCallUI());
+}
+
+// ══════════════════════════════════════════════════════════
+// GROUP CALL UI
+// ══════════════════════════════════════════════════════════
+let _groupCallTimerInt;
+function startGroupCallUI(chat) {
+  const overlay = $('group-call-overlay');
+  if (!overlay) return;
+
+  overlay.classList.remove('hidden');
+  $('group-call-title').textContent = chat.displayName || 'Групповой звонок';
+  $('group-call-participants').innerHTML = '';
+  playCallConnectSound();
+  showToast('📞 Групповой звонок начат', 'success');
+
+  // Add self to participants
+  renderGroupCallParticipants([{ id: S.user?.id, name: S.user?.displayName || 'Я', avatarColor: S.user?.avatarColor || '#333', muted: false }]);
+
+  // Timer
+  let sec = 0;
+  clearInterval(_groupCallTimerInt);
+  _groupCallTimerInt = setInterval(() => {
+    sec++;
+    const t = `${String(Math.floor(sec / 60)).padStart(2, '0')}:${String(sec % 60).padStart(2, '0')}`;
+    $('group-call-timer').textContent = t;
+  }, 1000);
+
+  // Join group call
+  window.groupCallModule?.setOnMembersChange((members) => {
+    const allMembers = [{ id: S.user?.id, name: S.user?.displayName || 'Я', avatarColor: S.user?.avatarColor || '#333', muted: false }, ...members];
+    renderGroupCallParticipants(allMembers);
+  });
+
+  window.groupCallModule?.joinGroupCall(chat.id).catch(err => {
+    console.error('[groupCall] join error:', err);
+    endGroupCallUI();
+  });
+}
+
+function renderGroupCallParticipants(members) {
+  const container = $('group-call-participants');
+  if (!container) return;
+  container.innerHTML = '';
+  members.forEach(m => {
+    const card = document.createElement('div');
+    card.className = 'gc-participant';
+    const av = document.createElement('div');
+    renderAvatar(av, { displayName: m.name, avatarColor: m.avatarColor }, 'avatar-lg');
+    card.appendChild(av);
+    const name = document.createElement('div');
+    name.className = 'gc-participant-name';
+    name.textContent = m.id === S.user?.id ? 'Вы' : (m.name || '?');
+    card.appendChild(name);
+    const micIcon = document.createElement('div');
+    micIcon.className = `gc-participant-mic ${m.muted ? 'muted' : ''}`;
+    micIcon.innerHTML = m.muted
+      ? '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2c0 .67-.13 1.3-.36 1.9"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>'
+      : '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>';
+    card.appendChild(micIcon);
+    container.appendChild(card);
+  });
+}
+
+function endGroupCallUI() {
+  clearInterval(_groupCallTimerInt);
+  $('group-call-overlay')?.classList.add('hidden');
+  $('group-call-timer').textContent = '00:00';
+  window.groupCallModule?.leaveGroupCall();
+  playCallEndSound();
+  showToast('📞 Групповой звонок завершён', 'info');
 }
 
 // ══════════════════════════════════════════════════════════
@@ -2446,9 +2548,16 @@ function showWelcomeWizard() {
 
   function goToStep(step) {
     currentStep = step;
-    overlay.querySelectorAll('.wizard-step').forEach(s => s.classList.remove('active'));
-    overlay.querySelector(`[data-step="${step}"]`)?.classList.add('active');
-    overlay.querySelectorAll('.wizard-dot').forEach(d => d.classList.toggle('active', +d.dataset.dot === step));
+    overlay.querySelectorAll('.wizard-step').forEach(s => {
+      const isActive = +s.dataset.step === step;
+      s.classList.toggle('active', isActive);
+      s.style.display = isActive ? '' : 'none';
+    });
+    overlay.querySelectorAll('.wizard-dot').forEach(d => {
+      const isActive = +d.dataset.dot === step;
+      d.classList.toggle('active', isActive);
+      d.style.background = isActive ? 'var(--accent)' : 'var(--border)';
+    });
     $('wizard-next').textContent = step >= totalSteps ? 'Готово!' : 'Далее';
   }
 
@@ -2464,8 +2573,14 @@ function showWelcomeWizard() {
   // Выбор темы
   overlay.querySelectorAll('.wizard-theme-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      overlay.querySelectorAll('.wizard-theme-btn').forEach(b => b.classList.remove('active'));
+      overlay.querySelectorAll('.wizard-theme-btn').forEach(b => {
+        b.classList.remove('active');
+        b.style.borderColor = 'var(--border)';
+        b.style.transform = '';
+      });
       btn.classList.add('active');
+      btn.style.borderColor = 'var(--accent)';
+      btn.style.transform = 'scale(1.1)';
       applyTheme(btn.dataset.theme);
     });
   });
@@ -2506,6 +2621,16 @@ function initHints() {
   if (localStorage.getItem('sm_hints') === 'true') {
     document.body.classList.add('hints-enabled');
   }
+  // Позиционируем тултипы через CSS custom properties (не ломает flex)
+  document.addEventListener('mouseenter', e => {
+    const el = e.target.closest?.('[data-hint]');
+    if (!el || !document.body.classList.contains('hints-enabled')) return;
+    const rect = el.getBoundingClientRect();
+    const x = Math.max(10, Math.min(window.innerWidth - 110, rect.left + rect.width / 2 - 100));
+    const y = Math.max(4, rect.top - 36);
+    el.style.setProperty('--hint-x', x + 'px');
+    el.style.setProperty('--hint-y', y + 'px');
+  }, true);
 }
 
 function toggleHints(enabled) {
