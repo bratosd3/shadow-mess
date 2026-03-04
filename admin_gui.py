@@ -171,11 +171,11 @@ class ShadowAdmin(ctk.CTk):
     # LAYOUT
     # ──────────────────────────────────────────────
     def _build_layout(self):
-        self._root = ctk.CTkFrame(self, fg_color=T["bg"], corner_radius=0)
-        self._root.pack(fill="both", expand=True)
+        self._main_frame = ctk.CTkFrame(self, fg_color=T["bg"], corner_radius=0)
+        self._main_frame.pack(fill="both", expand=True)
 
         # Sidebar
-        self._sidebar = ctk.CTkFrame(self._root, fg_color=T["bg_sidebar"],
+        self._sidebar = ctk.CTkFrame(self._main_frame, fg_color=T["bg_sidebar"],
                                      width=240, corner_radius=0,
                                      border_width=0)
         self._sidebar.pack(side="left", fill="y")
@@ -183,11 +183,11 @@ class ShadowAdmin(ctk.CTk):
         self._build_sidebar()
 
         # Separator
-        ctk.CTkFrame(self._root, fg_color=T["border"], width=1, corner_radius=0
+        ctk.CTkFrame(self._main_frame, fg_color=T["border"], width=1, corner_radius=0
                      ).pack(side="left", fill="y")
 
         # Content
-        self._content_outer = ctk.CTkFrame(self._root, fg_color=T["bg"],
+        self._content_outer = ctk.CTkFrame(self._main_frame, fg_color=T["bg"],
                                            corner_radius=0)
         self._content_outer.pack(side="left", fill="both", expand=True)
 

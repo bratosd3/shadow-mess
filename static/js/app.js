@@ -3030,7 +3030,12 @@ async function subscribeToPush() {
     if (permission !== 'granted') {
       console.warn('Push: notification permission denied');
       if (permission === 'denied') {
-        showToast('Push-уведомления заблокированы. Разрешите их в настройках браузера.', 'error');
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        const isAndroid = /Android/i.test(navigator.userAgent);
+        let hint = 'Откройте настройки браузера → Разрешения сайтов → Уведомления → Разрешить для этого сайта.';
+        if (isIOS) hint = 'Откройте Настройки iPhone → Safari → Уведомления → найдите этот сайт и разрешите.';
+        else if (isAndroid) hint = 'Нажмите 🔒 слева от адресной строки → Разрешения → Уведомления → Разрешить.';
+        showToast('Push-уведомления заблокированы. ' + hint, 'error');
       }
       return;
     }
