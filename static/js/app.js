@@ -376,8 +376,8 @@ async function onLogin({ token, user }, isRegister = false) {
   initApp();
   subscribeToPush();
 
-  // Показать визард при первом запуске (после регистрации)
-  if (isRegister) showWelcomeWizard();
+  // Показать визард при первом запуске (после регистрации или входа)
+  showWelcomeWizard();
 
   requestAnimationFrame(() => {
     setTimeout(() => $('app').classList.remove('app-enter'), 800);
@@ -955,35 +955,49 @@ function toggleSendVoiceBtn() {
   const has = $('msg-input').value.trim().length > 0;
   $('send-btn').classList.toggle('hidden', !has);
   $('voice-record-btn').classList.toggle('hidden', has);
+  // На мобильных: всегда показываем кнопку отправки
+  if (window.innerWidth <= 680) {
+    $('send-btn').classList.remove('hidden');
+  }
 }
 
+let _isSending = false;
 async function sendMessage() {
   const inp  = $('msg-input');
   const text = inp.value.trim();
-  if (!text || !S.activeChat) return;
+  if (!text || !S.activeChat || _isSending) return;
 
   if (S.editingMsgId) {
     try {
+      _isSending = true;
       await API.put(`/api/messages/${S.editingMsgId}`, { text });
       S.editingMsgId = null;
       inp.value = ''; inp.style.height = 'auto';
       inp.placeholder = 'Написать сообщение...';
       toggleSendVoiceBtn();
     } catch (e) { showToast(e.message, 'error'); }
+    finally { _isSending = false; }
     return;
   }
 
   try {
-    const msg = await API.post(`/api/chats/${S.activeChat.id}/messages`, {
-      text,
-      replyTo: S.replyTo?.id || null,
-    });
-    // Показываем своё сообщение из ответа API (сокет не шлёт отправителю)
-    handleNewMessage(msg);
+    _isSending = true;
+    // Очищаем поле сразу чтобы предотвратить повторную отправку
+    const replyId = S.replyTo?.id || null;
     inp.value = ''; inp.style.height = 'auto';
     hideReplyPreview();
     toggleSendVoiceBtn();
-  } catch (e) { showToast(e.message, 'error'); }
+    const msg = await API.post(`/api/chats/${S.activeChat.id}/messages`, {
+      text,
+      replyTo: replyId,
+    });
+    handleNewMessage(msg);
+  } catch (e) {
+    // Восстанавливаем текст при ошибке
+    inp.value = text;
+    toggleSendVoiceBtn();
+    showToast(e.message, 'error');
+  } finally { _isSending = false; }
 }
 
 async function uploadFile() {

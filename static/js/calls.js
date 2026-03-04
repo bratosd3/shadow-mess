@@ -9,11 +9,12 @@ window.callsModule = (() => {
   const ICE_SERVERS = [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
+    { urls: 'stun:stun2.l.google.com:19302' },
     { urls: 'stun:stun.cloudflare.com:3478'  },
-    // Open Relay TURN (бесплатный, работает для тестов)
-    { urls: 'turn:openrelay.metered.ca:80',       username: 'openrelayproject', credential: 'openrelayproject' },
-    { urls: 'turn:openrelay.metered.ca:443',      username: 'openrelayproject', credential: 'openrelayproject' },
-    { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+    // Metered TURN (бесплатный relay)
+    { urls: 'turn:a.relay.metered.ca:80',       username: 'e8dd65c92f3adb1d372bf5b6', credential: 'kCHFaVoXn6cjsRTo' },
+    { urls: 'turn:a.relay.metered.ca:443',      username: 'e8dd65c92f3adb1d372bf5b6', credential: 'kCHFaVoXn6cjsRTo' },
+    { urls: 'turn:a.relay.metered.ca:443?transport=tcp', username: 'e8dd65c92f3adb1d372bf5b6', credential: 'kCHFaVoXn6cjsRTo' },
   ];
 
   let pc             = null;   // RTCPeerConnection
@@ -41,24 +42,53 @@ window.callsModule = (() => {
     };
 
     pc.ontrack = (event) => {
+      const stream = event.streams[0];
+      if (!stream) return;
+      remoteStream = stream;
+
+      // Всегда привязываем remote video (для видео и демонстрации)
       const remoteVideo = document.getElementById('remote-video');
-      if (remoteVideo && event.streams[0]) {
-        remoteStream = event.streams[0];
-        remoteVideo.srcObject = remoteStream;
+      if (remoteVideo) {
+        remoteVideo.srcObject = stream;
+        remoteVideo.play().catch(() => {});
       }
-      // Для аудио-звонков: убедимся что звук воспроизводится даже если video скрыт
+
+      // Для надёжного воспроизведения аудио создаём скрытый audio элемент
       if (event.track.kind === 'audio') {
         let remoteAudio = document.getElementById('remote-audio-hidden');
         if (!remoteAudio) {
           remoteAudio = document.createElement('audio');
           remoteAudio.id = 'remote-audio-hidden';
           remoteAudio.autoplay = true;
+          remoteAudio.playsInline = true;
           remoteAudio.style.display = 'none';
           document.body.appendChild(remoteAudio);
         }
-        if (event.streams[0]) {
-          remoteAudio.srcObject = event.streams[0];
-        }
+        remoteAudio.srcObject = stream;
+        remoteAudio.play().catch(() => {});
+      }
+
+      // Если пришёл видео-трек (демонстрация или видео), переключаем на video view
+      if (event.track.kind === 'video' && event.track.enabled) {
+        event.track.onunmute = () => {
+          const avView = document.getElementById('call-audio-view');
+          const vdView = document.getElementById('call-video-view');
+          if (avView && vdView) {
+            avView.classList.add('hidden');
+            vdView.classList.remove('hidden');
+          }
+        };
+        event.track.onmute = () => {
+          // Если видео-трек замьючен и это был аудио-звонок, вернуть audio view
+          if (callType === 'audio') {
+            const avView = document.getElementById('call-audio-view');
+            const vdView = document.getElementById('call-video-view');
+            if (avView && vdView) {
+              avView.classList.remove('hidden');
+              vdView.classList.add('hidden');
+            }
+          }
+        };
       }
     };
 
@@ -329,9 +359,21 @@ window.callsModule = (() => {
       } else {
         pc.addTrack(screenTrack, screenStream);
       }
+
+      // Переключаем на video view для отображения демонстрации
+      const avView = document.getElementById('call-audio-view');
+      const vdView = document.getElementById('call-video-view');
+      if (avView && vdView) {
+        avView.classList.add('hidden');
+        vdView.classList.remove('hidden');
+      }
+
       // Show screen share in local preview
       const lv = document.getElementById('local-video');
-      if (lv) lv.srcObject = screenStream;
+      if (lv) {
+        lv.srcObject = screenStream;
+        lv.style.display = '';
+      }
 
       // Auto-stop when user clicks browser's "Stop sharing"
       screenTrack.onended = () => {
@@ -368,6 +410,15 @@ window.callsModule = (() => {
       const lv = document.getElementById('local-video');
       if (lv) lv.srcObject = localStream;
     }
+    // Если исходный звонок аудио — вернуть audio view
+    if (callType === 'audio') {
+      const avView = document.getElementById('call-audio-view');
+      const vdView = document.getElementById('call-video-view');
+      if (avView && vdView) {
+        avView.classList.remove('hidden');
+        vdView.classList.add('hidden');
+      }
+    }
   }
 
   // Public interface
@@ -381,9 +432,9 @@ window.groupCallModule = (() => {
   const ICE_SERVERS = [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'turn:openrelay.metered.ca:80', username: 'openrelayproject', credential: 'openrelayproject' },
-    { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' },
-    { urls: 'turn:openrelay.metered.ca:443?transport=tcp', username: 'openrelayproject', credential: 'openrelayproject' },
+    { urls: 'turn:a.relay.metered.ca:80', username: 'e8dd65c92f3adb1d372bf5b6', credential: 'kCHFaVoXn6cjsRTo' },
+    { urls: 'turn:a.relay.metered.ca:443', username: 'e8dd65c92f3adb1d372bf5b6', credential: 'kCHFaVoXn6cjsRTo' },
+    { urls: 'turn:a.relay.metered.ca:443?transport=tcp', username: 'e8dd65c92f3adb1d372bf5b6', credential: 'kCHFaVoXn6cjsRTo' },
   ];
 
   let localStream = null;
