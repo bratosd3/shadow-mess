@@ -271,6 +271,8 @@ function updateTabTitle() {
 // ══════════════════════════════════════════════════════════
 // AUTH
 // ══════════════════════════════════════════════════════════
+let _regWantsSetup = false; // флаг: пользователь хочет настройку после регистрации
+
 function initAuth() {
   // Tab switch
   qsa('.auth-tab').forEach(btn => {
@@ -278,7 +280,6 @@ function initAuth() {
       qsa('.auth-tab').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       const tab = btn.dataset.tab;
-      // Animate form swap
       const loginForm = $('login-form');
       const regForm = $('register-form');
       const showForm = tab === 'login' ? loginForm : regForm;
@@ -317,18 +318,102 @@ function initAuth() {
 
   on('register-form', 'submit', async e => {
     e.preventDefault();
-    $('register-error').textContent = '';
-    const pw = $('rg-password').value, pw2 = $('rg-password2').value;
-    if (pw !== pw2) { $('register-error').textContent = 'Пароли не совпадают'; return; }
-    try {
-      const d = await API.post('/api/register', {
-        username: $('rg-username').value.trim(),
-        displayName: $('rg-displayname').value.trim(),
-        password: pw,
-      });
-      await onLogin(d, true);
-    } catch (err) { $('register-error').textContent = err.message; }
   });
+
+  // ── Step-by-step registration navigation ──
+  function regGoToStep(n) {
+    const regForm = $('register-form');
+    if (!regForm) return;
+    regForm.querySelectorAll('.reg-step').forEach(s => {
+      const sn = parseInt(s.dataset.rstep);
+      s.style.display = sn === n ? '' : 'none';
+      s.classList.toggle('active', sn === n);
+    });
+    regForm.querySelectorAll('.reg-dot').forEach(d => {
+      const dn = parseInt(d.dataset.rdot);
+      d.classList.toggle('active', dn === n);
+    });
+    // Focus first input in step
+    const stepEl = regForm.querySelector(`.reg-step[data-rstep="${n}"]`);
+    const inp = stepEl?.querySelector('input:not([type="button"])');
+    if (inp) setTimeout(() => inp.focus(), 100);
+  }
+
+  // Next buttons (validate before moving)
+  qsa('.reg-next-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const next = parseInt(btn.dataset.next);
+      const cur = next - 1;
+      // Validate current step
+      if (cur === 1) {
+        const name = $('rg-displayname').value.trim();
+        if (!name) { $('reg-error-1').textContent = 'Введите ваше имя'; return; }
+        $('reg-error-1').textContent = '';
+      } else if (cur === 2) {
+        const login = $('rg-username').value.trim();
+        if (!login) { $('reg-error-2').textContent = 'Введите логин'; return; }
+        if (!/^[a-zA-Z0-9_]+$/.test(login)) { $('reg-error-2').textContent = 'Только латиница, цифры и _'; return; }
+        $('reg-error-2').textContent = '';
+      } else if (cur === 3) {
+        const pw = $('rg-password').value;
+        const pw2 = $('rg-password2').value;
+        if (pw.length < 4) { $('reg-error-3').textContent = 'Минимум 4 символа'; return; }
+        if (pw !== pw2) { $('reg-error-3').textContent = 'Пароли не совпадают'; return; }
+        $('reg-error-3').textContent = '';
+      }
+      regGoToStep(next);
+    });
+  });
+
+  // Back buttons
+  qsa('.reg-back-btn').forEach(btn => {
+    btn.addEventListener('click', () => regGoToStep(parseInt(btn.dataset.back)));
+  });
+
+  // Step 4: setup decision
+  on('reg-do-setup', 'click', async () => {
+    _regWantsSetup = true;
+    await doRegister();
+  });
+  on('reg-skip-setup', 'click', async () => {
+    _regWantsSetup = false;
+    await doRegister();
+  });
+
+  // Enter key moves to next step
+  ['rg-displayname', 'rg-username'].forEach(id => {
+    on(id, 'keydown', e => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        const regForm = $('register-form');
+        const activeStep = regForm?.querySelector('.reg-step.active');
+        const nextBtn = activeStep?.querySelector('.reg-next-btn');
+        if (nextBtn) nextBtn.click();
+      }
+    });
+  });
+  on('rg-password2', 'keydown', e => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const nextBtn = document.querySelector('.reg-step[data-rstep="3"] .reg-next-btn');
+      if (nextBtn) nextBtn.click();
+    }
+  });
+}
+
+async function doRegister() {
+  const errEl = $('reg-error-4');
+  if (errEl) errEl.textContent = '';
+  try {
+    const d = await API.post('/api/register', {
+      username: $('rg-username').value.trim(),
+      displayName: $('rg-displayname').value.trim(),
+      password: $('rg-password').value,
+    });
+    await onLogin(d, true);
+  } catch (err) {
+    if (errEl) errEl.textContent = err.message;
+  }
 }
 
 async function onLogin({ token, user }, isRegister = false) {
@@ -340,17 +425,15 @@ async function onLogin({ token, user }, isRegister = false) {
   const successText = $('success-text');
 
   if (isRegister) {
-    // Register: show "Готово!" first, then "Добро пожаловать!"
     successText.textContent = 'Готово!';
     overlay.classList.remove('hidden');
     await new Promise(r => setTimeout(r, 1400));
     successText.style.animation = 'none';
-    successText.offsetHeight; // reflow
+    successText.offsetHeight;
     successText.style.animation = 'textReveal .5s ease forwards';
     successText.textContent = 'Добро пожаловать!';
     await new Promise(r => setTimeout(r, 1200));
   } else {
-    // Login: show only "Добро пожаловать!"
     successText.textContent = 'Добро пожаловать!';
     overlay.classList.remove('hidden');
     await new Promise(r => setTimeout(r, 1600));
@@ -376,8 +459,13 @@ async function onLogin({ token, user }, isRegister = false) {
   initApp();
   subscribeToPush();
 
-  // Показать визард при первом запуске (после регистрации или входа)
-  showWelcomeWizard();
+  // Для регистрации: показать визард если пользователь выбрал "Да, настроить"
+  if (isRegister && _regWantsSetup) {
+    showWelcomeWizard(true); // принудительно, игнорируя localStorage
+  } else if (!isRegister) {
+    // Для входа: показать промпт "Провести настройку?"
+    showLoginSetupPrompt();
+  }
 
   requestAnimationFrame(() => {
     setTimeout(() => $('app').classList.remove('app-enter'), 800);
@@ -2670,34 +2758,26 @@ function urlBase64ToUint8Array(base64String) {
 }
 
 // ══════════════════════════════════════════════════════════
-// WELCOME WIZARD (первый запуск) — v2.7 rewrite
+// WELCOME WIZARD (полная настройка) — v2.8
 // ══════════════════════════════════════════════════════════
-function showWelcomeWizard() {
-  // v2.7: новый ключ, очищаем старые
-  try { localStorage.removeItem('sm_wizard_done'); } catch {}
-  try { localStorage.removeItem('sm_wizard_hidden'); } catch {}
-
-  const key = 'sm_wizard_v27';
-  if (localStorage.getItem(key) === 'hidden') return;
+function showWelcomeWizard(force = false) {
+  const key = 'sm_wizard_v28';
+  if (!force && localStorage.getItem(key) === 'hidden') return;
 
   const overlay = document.getElementById('welcome-wizard');
-  if (!overlay) { console.warn('Wizard: overlay not found'); return; }
+  if (!overlay) return;
 
-  // Show overlay
   overlay.style.display = '';
   overlay.classList.remove('hidden');
 
   let currentStep = 1;
-  const totalSteps = 3;
+  const totalSteps = 4;
   const steps = overlay.querySelectorAll('.wizard-step');
   const dots = overlay.querySelectorAll('.wizard-dot');
   const nextBtn = document.getElementById('wizard-next');
   const skipBtn = document.getElementById('wizard-skip');
 
-  if (!nextBtn || !skipBtn || steps.length === 0) {
-    console.warn('Wizard: missing elements');
-    return;
-  }
+  if (!nextBtn || !skipBtn || steps.length === 0) return;
 
   function goToStep(step) {
     currentStep = step;
@@ -2714,63 +2794,53 @@ function showWelcomeWizard() {
     nextBtn.textContent = step >= totalSteps ? 'Готово!' : 'Далее';
   }
 
-  // IMPORTANT: activate step 1 immediately
   goToStep(1);
 
-  // ── Step 2: Permission buttons ──
-  function bindPerm(btnId, statusId, streamFn) {
+  // ── Step 2: Theme cards ──
+  overlay.querySelectorAll('.wiz-theme-card').forEach(card => {
+    card.addEventListener('click', () => {
+      overlay.querySelectorAll('.wiz-theme-card').forEach(c => c.classList.remove('active'));
+      card.classList.add('active');
+      applyTheme(card.dataset.theme);
+    });
+  });
+
+  // ── Step 3: Permissions ──
+  function bindPerm(btnId, statusId, permFn) {
     const btn = document.getElementById(btnId);
     const st = document.getElementById(statusId);
     if (!btn || !st) return;
     btn.addEventListener('click', async () => {
       try {
-        const stream = await streamFn();
-        stream.getTracks().forEach(t => t.stop());
-        st.textContent = '✅';
-        st.style.color = 'var(--success)';
+        const ok = await permFn();
+        st.textContent = ok ? '✅' : '❌';
+        st.style.color = ok ? 'var(--success, #22c55e)' : 'var(--danger, #ef4444)';
       } catch {
         st.textContent = '❌';
-        st.style.color = 'var(--danger)';
-      }
-    });
-  }
-  bindPerm('wizard-mic-btn', 'wizard-mic-status',
-    () => navigator.mediaDevices.getUserMedia({ audio: true }));
-  bindPerm('wizard-cam-btn', 'wizard-cam-status',
-    () => navigator.mediaDevices.getUserMedia({ video: true }));
-
-  // Notifications
-  const notifBtn = document.getElementById('wizard-notif-btn');
-  const notifSt = document.getElementById('wizard-notif-status');
-  if (notifBtn && notifSt) {
-    notifBtn.addEventListener('click', async () => {
-      if ('Notification' in window) {
-        try {
-          const perm = await Notification.requestPermission();
-          notifSt.textContent = perm === 'granted' ? '✅' : '❌';
-          notifSt.style.color = perm === 'granted' ? 'var(--success)' : 'var(--danger)';
-          if (perm === 'granted') subscribeToPush();
-        } catch {
-          notifSt.textContent = '❌';
-          notifSt.style.color = 'var(--danger)';
-        }
+        st.style.color = 'var(--danger, #ef4444)';
       }
     });
   }
 
-  // ── Step 3: Theme selection ──
-  overlay.querySelectorAll('.wizard-theme-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      overlay.querySelectorAll('.wizard-theme-btn').forEach(b => {
-        b.classList.remove('active');
-        b.style.borderColor = 'var(--border)';
-        b.style.transform = '';
-      });
-      btn.classList.add('active');
-      btn.style.borderColor = 'var(--accent)';
-      btn.style.transform = 'scale(1.1)';
-      applyTheme(btn.dataset.theme);
-    });
+  // Notifications — request permission + subscribe to push
+  bindPerm('wizard-notif-btn', 'wizard-notif-status', async () => {
+    if (!('Notification' in window)) return false;
+    const perm = await Notification.requestPermission();
+    if (perm === 'granted') {
+      subscribeToPush();
+      return true;
+    }
+    return false;
+  });
+  bindPerm('wizard-mic-btn', 'wizard-mic-status', async () => {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    stream.getTracks().forEach(t => t.stop());
+    return true;
+  });
+  bindPerm('wizard-cam-btn', 'wizard-cam-status', async () => {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    stream.getTracks().forEach(t => t.stop());
+    return true;
   });
 
   // ── Next / Done ──
@@ -2782,31 +2852,79 @@ function showWelcomeWizard() {
     }
   });
 
-  // ── Skip ──
   skipBtn.addEventListener('click', finishWizard);
 
-  // ── Close on overlay tap ──
   overlay.addEventListener('click', (e) => {
     if (e.target === overlay) finishWizard();
   });
 
   function finishWizard() {
+    // Hints
     const hintsEl = document.getElementById('wizard-hints-toggle');
-    if (hintsEl && hintsEl.checked) {
+    if (hintsEl?.checked) {
       document.body.classList.add('hints-enabled');
       localStorage.setItem('sm_hints', 'true');
     }
-    const theme = overlay.querySelector('.wizard-theme-btn.active')?.dataset?.theme || 'light';
-    applyTheme(theme);
-    API.put('/api/me', { settings: { theme } }).catch(() => {});
+
+    // Theme
+    const activeTheme = overlay.querySelector('.wiz-theme-card.active')?.dataset?.theme || 'light';
+    applyTheme(activeTheme);
+
+    // Gather extra settings
+    const settings = { theme: activeTheme };
+    const soundEl = document.getElementById('wizard-sound-toggle');
+    const enterEl = document.getElementById('wizard-enter-toggle');
+    const compactEl = document.getElementById('wizard-compact-toggle');
+    const wpEl = document.getElementById('wizard-wallpaper-toggle');
+    if (soundEl) settings.soundEnabled = soundEl.checked;
+    if (enterEl) settings.sendByEnter = enterEl.checked;
+    if (compactEl) settings.compactMode = compactEl.checked;
+    if (wpEl) settings.chatWallpaper = wpEl.checked ? 'dots' : 'none';
+
+    API.put('/api/me', { settings }).catch(() => {});
 
     const dontShow = document.getElementById('wizard-dont-show');
-    if (dontShow && dontShow.checked) {
+    if (dontShow?.checked) {
       localStorage.setItem(key, 'hidden');
     }
     overlay.classList.add('hidden');
     overlay.style.display = 'none';
   }
+}
+
+// ══════════════════════════════════════════════════════════
+// LOGIN SETUP PROMPT (для входящих пользователей)
+// ══════════════════════════════════════════════════════════
+function showLoginSetupPrompt() {
+  const key = 'sm_login_setup_skip';
+  if (localStorage.getItem(key) === 'true') return;
+
+  const overlay = document.getElementById('login-setup-prompt');
+  if (!overlay) return;
+
+  overlay.style.display = '';
+  overlay.classList.remove('hidden');
+
+  const yesBtn = document.getElementById('login-setup-yes');
+  const noBtn = document.getElementById('login-setup-no');
+  const dontShow = document.getElementById('login-setup-dont-show');
+
+  function close() {
+    if (dontShow?.checked) {
+      localStorage.setItem(key, 'true');
+    }
+    overlay.classList.add('hidden');
+    overlay.style.display = 'none';
+  }
+
+  yesBtn?.addEventListener('click', () => {
+    close();
+    showWelcomeWizard(true);
+  });
+  noBtn?.addEventListener('click', close);
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) close();
+  });
 }
 
 // ══════════════════════════════════════════════════════════

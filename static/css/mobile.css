@@ -271,8 +271,17 @@
     border-radius: 50%;
     flex-shrink: 0;
     align-self: flex-end;
+    align-items: center;
+    justify-content: center;
+    background: var(--accent);
+    color: var(--text-on-accent, #fff);
+    box-shadow: 0 4px 15px var(--accent-glow, rgba(0,0,0,.15));
     animation: none !important;
     transition: transform .2s ease, background .2s ease;
+  }
+  .send-btn svg {
+    width: 20px;
+    height: 20px;
   }
   .send-btn:active {
     transform: scale(.85);
@@ -396,6 +405,43 @@
     font-size: 11px;
   }
   .theme-preview { width: 48px; height: 36px; }
+
+  /* ── Wizard / Setup modals — sheet style ── */
+  #welcome-wizard > .modal,
+  #login-setup-prompt > .modal {
+    max-width: 100% !important;
+    width: 100% !important;
+    height: auto !important;
+    max-height: 92vh;
+    max-height: 92dvh;
+    border-radius: 20px 20px 0 0 !important;
+    margin-top: auto;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  #welcome-wizard,
+  #login-setup-prompt {
+    align-items: flex-end !important;
+  }
+
+  /* Wizard theme grid on mobile */
+  .wizard-theme-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 8px !important;
+  }
+  .wiz-theme-swatch {
+    width: 38px !important;
+    height: 38px !important;
+  }
+  .wiz-theme-card {
+    font-size: 10px !important;
+    padding: 6px 2px !important;
+  }
+
+  /* Reg steps on mobile */
+  .reg-step-title {
+    font-size: 16px !important;
+  }
 
   /* ── FAB ── */
   .fab-new-chat {
