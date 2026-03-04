@@ -1,5 +1,5 @@
 /* =============================================================================
-   Shadow Mess v2.7 — Mobile Design
+   Shadow Mess v3.1 — Mobile Design
    Optimized for phones ≤680px, GPU-accelerated animations, premium feel
    ============================================================================= */
 
@@ -102,13 +102,8 @@
     padding: 12px 10px;
     min-height: 52px;
     gap: 12px;
-    animation: mobileSlideUp .3s ease both;
+    animation: none;
   }
-  .search-item:nth-child(1) { animation-delay: 0s; }
-  .search-item:nth-child(2) { animation-delay: .04s; }
-  .search-item:nth-child(3) { animation-delay: .08s; }
-  .search-item:nth-child(4) { animation-delay: .12s; }
-  .search-item:nth-child(5) { animation-delay: .16s; }
   .search-item-name { font-size: 15px; }
 
   /* ── Chat panel slides in ── */
@@ -178,7 +173,6 @@
   /* ── Messages ── */
   .message-row {
     max-width: 88%;
-    animation: mobileSlideUp .35s var(--ease-out-expo);
   }
   .message-bubble {
     padding: 10px 14px;
@@ -298,15 +292,16 @@
     display: none !important;
   }
 
-  /* ── Chat header ── */
+  /* ── Chat header — reduced blur for perf ── */
   .chat-header {
     padding: 6px 8px;
     gap: 4px;
     min-height: 54px;
     flex-shrink: 0;
     box-shadow: none;
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: var(--bg-header);
   }
   .chat-header-name {
     font-size: 15px;
@@ -443,16 +438,14 @@
     font-size: 16px !important;
   }
 
-  /* ── FAB ── */
+  /* ── FAB — no infinite animation on mobile (saves GPU) ── */
   .fab-new-chat {
     bottom: calc(16px + env(safe-area-inset-bottom, 0));
     right: 16px;
     width: 52px;
     height: 52px;
-    animation: mobileFabPulse 3s ease-in-out infinite;
-  }
-  .fab-new-chat:hover {
-    animation: none;
+    animation: none !important;
+    box-shadow: 0 4px 16px var(--accent-glow);
   }
 
   /* ── Toasts ── */
@@ -665,14 +658,15 @@
   }
 
   /* ═══════════════════════════════════════════
-     MODAL OVERLAY — simpler for perf
+     MODAL OVERLAY — reduced blur for perf
      ═══════════════════════════════════════════ */
   .modal-overlay {
-    backdrop-filter: blur(8px);
-    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    background: rgba(0,0,0,.55) !important;
   }
   .modal-overlay:not(.hidden) {
-    animation: mobileOverlayIn .25s ease;
+    animation: mobileOverlayIn .2s ease;
   }
 
   /* ═══════════════════════════════════════════
@@ -806,6 +800,7 @@
 .search-results {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
+  scroll-behavior: auto;
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -873,6 +868,127 @@
 @keyframes mobileOverlayIn {
   from { opacity: 0; }
   to   { opacity: 1; }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   MOBILE PERFORMANCE — kill expensive effects on phones
+   ═══════════════════════════════════════════════════════════ */
+@media (max-width: 680px) {
+  /* Kill all backdrop-filter globally on mobile — saves huge GPU cost */
+  .sidebar-header,
+  .side-menu,
+  .chat-header,
+  .message-input-wrap,
+  .wizard-overlay,
+  .paste-preview-overlay {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  /* Replace expensive 'transition: all' with specific GPU-friendly props */
+  .btn-primary,
+  .btn-secondary,
+  .btn-full {
+    transition: transform .15s ease, opacity .15s ease !important;
+  }
+  .icon-btn {
+    transition: background .15s ease, color .15s ease !important;
+  }
+  .side-menu-item {
+    transition: background .15s ease !important;
+  }
+  .chat-item {
+    transition: background .1s ease !important;
+  }
+
+  /* Disable chat-item ripple (width/height transitions = layout thrashing) */
+  .chat-item::after {
+    display: none !important;
+  }
+
+  /* Disable avatar hover animations (mobile doesn't need them) */
+  .avatar,
+  .chat-header-avatar,
+  .settings-avatar-area .avatar {
+    transition: none !important;
+  }
+  .avatar:hover,
+  .chat-header-avatar:hover,
+  .settings-avatar-area .avatar:hover {
+    transform: none !important;
+    box-shadow: none !important;
+  }
+
+  /* Disable sidebar-tab underline slide animation */
+  .sidebar-tab::before {
+    transition: none !important;
+  }
+
+  /* Disable desktop-only theme transitions */
+  body, .sidebar, .chat-panel, .chat-header, .message-bubble,
+  .auth-screen, .auth-card, .modal, .message-input-wrap {
+    transition: none !important;
+  }
+
+  /* Simplify modal overlay — no backdrop-filter animation */
+  .modal-overlay {
+    backdrop-filter: blur(4px) !important;
+    -webkit-backdrop-filter: blur(4px) !important;
+  }
+
+  /* Kill infinite animations */
+  .fab-new-chat,
+  .chat-item-badge {
+    animation: none !important;
+  }
+
+  /* Typing dots — simpler */
+  .typing-dots span {
+    animation-duration: 1s;
+  }
+
+  /* Send button — no pop animation */
+  .send-btn:not(.hidden) {
+    animation: none !important;
+  }
+
+  /* Disable search item stagger */
+  .search-item {
+    animation: none !important;
+  }
+
+  /* Content-visibility for off-screen performance */
+  .chat-item {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 64px;
+  }
+  .message-row {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 60px;
+  }
+
+  /* Remove decorative pseudo-elements that trigger paint */
+  .btn-primary::before {
+    display: none !important;
+  }
+
+  /* Disable overlayFadeIn backdrop-filter animation */
+  @keyframes overlayFadeIn {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+
+  /* Disable appEnterFancy with filter: blur */
+  @keyframes appEnterFancy {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+
+  /* Remove successPulse filter animation */
+  .success-circle svg {
+    filter: none !important;
+    animation: none !important;
+  }
 }
 
 /* ═══════════════════════════════════════════════════════════

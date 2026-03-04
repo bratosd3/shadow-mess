@@ -28,6 +28,29 @@ const S = {
 };
 window.State = S; // expose for calls.js
 
+// ── PWA Install prompt ────────────────────────────────────
+let _deferredInstallPrompt = null;
+let _pwaInstalled = window.matchMedia('(display-mode: standalone)').matches ||
+                    navigator.standalone === true;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  _deferredInstallPrompt = e;
+  // Show install option in settings
+  const navBtn = document.getElementById('nav-install');
+  const secEl  = document.getElementById('section-install');
+  if (navBtn) navBtn.style.display = '';
+  if (secEl)  secEl.style.display  = '';
+});
+
+window.addEventListener('appinstalled', () => {
+  _deferredInstallPrompt = null;
+  _pwaInstalled = true;
+  const navBtn = document.getElementById('nav-install');
+  if (navBtn) navBtn.style.display = 'none';
+  if (typeof showToast === 'function') showToast('Приложение установлено! 👻', 'success');
+});
+
 // ── API helper ────────────────────────────────────────────
 const API = {
   async req(method, path, body, fd) {
@@ -2278,6 +2301,39 @@ function initSettings() {
       loadSessions();
     } catch (e) { showToast(e.message || 'Ошибка', 'error'); }
   });
+
+  // ── PWA Install button ──────────────────────────────
+  on('pwa-install-btn', 'click', async () => {
+    const hintEl = $('pwa-install-hint');
+    if (_deferredInstallPrompt) {
+      // Chrome / Edge / Samsung — native prompt
+      _deferredInstallPrompt.prompt();
+      const { outcome } = await _deferredInstallPrompt.userChoice;
+      if (outcome === 'accepted') {
+        showToast('Устанавливаем... 👻', 'success');
+      }
+      _deferredInstallPrompt = null;
+    } else if (_pwaInstalled) {
+      showToast('Приложение уже установлено!', 'success');
+    } else {
+      // Fallback — show manual instructions
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+      const isAndroid = /Android/i.test(navigator.userAgent);
+      const isYandex = /YaBrowser/i.test(navigator.userAgent);
+      if (hintEl) {
+        if (isIOS) {
+          hintEl.innerHTML = '📱 <b>iOS:</b> Нажмите <b>⎙ (Поделиться)</b> внизу экрана → <b>«На экран Домой»</b>';
+        } else if (isYandex) {
+          hintEl.innerHTML = '🌐 <b>Яндекс Браузер:</b> Нажмите <b>⋮</b> (три точки) → <b>«Добавить на Домашний экран»</b>';
+        } else if (isAndroid) {
+          hintEl.innerHTML = '📱 <b>Android:</b> Нажмите <b>⋮</b> (меню браузера) → <b>«Установить приложение»</b> или <b>«Добавить на гл. экран»</b>';
+        } else {
+          hintEl.innerHTML = '💻 <b>ПК:</b> Нажмите <b>⊕</b> в адресной строке браузера или <b>⋮ → Установить приложение</b>';
+        }
+        hintEl.style.display = 'block';
+      }
+    }
+  });
 }
 
 function openSettings() {
@@ -2357,6 +2413,17 @@ function openSettings() {
   // Security
   $('sec-e2e').checked  = !!u.settings?.secE2E;
   $('sec-2fa').checked  = !!u.settings?.sec2FA;
+
+  // PWA Install — show section if installable or iOS (always show manual instructions)
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  const showInstall = _deferredInstallPrompt || (!_pwaInstalled && (isIOS || 'serviceWorker' in navigator));
+  const navInstall = $('nav-install');
+  const secInstall = $('section-install');
+  if (navInstall) navInstall.style.display = showInstall ? '' : 'none';
+  if (secInstall) secInstall.style.display = showInstall ? '' : 'none';
+  // Reset hint
+  const hintEl = $('pwa-install-hint');
+  if (hintEl) hintEl.style.display = 'none';
 
   $('settings-modal').classList.remove('hidden');
 

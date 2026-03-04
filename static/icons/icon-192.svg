@@ -1,8 +1,35 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192">
-  <rect width="192" height="192" rx="40" fill="#000"/>
-  <path d="M142 100a2 2 0 0 1-2 2H74l-24 24V60a2 2 0 0 1 2-2h88a2 2 0 0 1 2 2z" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="82" cy="85" r="4" fill="#fff"/>
-  <circle cx="96" cy="85" r="4" fill="#fff"/>
-  <circle cx="110" cy="85" r="4" fill="#fff"/>
-  <text x="96" y="155" text-anchor="middle" fill="#fff" font-family="Arial,sans-serif" font-weight="800" font-size="20">SHADOW</text>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1a1a2e"/>
+      <stop offset="100%" stop-color="#0f0f1a"/>
+    </linearGradient>
+    <linearGradient id="ghost" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#8b9cf7"/>
+      <stop offset="100%" stop-color="#6366f1"/>
+    </linearGradient>
+    <linearGradient id="glow" x1="0.5" y1="0" x2="0.5" y2="1">
+      <stop offset="0%" stop-color="#818cf8" stop-opacity=".4"/>
+      <stop offset="100%" stop-color="#6366f1" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <!-- Background -->
+  <rect width="192" height="192" rx="42" fill="url(#bg)"/>
+  <!-- Subtle glow behind ghost -->
+  <ellipse cx="96" cy="105" rx="50" ry="55" fill="url(#glow)"/>
+  <!-- Ghost body -->
+  <path d="M96 36C70.6 36 50 56.6 50 82v42c0 0 0 8 10 8s10-8 10-8 0 8 10 8 10-8 10-8 0 8 12 8c12 0 12-8 12-8s0 8 10 8 10-8 10-8 0 8 10 8 10-8 10-8V82c0-25.4-20.6-46-46-46z" fill="url(#ghost)" opacity=".95"/>
+  <!-- Eyes -->
+  <ellipse cx="80" cy="88" rx="10" ry="12" fill="#1a1a2e"/>
+  <ellipse cx="112" cy="88" rx="10" ry="12" fill="#1a1a2e"/>
+  <!-- Eye shine -->
+  <ellipse cx="83" cy="84" rx="4" ry="4.5" fill="#c7d2fe" opacity=".8"/>
+  <ellipse cx="115" cy="84" rx="4" ry="4.5" fill="#c7d2fe" opacity=".8"/>
+  <!-- Cute mouth -->
+  <ellipse cx="96" cy="104" rx="6" ry="4" fill="#1a1a2e" opacity=".6"/>
+  <!-- Chat bubble accent -->
+  <path d="M130 52h18a6 6 0 0 1 6 6v14a6 6 0 0 1-6 6h-6l-6 6v-6h-6a6 6 0 0 1-6-6V58a6 6 0 0 1 6-6z" fill="#818cf8" opacity=".7"/>
+  <circle cx="135" cy="65" r="2" fill="#e0e7ff"/>
+  <circle cx="142" cy="65" r="2" fill="#e0e7ff"/>
+  <circle cx="149" cy="65" r="2" fill="#e0e7ff"/>
 </svg>

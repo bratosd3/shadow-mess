@@ -1,8 +1,35 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="100" fill="#000"/>
-  <path d="M370 260a4 4 0 0 1-4 4H186l-60 60V148a4 4 0 0 1 4-4h236a4 4 0 0 1 4 4z" fill="none" stroke="#fff" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="210" cy="215" r="10" fill="#fff"/>
-  <circle cx="248" cy="215" r="10" fill="#fff"/>
-  <circle cx="286" cy="215" r="10" fill="#fff"/>
-  <text x="256" y="405" text-anchor="middle" fill="#fff" font-family="Arial,sans-serif" font-weight="800" font-size="52">SHADOW</text>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1a1a2e"/>
+      <stop offset="100%" stop-color="#0f0f1a"/>
+    </linearGradient>
+    <linearGradient id="ghost" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#8b9cf7"/>
+      <stop offset="100%" stop-color="#6366f1"/>
+    </linearGradient>
+    <linearGradient id="glow" x1="0.5" y1="0" x2="0.5" y2="1">
+      <stop offset="0%" stop-color="#818cf8" stop-opacity=".35"/>
+      <stop offset="100%" stop-color="#6366f1" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+  <!-- Background -->
+  <rect width="512" height="512" rx="110" fill="url(#bg)"/>
+  <!-- Glow -->
+  <ellipse cx="256" cy="280" rx="135" ry="150" fill="url(#glow)"/>
+  <!-- Ghost body -->
+  <path d="M256 96c-67.7 0-122.7 55-122.7 122.7v112c0 0 0 21.3 26.7 21.3s26.7-21.3 26.7-21.3 0 21.3 26.6 21.3 26.7-21.3 26.7-21.3 0 21.3 32 21.3c32 0 32-21.3 32-21.3s0 21.3 26.7 21.3 26.6-21.3 26.6-21.3 0 21.3 26.7 21.3 26.7-21.3 26.7-21.3V218.7C378.7 151 323.7 96 256 96z" fill="url(#ghost)" opacity=".95"/>
+  <!-- Eyes -->
+  <ellipse cx="213" cy="235" rx="27" ry="32" fill="#1a1a2e"/>
+  <ellipse cx="299" cy="235" rx="27" ry="32" fill="#1a1a2e"/>
+  <!-- Eye shine -->
+  <ellipse cx="221" cy="224" rx="10.5" ry="12" fill="#c7d2fe" opacity=".8"/>
+  <ellipse cx="307" cy="224" rx="10.5" ry="12" fill="#c7d2fe" opacity=".8"/>
+  <!-- Cute mouth -->
+  <ellipse cx="256" cy="278" rx="16" ry="10.5" fill="#1a1a2e" opacity=".6"/>
+  <!-- Chat bubble -->
+  <path d="M346 138h48a16 16 0 0 1 16 16v38a16 16 0 0 1-16 16h-16l-16 16v-16h-16a16 16 0 0 1-16-16v-38a16 16 0 0 1 16-16z" fill="#818cf8" opacity=".7"/>
+  <circle cx="360" cy="173" r="5.5" fill="#e0e7ff"/>
+  <circle cx="378" cy="173" r="5.5" fill="#e0e7ff"/>
+  <circle cx="396" cy="173" r="5.5" fill="#e0e7ff"/>
 </svg>
