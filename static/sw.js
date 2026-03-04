@@ -2,7 +2,7 @@
 // Shadow Mess — Service Worker (PWA + Push Notifications + Caching)
 // =============================================================================
 
-const CACHE_NAME = 'shadow-mess-v11';
+const CACHE_NAME = 'shadow-mess-v12';
 const ASSETS = [
   '/',
   '/static/icons/icon-192.png',
@@ -78,9 +78,7 @@ self.addEventListener('push', event => {
       : [{ action: 'open', title: 'Открыть' }, { action: 'close', title: 'Закрыть' }],
     tag: data.tag || 'shadow-mess-notification',
     renotify: true,
-    requireInteraction: isCall,
-    // Priority / urgency hints for heads-up display
-    urgency: isCall ? 'high' : 'normal',
+    requireInteraction: true,
     silent: false
   };
 

@@ -274,10 +274,7 @@ async function sendPushToUser(userId, payload) {
   const body = JSON.stringify(payload);
   const pushOptions = {
     urgency: 'high',
-    TTL: 60,
-    headers: {
-      Urgency: 'high'
-    }
+    TTL: 86400
   };
   for (const sub of subs) {
     try {
@@ -320,6 +317,9 @@ app.get('/manifest.json', (req, res) => res.sendFile(path.join(STATIC_DIR, 'mani
 app.get('/sw.js', (req, res) => {
   res.setHeader('Service-Worker-Allowed', '/');
   res.setHeader('Content-Type', 'application/javascript');
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
   res.sendFile(path.join(STATIC_DIR, 'sw.js'));
 });
 

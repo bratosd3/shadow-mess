@@ -1256,37 +1256,64 @@ function initInput() {
   on('file-input',   'change', uploadFile);
   on('reply-cancel', 'click', hideReplyPreview);
 
-  // Voice/Video record button — tap to switch mode, tap again to record
-  let _recordTapTimer = null;
-  let _recordTapCount = 0;
-  on('voice-record-btn', 'click', () => {
-    // If already recording, stop recording
-    if (S.isRecording) {
-      toggleVoiceRecord();
-      return;
-    }
-    if (_videoRecorder && _videoRecorder.state === 'recording') {
-      toggleVideoMsgRecord();
-      return;
-    }
-    _recordTapCount++;
-    if (_recordTapCount === 1) {
-      // First tap — switch mode, wait for possible second tap
-      switchRecordMode();
-      _recordTapTimer = setTimeout(() => {
-        _recordTapCount = 0;
+  // Voice/Video record button — tap to switch mode, long press to start recording
+  let _holdTimer = null;
+  let _isHolding = false;
+  const recBtn = $('voice-record-btn');
+  if (recBtn) {
+    // Touch events (mobile)
+    recBtn.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      if (S.isRecording || (_videoRecorder && _videoRecorder.state === 'recording')) return;
+      _isHolding = false;
+      _holdTimer = setTimeout(() => {
+        _isHolding = true;
+        // Long press — start recording
+        if (_recordMode === 'video') toggleVideoMsgRecord();
+        else toggleVoiceRecord();
       }, 400);
-    } else if (_recordTapCount === 2) {
-      // Double tap — start recording in current mode
-      clearTimeout(_recordTapTimer);
-      _recordTapCount = 0;
-      if (_recordMode === 'video') {
-        toggleVideoMsgRecord();
-      } else {
-        toggleVoiceRecord();
+    }, { passive: false });
+
+    recBtn.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      clearTimeout(_holdTimer);
+      if (S.isRecording) { toggleVoiceRecord(); return; }
+      if (_videoRecorder && _videoRecorder.state === 'recording') { toggleVideoMsgRecord(); return; }
+      if (!_isHolding) {
+        // Short tap — switch mode
+        switchRecordMode();
       }
-    }
-  });
+      _isHolding = false;
+    });
+
+    recBtn.addEventListener('touchcancel', () => {
+      clearTimeout(_holdTimer);
+      _isHolding = false;
+    });
+
+    // Mouse events (desktop fallback)
+    recBtn.addEventListener('mousedown', () => {
+      if (S.isRecording || (_videoRecorder && _videoRecorder.state === 'recording')) return;
+      _isHolding = false;
+      _holdTimer = setTimeout(() => {
+        _isHolding = true;
+        if (_recordMode === 'video') toggleVideoMsgRecord();
+        else toggleVoiceRecord();
+      }, 400);
+    });
+
+    recBtn.addEventListener('mouseup', () => {
+      clearTimeout(_holdTimer);
+      if (S.isRecording) { toggleVoiceRecord(); return; }
+      if (_videoRecorder && _videoRecorder.state === 'recording') { toggleVideoMsgRecord(); return; }
+      if (!_isHolding) switchRecordMode();
+      _isHolding = false;
+    });
+
+    recBtn.addEventListener('mouseleave', () => {
+      clearTimeout(_holdTimer);
+    });
+  }
 
   // Video message record (desktop fallback)
   on('video-msg-btn', 'click', toggleVideoMsgRecord);
@@ -2120,7 +2147,7 @@ async function createChannel() {
 // CHAT INFO MODAL
 // ══════════════════════════════════════════════════════════
 function initChatInfo() {
-  on('chat-info-btn',        'click', openChatInfo);
+  on('chat-info-btn',        'click', openChatManagement);
   on('chat-header-info-btn', 'click', openChatInfo);
 
   on('leave-chat-btn', 'click', async () => {
@@ -2187,6 +2214,32 @@ function openChatInfo() {
   cont.appendChild(av);
   cont.innerHTML += `<h3>${escHtml(chat.displayName || '')}</h3>`;
   if (chat.description) cont.innerHTML += `<p>${escHtml(chat.description)}</p>`;
+
+  if (chat.type !== 'private') {
+    $('chat-info-members-section').classList.remove('hidden');
+    const ml = $('chat-info-members'); ml.innerHTML = '';
+    (chat.membersInfo || []).forEach(m => {
+      ml.appendChild(buildUserResultItem(m, () => openUserProfile(m.id)));
+    });
+  } else {
+    $('chat-info-members-section').classList.add('hidden');
+  }
+
+  $('chat-info-modal').classList.remove('hidden');
+}
+
+// 3-dots menu — always show chat management options (even for private chats)
+function openChatManagement() {
+  const chat = S.activeChat; if (!chat) return;
+
+  $('chat-info-title').textContent = 'Управление чатом';
+  const cont = $('chat-info-content'); cont.innerHTML = '';
+
+  const av = document.createElement('div'); av.className = 'avatar avatar-xxl';
+  renderAvatar(av, { displayName: chat.displayName, avatar: chat.displayAvatar, avatarColor: chat.displayAvatarColor });
+  av.style.margin = '0 auto 8px';
+  cont.appendChild(av);
+  cont.innerHTML += `<h3>${escHtml(chat.displayName || '')}</h3>`;
 
   if (chat.type !== 'private') {
     $('chat-info-members-section').classList.remove('hidden');
