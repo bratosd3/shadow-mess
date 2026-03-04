@@ -723,6 +723,10 @@ async function openChat(chatId) {
   // Header
   const headerAv = $('chat-header-avatar');
   renderAvatar(headerAv, { displayName: chat.displayName, avatar: chat.displayAvatar, avatarColor: chat.displayAvatarColor, online: chat.online });
+  headerAv.onclick = () => {
+    if (chat.type === 'private') { const oid = chat.members?.find(id => id !== S.user?.id); if (oid) openUserProfile(oid); }
+    else openChatInfo();
+  };
   $('chat-header-name').textContent = chat.displayName || '';
   updateChatStatus(chat);
 
@@ -811,6 +815,8 @@ function buildMsgEl(msg) {
     const av = document.createElement('div');
     renderAvatar(av, { displayName: msg.senderName, avatar: msg.senderAvatar, avatarColor: msg.senderAvatarColor }, 'avatar-sm');
     av.className = 'message-avatar avatar avatar-sm';
+    av.style.cursor = 'pointer';
+    av.addEventListener('click', e => { e.stopPropagation(); if (msg.sender) openUserProfile(msg.sender); });
     row.appendChild(av);
   }
 
@@ -822,6 +828,8 @@ function buildMsgEl(msg) {
     const sn = document.createElement('div');
     sn.className = 'message-sender';
     sn.textContent = msg.senderName || '';
+    sn.style.cursor = 'pointer';
+    sn.addEventListener('click', e => { e.stopPropagation(); if (msg.sender) openUserProfile(msg.sender); });
     bubble.appendChild(sn);
   }
 
@@ -2092,6 +2100,13 @@ function initChatInfo() {
 
 function openChatInfo() {
   const chat = S.activeChat; if (!chat) return;
+
+  // Private chat → open user profile directly
+  if (chat.type === 'private') {
+    const otherId = chat.members?.find(id => id !== S.user?.id);
+    if (otherId) { openUserProfile(otherId); return; }
+  }
+
   $('chat-info-title').textContent = chat.type === 'group' ? 'Группа' : chat.type === 'channel' ? 'Канал' : 'Информация';
   const cont = $('chat-info-content'); cont.innerHTML = '';
 
@@ -2102,21 +2117,141 @@ function openChatInfo() {
   cont.appendChild(av);
   cont.innerHTML += `<h3>${escHtml(chat.displayName || '')}</h3>`;
   if (chat.description) cont.innerHTML += `<p>${escHtml(chat.description)}</p>`;
-  if (chat.type === 'private') {
-    cont.innerHTML += `<p style="color:var(--success)">${chat.online ? '● в сети' : 'не в сети'}</p>`;
-  }
 
   if (chat.type !== 'private') {
     $('chat-info-members-section').classList.remove('hidden');
     const ml = $('chat-info-members'); ml.innerHTML = '';
     (chat.membersInfo || []).forEach(m => {
-      ml.appendChild(buildUserResultItem(m, () => {}));
+      ml.appendChild(buildUserResultItem(m, () => openUserProfile(m.id)));
     });
   } else {
     $('chat-info-members-section').classList.add('hidden');
   }
 
   $('chat-info-modal').classList.remove('hidden');
+}
+
+// ══════════════════════════════════════════════════════════
+// USER PROFILE MODAL
+// ══════════════════════════════════════════════════════════
+async function openUserProfile(userId) {
+  if (!userId || userId === S.user?.id) return;
+  const cont = $('user-profile-content');
+  const acts = $('user-profile-actions');
+  cont.innerHTML = '<p style="color:var(--text-muted)">Загрузка...</p>';
+  acts.innerHTML = '';
+  $('user-profile-modal').classList.remove('hidden');
+
+  try {
+    const user = await API.get(`/api/users/${userId}`);
+    cont.innerHTML = '';
+
+    // Avatar
+    const av = document.createElement('div');
+    renderAvatar(av, user, 'avatar-xxl');
+    av.style.margin = '0 auto 12px';
+    cont.appendChild(av);
+
+    // Name
+    const nameEl = document.createElement('h3');
+    nameEl.style.cssText = 'font-size:20px;font-weight:700;margin-bottom:4px';
+    nameEl.textContent = user.displayName || '';
+    cont.appendChild(nameEl);
+
+    // Username
+    if (user.username) {
+      const unEl = document.createElement('div');
+      unEl.style.cssText = 'font-size:14px;color:var(--text-secondary);margin-bottom:4px';
+      unEl.textContent = '@' + user.username;
+      cont.appendChild(unEl);
+    }
+
+    // Full name
+    const fullName = [user.firstName, user.lastName].filter(Boolean).join(' ');
+    if (fullName && fullName !== user.displayName) {
+      const fnEl = document.createElement('div');
+      fnEl.style.cssText = 'font-size:13px;color:var(--text-secondary);margin-bottom:4px';
+      fnEl.textContent = fullName;
+      cont.appendChild(fnEl);
+    }
+
+    // Online status
+    const statusEl = document.createElement('div');
+    statusEl.style.cssText = 'font-size:13px;margin-bottom:8px';
+    if (user.online) {
+      statusEl.style.color = 'var(--success)';
+      statusEl.textContent = '● в сети';
+    } else if (user.lastSeen) {
+      statusEl.style.color = 'var(--text-muted)';
+      const d = new Date(user.lastSeen);
+      const now = new Date();
+      const dateStr = d.toDateString() === now.toDateString() ? 'сегодня' : d.toLocaleDateString('ru', { day:'numeric', month:'short' });
+      statusEl.textContent = `был(а) ${dateStr} в ${d.toLocaleTimeString('ru', { hour:'2-digit', minute:'2-digit' })}`;
+    } else {
+      statusEl.style.color = 'var(--text-muted)';
+      statusEl.textContent = 'не в сети';
+    }
+    cont.appendChild(statusEl);
+
+    // Bio
+    if (user.bio) {
+      const bioEl = document.createElement('div');
+      bioEl.style.cssText = 'font-size:13px;color:var(--text-primary);line-height:1.5;padding:10px 16px;background:var(--bg-hover);border-radius:var(--radius-md);text-align:left;margin-top:4px;word-break:break-word';
+      bioEl.textContent = user.bio;
+      cont.appendChild(bioEl);
+    }
+
+    // Actions
+    acts.innerHTML = '';
+
+    // Write message button
+    const msgBtn = document.createElement('button');
+    msgBtn.className = 'btn-primary btn-full';
+    msgBtn.textContent = 'Написать сообщение';
+    msgBtn.addEventListener('click', async () => {
+      $('user-profile-modal').classList.add('hidden');
+      $('chat-info-modal').classList.add('hidden');
+      // Find existing private chat or create one
+      const existing = S.chats.find(c => c.type === 'private' && c.members?.includes(userId));
+      if (existing) { openChat(existing.id); return; }
+      try {
+        const chat = await API.post('/api/chats', { userId });
+        await loadChats(); openChat(chat.id);
+      } catch (e) { showToast(e.message, 'error'); }
+    });
+    acts.appendChild(msgBtn);
+
+    // Call buttons
+    const callRow = document.createElement('div');
+    callRow.style.cssText = 'display:flex;gap:8px';
+    const audioBtn = document.createElement('button');
+    audioBtn.className = 'btn-secondary';
+    audioBtn.style.flex = '1';
+    audioBtn.textContent = '📞 Позвонить';
+    audioBtn.addEventListener('click', async () => {
+      $('user-profile-modal').classList.add('hidden');
+      $('chat-info-modal').classList.add('hidden');
+      const existing = S.chats.find(c => c.type === 'private' && c.members?.includes(userId));
+      if (existing) { openChat(existing.id); setTimeout(() => $('call-audio-btn')?.click(), 300); }
+    });
+    const videoBtn = document.createElement('button');
+    videoBtn.className = 'btn-secondary';
+    videoBtn.style.flex = '1';
+    videoBtn.textContent = '📹 Видео';
+    videoBtn.addEventListener('click', async () => {
+      $('user-profile-modal').classList.add('hidden');
+      $('chat-info-modal').classList.add('hidden');
+      const existing = S.chats.find(c => c.type === 'private' && c.members?.includes(userId));
+      if (existing) { openChat(existing.id); setTimeout(() => $('call-video-btn')?.click(), 300); }
+    });
+    callRow.appendChild(audioBtn);
+    callRow.appendChild(videoBtn);
+    acts.appendChild(callRow);
+
+  } catch (e) {
+    cont.innerHTML = `<p style="color:var(--danger)">Ошибка загрузки профиля</p>`;
+    console.error('[openUserProfile]', e);
+  }
 }
 
 // ══════════════════════════════════════════════════════════
@@ -2526,6 +2661,7 @@ async function loadSessions() {
 function initSideMenu() {
   on('menu-btn', 'click', e => { e.stopPropagation(); $('side-menu').classList.toggle('hidden'); });
   on('menu-logout',     'click', logout);
+  on('menu-update',     'click', () => { $('side-menu').classList.add('hidden'); location.reload(); });
   on('menu-contacts',   'click', () => { $('side-menu').classList.add('hidden'); $('new-chat-btn').click(); });
   on('menu-favourites', 'click', () => {
     $('side-menu').classList.add('hidden');

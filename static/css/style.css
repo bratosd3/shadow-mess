@@ -1325,7 +1325,8 @@ body:not([data-theme="light"]) .pw-toggle:hover { color: var(--accent); }
   50% { outline-color: transparent; }
 }
 
-.message-sender { font-size: 12px; font-weight: 700; color: var(--accent); margin-bottom: 3px; }
+.message-sender { font-size: 12px; font-weight: 700; color: var(--accent); margin-bottom: 3px; cursor: pointer; }
+.message-sender:hover { text-decoration: underline; }
 
 .message-forward-label {
   font-size: 11px; color: var(--text-secondary); font-style: italic;
