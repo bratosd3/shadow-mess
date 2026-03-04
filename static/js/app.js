@@ -27,6 +27,7 @@ const S = {
   favourites: [],
 };
 window.State = S; // expose for calls.js
+const isMobile = window.innerWidth <= 680 || ('ontouchstart' in window);
 
 // ── PWA Install prompt ────────────────────────────────────
 let _deferredInstallPrompt = null;
@@ -858,21 +859,63 @@ function buildMsgEl(msg) {
     mediaWrap.appendChild(actions);
     bubble.appendChild(mediaWrap);
   } else if (msg.type === 'video' && msg.fileUrl) {
-    const mediaWrap = document.createElement('div');
-    mediaWrap.className = 'message-media-wrap message-video-wrap';
-    const video = document.createElement('video');
-    video.className = 'message-video';
-    video.src = msg.fileUrl;
-    video.preload = 'metadata';
-    video.playsInline = true;
-    video.setAttribute('playsinline', '');
-    video.controls = true;
-    mediaWrap.appendChild(video);
-    const actions = document.createElement('div');
-    actions.className = 'media-actions';
-    actions.innerHTML = `<a class="media-action-btn media-download-btn" href="${escHtml(msg.fileUrl)}" download="${escHtml(msg.fileName || 'video')}" title="Скачать" onclick="event.stopPropagation()">⬇</a>`;
-    mediaWrap.appendChild(actions);
-    bubble.appendChild(mediaWrap);
+    // Check if this is a video message (short, small file) → show as circle
+    const isVideoMsg = (msg.fileName || '').startsWith('video_') || (msg.duration && msg.duration <= 60);
+    if (isVideoMsg) {
+      // Circular video message (like Telegram)
+      const vmWrap = document.createElement('div');
+      vmWrap.className = 'video-msg-bubble';
+      const video = document.createElement('video');
+      video.className = 'video-msg-circle';
+      video.src = msg.fileUrl;
+      video.preload = 'metadata';
+      video.playsInline = true;
+      video.setAttribute('playsinline', '');
+      video.muted = true;
+      video.loop = true;
+      // Play/pause on click
+      const playOverlay = document.createElement('div');
+      playOverlay.className = 'video-msg-play-overlay';
+      playOverlay.innerHTML = '▶';
+      vmWrap.addEventListener('click', () => {
+        if (video.paused) {
+          video.muted = false;
+          video.play();
+          playOverlay.style.opacity = '0';
+        } else {
+          video.pause();
+          video.muted = true;
+          playOverlay.style.opacity = '1';
+        }
+      });
+      video.addEventListener('ended', () => { playOverlay.style.opacity = '1'; });
+      if (msg.duration) {
+        const dur = document.createElement('div');
+        dur.className = 'video-msg-duration';
+        dur.textContent = msg.duration + 'с';
+        vmWrap.appendChild(dur);
+      }
+      vmWrap.appendChild(video);
+      vmWrap.appendChild(playOverlay);
+      bubble.appendChild(vmWrap);
+    } else {
+      // Regular video file
+      const mediaWrap = document.createElement('div');
+      mediaWrap.className = 'message-media-wrap message-video-wrap';
+      const video = document.createElement('video');
+      video.className = 'message-video';
+      video.src = msg.fileUrl;
+      video.preload = 'metadata';
+      video.playsInline = true;
+      video.setAttribute('playsinline', '');
+      video.controls = true;
+      mediaWrap.appendChild(video);
+      const actions = document.createElement('div');
+      actions.className = 'media-actions';
+      actions.innerHTML = `<a class="media-action-btn media-download-btn" href="${escHtml(msg.fileUrl)}" download="${escHtml(msg.fileName || 'video')}" title="Скачать" onclick="event.stopPropagation()">⬇</a>`;
+      mediaWrap.appendChild(actions);
+      bubble.appendChild(mediaWrap);
+    }
   } else if (msg.type === 'file' && msg.fileUrl) {
     const a = document.createElement('a');
     a.className = 'message-file'; a.href = msg.fileUrl; a.target = '_blank'; a.download = msg.fileName || '';
@@ -1415,6 +1458,7 @@ let _videoStream = null;
 let _videoRecStart = null;
 let _videoTimerInt = null;
 let _videoPreviewOverlay = null;
+let _videoCancelled = false;
 
 async function toggleVideoMsgRecord() {
   if (_videoRecorder && _videoRecorder.state === 'recording') {
@@ -1433,13 +1477,17 @@ async function toggleVideoMsgRecord() {
     });
 
     // Show preview overlay
+    _videoCancelled = false;
     _videoPreviewOverlay = document.createElement('div');
     _videoPreviewOverlay.className = 'video-msg-preview-overlay';
     _videoPreviewOverlay.innerHTML = `
       <div class="video-msg-preview-wrap">
         <video class="video-msg-preview" autoplay playsinline muted></video>
         <div class="video-msg-timer">0с</div>
-        <button class="video-msg-stop-btn">⏹ Остановить</button>
+        <div class="video-msg-btns">
+          <button class="video-msg-cancel-btn">✕ Отмена</button>
+          <button class="video-msg-stop-btn">⏹ Отправить</button>
+        </div>
       </div>
     `;
     document.body.appendChild(_videoPreviewOverlay);
@@ -1449,6 +1497,15 @@ async function toggleVideoMsgRecord() {
 
     const stopBtn = _videoPreviewOverlay.querySelector('.video-msg-stop-btn');
     stopBtn.addEventListener('click', () => {
+      _videoCancelled = false;
+      if (_videoRecorder && _videoRecorder.state === 'recording') {
+        _videoRecorder.stop();
+      }
+    });
+
+    const cancelBtn = _videoPreviewOverlay.querySelector('.video-msg-cancel-btn');
+    cancelBtn.addEventListener('click', () => {
+      _videoCancelled = true;
       if (_videoRecorder && _videoRecorder.state === 'recording') {
         _videoRecorder.stop();
       }
@@ -1496,6 +1553,15 @@ async function sendVideoMessage() {
   }
   $('video-msg-btn')?.classList.remove('recording');
   $('video-msg-btn').title = 'Видеосообщение';
+
+  // Check if cancelled
+  if (_videoCancelled) {
+    _videoChunks = [];
+    _videoRecStart = null;
+    _videoCancelled = false;
+    showToast('Видеосообщение отменено', 'info');
+    return;
+  }
 
   if (!_videoChunks.length || !S.activeChat) return;
   const mimeType = _videoChunks[0].type || 'video/webm';

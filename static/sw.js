@@ -2,13 +2,9 @@
 // Shadow Mess — Service Worker (PWA + Push Notifications + Caching)
 // =============================================================================
 
-const CACHE_NAME = 'shadow-mess-v6';
+const CACHE_NAME = 'shadow-mess-v7';
 const ASSETS = [
   '/',
-  '/static/css/style.css',
-  '/static/css/mobile.css',
-  '/static/js/app.js',
-  '/static/js/calls.js',
   '/static/icons/icon-192.svg',
   '/static/icons/icon-512.svg',
   '/manifest.json'
@@ -32,30 +28,27 @@ self.addEventListener('activate', event => {
   self.clients.claim();
 });
 
-// ── Fetch: network-first for API, cache-first for assets ──
+// ── Fetch: network-first for everything (fresh content), cache fallback offline ──
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
 
-  // Skip non-GET and socket.io
+  // Skip non-GET, socket.io, API
   if (event.request.method !== 'GET') return;
   if (url.pathname.startsWith('/socket.io')) return;
   if (url.pathname.startsWith('/api/')) return;
 
   event.respondWith(
-    caches.match(event.request).then(cached => {
-      const fetchPromise = fetch(event.request).then(resp => {
-        if (resp && resp.status === 200) {
-          const clone = resp.clone();
-          caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
-        }
-        return resp;
-      }).catch(() => cached);
-      return cached || fetchPromise;
-    })
+    fetch(event.request).then(resp => {
+      if (resp && resp.status === 200) {
+        const clone = resp.clone();
+        caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
+      }
+      return resp;
+    }).catch(() => caches.match(event.request))
   );
 });
 
-// ── Push notifications ──
+// ── Push notifications — heads-up style ──
 self.addEventListener('push', event => {
   let data = { title: 'Shadow Message', body: 'Новое сообщение', icon: '/static/icons/icon-192.svg' };
 
@@ -67,21 +60,28 @@ self.addEventListener('push', event => {
     }
   }
 
+  // Determine urgency from type
+  const isCall = data.type === 'call';
+
   const options = {
     body: data.body,
     icon: data.icon || '/static/icons/icon-192.svg',
     badge: '/static/icons/icon-192.svg',
-    vibrate: [100, 50, 100],
+    vibrate: isCall ? [300, 100, 300, 100, 300] : [200, 100, 200],
     data: {
       url: data.url || '/',
-      chatId: data.chatId || null
+      chatId: data.chatId || null,
+      type: data.type || 'message'
     },
-    actions: [
-      { action: 'open', title: 'Открыть' },
-      { action: 'close', title: 'Закрыть' }
-    ],
+    actions: isCall
+      ? [{ action: 'open', title: 'Ответить' }, { action: 'close', title: 'Отклонить' }]
+      : [{ action: 'open', title: 'Открыть' }, { action: 'close', title: 'Закрыть' }],
     tag: data.tag || 'shadow-mess-notification',
-    renotify: true
+    renotify: true,
+    requireInteraction: isCall,
+    // Priority / urgency hints for heads-up display
+    urgency: isCall ? 'high' : 'normal',
+    silent: false
   };
 
   event.waitUntil(

@@ -1137,6 +1137,19 @@ io.on('connection', async (socket) => {
         });
       });
     }
+    // Send push notification for incoming call (user may have app closed)
+    if (!renegotiate && vapidReady) {
+      const callerName = caller ? caller.displayName : 'Кто-то';
+      const callLabel = callType === 'video' ? '📹 Видеозвонок' : '📞 Звонок';
+      sendPushToUser(to, {
+        title: callerName,
+        body: callLabel,
+        icon: '/static/icons/icon-192.svg',
+        tag: `call-${userId}`,
+        type: 'call',
+        url: '/'
+      }).catch(() => {});
+    }
   });
 
   socket.on('call_answer', ({ to, answer }) => {

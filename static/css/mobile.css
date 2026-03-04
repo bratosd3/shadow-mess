@@ -282,9 +282,13 @@
     transition-duration: .08s;
   }
 
-  /* Hide voice record button on mobile */
-  .voice-record-btn {
-    display: none !important;
+  /* Voice + video buttons side by side on mobile */
+  .voice-record-btn,
+  .video-msg-btn {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    font-size: 1.15rem;
   }
 
   /* Sticker button hidden (duplicate emoji) */
@@ -988,6 +992,12 @@
   .success-circle svg {
     filter: none !important;
     animation: none !important;
+  }
+
+  /* Video circle bubble smaller on mobile */
+  .video-msg-bubble {
+    width: 180px;
+    height: 180px;
   }
 }
 
