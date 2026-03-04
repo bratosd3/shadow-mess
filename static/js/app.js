@@ -3169,12 +3169,55 @@ async function subscribeToPush(manual = false) {
       if (manual) showToast('Сервер push-уведомлений временно недоступен. Попробуйте позже.', 'error');
       return;
     }
+
+    // Check if existing subscription uses a different VAPID key — unsubscribe stale one
+    const existingCheck = await reg.pushManager.getSubscription();
+    if (existingCheck) {
+      try {
+        const existingKeyBuf = existingCheck.options?.applicationServerKey;
+        const newKeyBuf = urlBase64ToUint8Array(publicKey);
+        if (existingKeyBuf) {
+          const existingArr = new Uint8Array(existingKeyBuf);
+          const keysMatch = existingArr.length === newKeyBuf.length &&
+            existingArr.every((v, i) => v === newKeyBuf[i]);
+          if (!keysMatch) {
+            console.log('Push: VAPID key changed, unsubscribing stale subscription');
+            await existingCheck.unsubscribe();
+          } else {
+            // Keys match, re-send to server
+            try { await API.post('/api/push/subscribe', existingCheck.toJSON()); } catch {}
+            if (manual) showToast('Push-уведомления уже активны ✓', 'success');
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn('Push: error checking existing subscription:', e);
+        try { await existingCheck.unsubscribe(); } catch {}
+      }
+    }
     const applicationServerKey = urlBase64ToUint8Array(publicKey);
 
-    const subscription = await reg.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey
-    });
+    let subscription;
+    try {
+      subscription = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey
+      });
+    } catch (subErr) {
+      // If push service error — likely VAPID key mismatch from server restart
+      // Unsubscribe old subscription and retry once
+      console.warn('Push subscribe attempt 1 failed:', subErr.message);
+      try {
+        const oldSub = await reg.pushManager.getSubscription();
+        if (oldSub) await oldSub.unsubscribe();
+        subscription = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey
+        });
+      } catch (retryErr) {
+        throw retryErr; // Will be caught by outer catch
+      }
+    }
 
     await API.post('/api/push/subscribe', subscription.toJSON());
     console.log('Push subscription active');
