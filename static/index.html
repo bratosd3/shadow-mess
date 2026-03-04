@@ -1063,7 +1063,7 @@
 <script src="/static/js/calls.js?v=20260305a"></script>
 <script src="/static/js/app.js?v=20260305a"></script>
 <script>
-// Register Service Worker for push notifications
+// Register Service Worker + auto-update system
 if ('serviceWorker' in navigator) {
   // Clean up old SW registered at wrong path
   navigator.serviceWorker.getRegistrations().then(regs => {
@@ -1073,7 +1073,37 @@ if ('serviceWorker' in navigator) {
       }
     });
   });
-  navigator.serviceWorker.register('/sw.js').catch(e => console.warn('SW register failed:', e));
+
+  navigator.serviceWorker.register('/sw.js').then(reg => {
+    console.log('SW registered');
+
+    // Check for updates on registration
+    reg.addEventListener('updatefound', () => {
+      const newSW = reg.installing;
+      if (!newSW) return;
+      newSW.addEventListener('statechange', () => {
+        // New SW activated & old one existed → update happened
+        if (newSW.state === 'activated' && navigator.serviceWorker.controller) {
+          console.log('New SW activated, reloading for update...');
+        }
+      });
+    });
+
+    // Periodic update check every 30 min
+    setInterval(() => {
+      reg.update().catch(() => {});
+    }, 30 * 60 * 1000);
+
+  }).catch(e => console.warn('SW register failed:', e));
+
+  // When a new SW takes control → reload page to get fresh assets
+  let refreshing = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (refreshing) return;
+    refreshing = true;
+    console.log('SW controller changed, reloading...');
+    window.location.reload();
+  });
 }
 </script>
 </body>
