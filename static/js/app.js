@@ -3263,12 +3263,18 @@ async function subscribeToPush(manual = false) {
           if (!keysMatch) {
             console.log('Push: VAPID key changed, unsubscribing stale subscription');
             await existingCheck.unsubscribe();
+            // Also notify server to drop old endpoint
+            try { await API.post('/api/push/unsubscribe', { endpoint: existingCheck.endpoint }); } catch {}
           } else {
             // Keys match, re-send to server
             try { await API.post('/api/push/subscribe', existingCheck.toJSON()); } catch {}
             if (manual) showToast('Push-уведомления уже активны ✓', 'success');
             return;
           }
+        } else {
+          // Can't compare keys, just unsubscribe to be safe
+          console.log('Push: no applicationServerKey on existing sub, unsubscribing');
+          await existingCheck.unsubscribe();
         }
       } catch (e) {
         console.warn('Push: error checking existing subscription:', e);
@@ -3284,18 +3290,41 @@ async function subscribeToPush(manual = false) {
         applicationServerKey
       });
     } catch (subErr) {
-      // If push service error — likely VAPID key mismatch from server restart
-      // Unsubscribe old subscription and retry once
+      // "push service error" — stale push registration, need full cleanup
       console.warn('Push subscribe attempt 1 failed:', subErr.message);
       try {
+        // 1. Unsubscribe any old subscription
         const oldSub = await reg.pushManager.getSubscription();
         if (oldSub) await oldSub.unsubscribe();
+
+        // 2. Try again with clean state
         subscription = await reg.pushManager.subscribe({
           userVisibleOnly: true,
           applicationServerKey
         });
       } catch (retryErr) {
-        throw retryErr; // Will be caught by outer catch
+        console.warn('Push subscribe attempt 2 failed:', retryErr.message);
+
+        // 3. Nuclear option: unregister SW completely, re-register, try once more
+        try {
+          await reg.unregister();
+          // Wait for new SW registration
+          const newReg = await navigator.serviceWorker.register('/sw.js', { scope: '/' });
+          await navigator.serviceWorker.ready;
+          // Slight delay for browser to settle
+          await new Promise(r => setTimeout(r, 1000));
+
+          subscription = await newReg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey
+          });
+        } catch (nuclearErr) {
+          console.error('Push subscribe attempt 3 (re-register) failed:', nuclearErr.message);
+          if (manual) {
+            showToast('Не удалось подключить push. Попробуйте: очистить данные сайта в настройках браузера, затем обновить страницу.', 'error');
+          }
+          return;
+        }
       }
     }
 
