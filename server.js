@@ -59,6 +59,7 @@ const userSchema = new mongoose.Schema({
   phone:         { type: String, default: '' },
   firstName:     { type: String, default: '' },
   lastName:      { type: String, default: '' },
+  superUser:     { type: Boolean, default: false },
   online:        { type: Boolean, default: false },
   lastSeen:      { type: Date, default: Date.now },
   createdAt:     { type: Date, default: Date.now },
@@ -135,6 +136,7 @@ const messageSchema = new mongoose.Schema({
   senderName:       { type: String, default: '' },
   senderAvatar:     String,
   senderAvatarColor:String,
+  senderSuperUser:  { type: Boolean, default: false },
   type:             { type: String, default: 'text' },
   text:             { type: String, default: '' },
   fileName:         String,
@@ -270,12 +272,19 @@ async function sendPushToUser(userId, payload) {
   const subs = await PushSub.find({ userId });
   if (!subs.length) return;
   const body = JSON.stringify(payload);
+  const pushOptions = {
+    urgency: 'high',
+    TTL: 60,
+    headers: {
+      Urgency: 'high'
+    }
+  };
   for (const sub of subs) {
     try {
       await webpush.sendNotification({
         endpoint: sub.endpoint,
         keys: { p256dh: sub.keys.p256dh, auth: sub.keys.auth }
-      }, body);
+      }, body, pushOptions);
     } catch (err) {
       if (err.statusCode === 410 || err.statusCode === 404) {
         await PushSub.deleteOne({ _id: sub._id });
@@ -293,7 +302,7 @@ async function sendPushForMessage(msg, chat) {
   const payload = {
     title: msg.senderName || 'Shadow Message',
     body: msg.text || (msg.type === 'image' ? '📷 Фото' : msg.type === 'voice' ? '🎤 Голосовое' : '📎 Файл'),
-    icon: '/static/icons/icon-192.svg',
+    icon: '/static/icons/icon-192.png',
     tag: `chat-${msg.chatId}`,
     chatId: msg.chatId,
     url: '/'
@@ -397,7 +406,7 @@ app.delete('/api/admin/users', adminKeyMiddleware, async (req, res) => {
 
 // Список пользователей (для admin panel)
 app.get('/api/admin/users', adminKeyMiddleware, async (req, res) => {
-  const users = await User.find({}, 'username displayName createdAt lastSeen bio').sort({ createdAt: -1 });
+  const users = await User.find({}, 'username displayName createdAt lastSeen bio superUser').sort({ createdAt: -1 });
   res.json(users);
 });
 
@@ -446,6 +455,15 @@ app.delete('/api/admin/sessions', adminKeyMiddleware, async (req, res) => {
 app.delete('/api/admin/pushsubs', adminKeyMiddleware, async (req, res) => {
   const result = await PushSub.deleteMany({});
   res.json({ deleted: result.deletedCount });
+});
+
+// Переключение super user статуса
+app.put('/api/admin/users/:id/superuser', adminKeyMiddleware, async (req, res) => {
+  const user = await User.findById(req.params.id);
+  if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
+  user.superUser = !user.superUser;
+  await user.save();
+  res.json({ id: user._id, username: user.username, superUser: user.superUser });
 });
 
 // Полный сброс — удаляет ВСЁ
@@ -720,6 +738,7 @@ app.get('/api/chats', authMiddleware, async (req, res) => {
       let displayAvatar = c.avatar;
       let displayAvatarColor = c.avatarColor;
       let onlineStatus = false;
+      let partnerSuperUser = false;
 
       if (c.type === 'private') {
         const otherId = c.members.find(id => id !== uid);
@@ -729,6 +748,7 @@ app.get('/api/chats', authMiddleware, async (req, res) => {
           displayAvatar = (other.settings?.privShowAvatar !== false) ? other.avatar : null;
           displayAvatarColor = other.avatarColor;
           onlineStatus = (other.settings?.privShowOnline !== false) ? isOnline(otherId) : false;
+          partnerSuperUser = !!other.superUser;
         }
       }
 
@@ -738,12 +758,13 @@ app.get('/api/chats', authMiddleware, async (req, res) => {
         displayAvatar,
         displayAvatarColor,
         online: onlineStatus,
+        partnerSuperUser,
         lastMessage: lastMsg,
         unreadCount: unread,
         membersInfo: c.type === 'group'
           ? c.members.map(mid => {
               const u = userMap[mid];
-              return u ? { id: u._id, displayName: u.displayName, avatar: u.avatar, avatarColor: u.avatarColor, online: isOnline(u._id) } : null;
+              return u ? { id: u._id, displayName: u.displayName, avatar: u.avatar, avatarColor: u.avatarColor, online: isOnline(u._id), superUser: !!u.superUser } : null;
             }).filter(Boolean)
           : []
       };
@@ -943,6 +964,7 @@ app.post('/api/chats/:id/messages', authMiddleware, async (req, res) => {
     senderName:   sender ? sender.displayName : '',
     senderAvatar: sender ? sender.avatar : null,
     senderAvatarColor: sender ? sender.avatarColor : null,
+    senderSuperUser: sender ? !!sender.superUser : false,
     type:         type || 'text',
     text:         text || '',
     replyTo:      replyTo || null,
@@ -998,6 +1020,7 @@ app.post('/api/chats/:id/upload', authMiddleware, (req, res, next) => {
       senderName:   sender ? sender.displayName : '',
       senderAvatar: sender ? sender.avatar : null,
       senderAvatarColor: sender ? sender.avatarColor : null,
+      senderSuperUser: sender ? !!sender.superUser : false,
       type:         msgType,
       text:         '',
       fileName:     req.file.originalname,
@@ -1156,7 +1179,7 @@ io.on('connection', async (socket) => {
       sendPushToUser(to, {
         title: callerName,
         body: callLabel,
-        icon: '/static/icons/icon-192.svg',
+        icon: '/static/icons/icon-192.png',
         tag: `call-${userId}`,
         type: 'call',
         callFrom: userId,

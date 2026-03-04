@@ -2,11 +2,11 @@
 // Shadow Mess — Service Worker (PWA + Push Notifications + Caching)
 // =============================================================================
 
-const CACHE_NAME = 'shadow-mess-v10';
+const CACHE_NAME = 'shadow-mess-v11';
 const ASSETS = [
   '/',
-  '/static/icons/icon-192.svg',
-  '/static/icons/icon-512.svg',
+  '/static/icons/icon-192.png',
+  '/static/icons/icon-512.png',
   '/manifest.json'
 ];
 
@@ -50,7 +50,7 @@ self.addEventListener('fetch', event => {
 
 // ── Push notifications — heads-up style ──
 self.addEventListener('push', event => {
-  let data = { title: 'Shadow Message', body: 'Новое сообщение', icon: '/static/icons/icon-192.svg' };
+  let data = { title: 'Shadow Message', body: 'Новое сообщение', icon: '/static/icons/icon-192.png' };
 
   if (event.data) {
     try {
@@ -65,8 +65,8 @@ self.addEventListener('push', event => {
 
   const options = {
     body: data.body,
-    icon: data.icon || '/static/icons/icon-192.svg',
-    badge: '/static/icons/icon-192.svg',
+    icon: data.icon || '/static/icons/icon-192.png',
+    badge: '/static/icons/icon-192.png',
     vibrate: isCall ? [300, 100, 300, 100, 300] : [200, 100, 200],
     data: {
       url: data.url || '/',

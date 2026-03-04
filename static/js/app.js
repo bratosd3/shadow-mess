@@ -645,7 +645,13 @@ function buildChatItem(chat) {
 
   const nm = document.createElement('div');
   nm.className = 'chat-item-name';
-  nm.textContent = chat.displayName || '';
+  if (chat.partnerSuperUser) {
+    const badge = document.createElement('span');
+    badge.className = 'super-user-badge';
+    badge.textContent = '⭐';
+    nm.appendChild(badge);
+  }
+  nm.appendChild(document.createTextNode(chat.displayName || ''));
   if (chat.pinned) nm.appendChild(Object.assign(document.createElement('span'), { className: 'chat-item-pinned', textContent: ' 📌' }));
 
   const tm = document.createElement('div');
@@ -727,7 +733,15 @@ async function openChat(chatId) {
     if (chat.type === 'private') { const oid = chat.members?.find(id => id !== S.user?.id); if (oid) openUserProfile(oid); }
     else openChatInfo();
   };
-  $('chat-header-name').textContent = chat.displayName || '';
+  const headerNameEl = $('chat-header-name');
+  headerNameEl.textContent = '';
+  if (chat.partnerSuperUser) {
+    const badge = document.createElement('span');
+    badge.className = 'super-user-badge';
+    badge.textContent = '⭐';
+    headerNameEl.appendChild(badge);
+  }
+  headerNameEl.appendChild(document.createTextNode(chat.displayName || ''));
   updateChatStatus(chat);
 
   // Pinned bar
@@ -827,7 +841,13 @@ function buildMsgEl(msg) {
   if (!isMine && inGroup) {
     const sn = document.createElement('div');
     sn.className = 'message-sender';
-    sn.textContent = msg.senderName || '';
+    if (msg.senderSuperUser) {
+      const badge = document.createElement('span');
+      badge.className = 'super-user-badge';
+      badge.textContent = '⭐';
+      sn.appendChild(badge);
+    }
+    sn.appendChild(document.createTextNode(msg.senderName || ''));
     sn.style.cursor = 'pointer';
     sn.addEventListener('click', e => { e.stopPropagation(); if (msg.sender) openUserProfile(msg.sender); });
     bubble.appendChild(sn);
@@ -1236,10 +1256,39 @@ function initInput() {
   on('file-input',   'change', uploadFile);
   on('reply-cancel', 'click', hideReplyPreview);
 
-  // Voice record
-  on('voice-record-btn', 'click', toggleVoiceRecord);
+  // Voice/Video record button — tap to switch mode, tap again to record
+  let _recordTapTimer = null;
+  let _recordTapCount = 0;
+  on('voice-record-btn', 'click', () => {
+    // If already recording, stop recording
+    if (S.isRecording) {
+      toggleVoiceRecord();
+      return;
+    }
+    if (_videoRecorder && _videoRecorder.state === 'recording') {
+      toggleVideoMsgRecord();
+      return;
+    }
+    _recordTapCount++;
+    if (_recordTapCount === 1) {
+      // First tap — switch mode, wait for possible second tap
+      switchRecordMode();
+      _recordTapTimer = setTimeout(() => {
+        _recordTapCount = 0;
+      }, 400);
+    } else if (_recordTapCount === 2) {
+      // Double tap — start recording in current mode
+      clearTimeout(_recordTapTimer);
+      _recordTapCount = 0;
+      if (_recordMode === 'video') {
+        toggleVideoMsgRecord();
+      } else {
+        toggleVoiceRecord();
+      }
+    }
+  });
 
-  // Video message record
+  // Video message record (desktop fallback)
   on('video-msg-btn', 'click', toggleVideoMsgRecord);
 
   // Paste image from clipboard (PrtSc / Ctrl+V)
@@ -1309,7 +1358,28 @@ function toggleSendVoiceBtn() {
   const has = $('msg-input')?.value.trim().length > 0;
   $('send-btn')?.classList.toggle('hidden', !has);
   $('voice-record-btn')?.classList.toggle('hidden', has);
+  // video-msg-btn stays hidden on mobile (merged into voice btn), keep hidden on desktop when typing
   $('video-msg-btn')?.classList.toggle('hidden', has);
+}
+
+// ── Voice/Video toggle mode (mobile: single button toggles between mic and camera) ──
+let _recordMode = 'voice'; // 'voice' or 'video'
+
+function switchRecordMode() {
+  if (S.isRecording || (_videoRecorder && _videoRecorder.state === 'recording')) return; // don't switch during recording
+  const btn = $('voice-record-btn');
+  if (!btn) return;
+  if (_recordMode === 'voice') {
+    _recordMode = 'video';
+    btn.querySelector('.mic-icon')?.classList.add('hidden');
+    btn.querySelector('.cam-icon')?.classList.remove('hidden');
+    btn.title = 'Видеосообщение (нажмите долго для записи, тап — переключить)';
+  } else {
+    _recordMode = 'voice';
+    btn.querySelector('.cam-icon')?.classList.add('hidden');
+    btn.querySelector('.mic-icon')?.classList.remove('hidden');
+    btn.title = 'Голосовое сообщение (нажмите долго для записи, тап — переключить)';
+  }
 }
 
 let _isSending = false;
@@ -2155,7 +2225,13 @@ async function openUserProfile(userId) {
     // Name
     const nameEl = document.createElement('h3');
     nameEl.style.cssText = 'font-size:20px;font-weight:700;margin-bottom:4px';
-    nameEl.textContent = user.displayName || '';
+    if (user.superUser) {
+      const badge = document.createElement('span');
+      badge.className = 'super-user-badge';
+      badge.textContent = '⭐';
+      nameEl.appendChild(badge);
+    }
+    nameEl.appendChild(document.createTextNode(user.displayName || ''));
     cont.appendChild(nameEl);
 
     // Username
@@ -3835,8 +3911,9 @@ function initApp() {
 // ══════════════════════════════════════════════════════════
 (async () => {
   // Apply saved theme immediately to prevent flash
+  let savedUser = null;
   try {
-    const savedUser = JSON.parse(localStorage.getItem('sm_user') || '{}');
+    savedUser = JSON.parse(localStorage.getItem('sm_user') || 'null');
     const savedTheme = savedUser?.settings?.theme || 'dark';
     applyTheme(savedTheme);
   } catch { applyTheme('dark'); }
@@ -3845,27 +3922,51 @@ function initApp() {
   const tok = localStorage.getItem('sm_token');
   if (tok) {
     S.token = tok;
-    try {
-      const user = await API.get('/api/me');
-      // Saved session: skip animation, go straight to app
-      S.user = user;
-      localStorage.setItem('sm_user', JSON.stringify(user));
+
+    // Show UI immediately with cached user to prevent white screen on iOS PWA
+    if (savedUser && savedUser.id) {
+      S.user = savedUser;
       $('auth-screen').classList.add('hidden');
       $('app').classList.remove('hidden');
-      applyAllSettings(user.settings);
-      S.notif.messages = user.settings?.notifications !== false;
-      S.notif.sound    = user.settings?.soundEnabled   !== false;
-      S.notif.calls    = user.settings?.notifCalls     !== false;
-      S.notif.mentions = user.settings?.notifMentions  !== false;
+      applyAllSettings(savedUser.settings);
+      S.notif.messages = savedUser.settings?.notifications !== false;
+      S.notif.sound    = savedUser.settings?.soundEnabled   !== false;
+      S.notif.calls    = savedUser.settings?.notifCalls     !== false;
+      S.notif.mentions = savedUser.settings?.notifMentions  !== false;
       updateMenuProfile();
+    }
+
+    try {
+      const user = await API.get('/api/me');
+      // Update with fresh data
+      S.user = user;
+      localStorage.setItem('sm_user', JSON.stringify(user));
+      if (!savedUser || !savedUser.id) {
+        // First time or no cache — show app now
+        $('auth-screen').classList.add('hidden');
+        $('app').classList.remove('hidden');
+        applyAllSettings(user.settings);
+        S.notif.messages = user.settings?.notifications !== false;
+        S.notif.sound    = user.settings?.soundEnabled   !== false;
+        S.notif.calls    = user.settings?.notifCalls     !== false;
+        S.notif.mentions = user.settings?.notifMentions  !== false;
+        updateMenuProfile();
+      } else {
+        // Already showing UI, just update settings if changed
+        applyAllSettings(user.settings);
+        updateMenuProfile();
+      }
       initSocket();
       await loadChats();
       initApp();
       subscribeToPush();
     } catch {
       S.token = null;
+      S.user = null;
       localStorage.removeItem('sm_token');
       localStorage.removeItem('sm_user');
+      $('app').classList.add('hidden');
+      $('auth-screen').classList.remove('hidden');
     }
   }
 })();

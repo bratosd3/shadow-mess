@@ -81,16 +81,34 @@
     transition: opacity .25s ease;
   }
 
+  /* ── Sidebar header — iPhone safe area ── */
+  .sidebar-header {
+    padding-top: env(safe-area-inset-top, 0);
+    height: calc(var(--header-h) + env(safe-area-inset-top, 0));
+    flex-shrink: 0;
+    overflow: hidden;
+    gap: 6px;
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+  .sidebar-header .icon-btn {
+    flex-shrink: 0;
+  }
+
   /* ── Search box ── */
   .search-box {
     height: 40px;
     border-radius: 12px;
     flex: 1;
+    min-width: 0;
+    overflow: hidden;
   }
   .search-box input {
     font-size: 15px;
     -webkit-appearance: none;
     appearance: none;
+    min-width: 0;
+    width: 100%;
   }
 
   /* ── Search results ── */
@@ -284,13 +302,22 @@
     transition-duration: .08s;
   }
 
-  /* Voice + video buttons side by side on mobile */
-  .voice-record-btn,
-  .video-msg-btn {
-    width: 36px;
-    height: 36px;
-    min-width: 36px;
+  /* Voice + video toggle button on mobile (single button) */
+  .voice-record-btn {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    min-height: 40px;
     font-size: 1.15rem;
+    flex-shrink: 0;
+    align-self: flex-end;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  /* Hide separate video button on mobile — merged into voice btn */
+  .video-msg-btn {
+    display: none !important;
   }
 
   /* Sticker button hidden (duplicate emoji) */
@@ -1018,6 +1045,8 @@
     .modal-body {
       overscroll-behavior-y: contain;
     }
+    /* Prevent white screen — ensure bg is always dark */
+    html, body, .app { background: var(--bg-app, #111) !important; }
   }
 }
 
@@ -1029,6 +1058,8 @@
   body, .app, .sidebar, .chat-panel, .active-chat {
     height: -webkit-fill-available;
   }
+  /* Prevent white screen on PWA launch */
+  html { background: var(--bg-app, #111); }
   /* Fix iOS scroll momentum glitches */
   .messages-area,
   .chat-list,

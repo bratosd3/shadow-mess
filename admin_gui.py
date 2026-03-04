@@ -612,7 +612,8 @@ class ShadowAdmin(ctk.CTk):
         # Name + username
         name_frame = ctk.CTkFrame(row, fg_color="transparent")
         name_frame.place(relx=0.07, rely=0.5, anchor="w")
-        ctk.CTkLabel(name_frame, text=name,
+        name_label = "⭐ " + name if user.get("superUser") else name
+        ctk.CTkLabel(name_frame, text=name_label,
                      font=ctk.CTkFont(size=12, weight="bold"),
                      text_color=T["text"]).pack(anchor="w")
         ctk.CTkLabel(name_frame, text=f"@{user.get('username', '?')}",
@@ -696,7 +697,7 @@ class ShadowAdmin(ctk.CTk):
         """User detail popup window."""
         win = ctk.CTkToplevel(self)
         win.title(f"Профиль — {user.get('displayName', '?')}")
-        win.geometry("440x560")
+        win.geometry("440x620")
         win.configure(fg_color=T["bg"])
         win.resizable(False, False)
         win.transient(self)
@@ -706,7 +707,7 @@ class ShadowAdmin(ctk.CTk):
         # Center
         self.update_idletasks()
         px = self.winfo_x() + (self.winfo_width() - 440) // 2
-        py = self.winfo_y() + (self.winfo_height() - 560) // 2
+        py = self.winfo_y() + (self.winfo_height() - 620) // 2
         win.geometry(f"+{px}+{py}")
 
         # Profile card
@@ -741,6 +742,7 @@ class ShadowAdmin(ctk.CTk):
         fields = [
             ("ID",             uid[:32]),
             ("Bio",            (user.get("bio") or "—")[:60]),
+            ("Супер-юзер",     "⭐ Да" if user.get("superUser") else "Нет"),
             ("Аватар",         "✅ Загружен" if user.get("avatar") else "❌ Нет"),
             ("Регистрация",    fmt_date(user.get("createdAt"))),
             ("Последний вход", fmt_date(user.get("lastSeen"))),
@@ -758,12 +760,36 @@ class ShadowAdmin(ctk.CTk):
 
         ctk.CTkFrame(detail, fg_color="transparent", height=8).pack()
 
+        # Super User toggle button
+        is_super = user.get("superUser", False)
+        super_text = "⭐ Убрать супер-пользователя" if is_super else "⭐ Выдать супер-пользователя"
+        super_color = T["red"] if is_super else T["accent"]
+        super_hover = T["red_dim"] if is_super else T["accent_dim"]
+
+        def toggle_super(u=user, w=None):
+            uid = u.get("_id") or u.get("id")
+            def on_done(r):
+                new_status = r.get("superUser", False)
+                status_text = "выдан" if new_status else "убран"
+                Toast.show(self, f"Супер-пользователь {status_text}: @{u.get('username', '?')}", "success")
+                win.destroy()
+                self._current_page = None
+                self._navigate("users")
+            self._threaded(lambda: api("PUT", f"/api/admin/users/{uid}/superuser"), on_done)
+
+        super_btn = ctk.CTkButton(win, text=super_text,
+                       command=toggle_super,
+                       fg_color=super_color, hover_color=super_hover,
+                       corner_radius=10, height=40, width=400,
+                       font=ctk.CTkFont(size=13, weight="bold"))
+        super_btn.pack(padx=20, pady=(14, 0))
+
         # Delete button
         ctk.CTkButton(win, text="🗑  Удалить пользователя",
                        command=lambda: (win.destroy(), self._del_user(user)),
                        fg_color=T["red"], hover_color=T["red_dim"],
                        corner_radius=10, height=40, width=400,
-                       font=ctk.CTkFont(size=13, weight="bold")).pack(padx=20, pady=(14, 10))
+                       font=ctk.CTkFont(size=13, weight="bold")).pack(padx=20, pady=(10, 10))
 
         # Close button
         ctk.CTkButton(win, text="Закрыть",

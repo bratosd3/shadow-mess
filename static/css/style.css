@@ -1328,6 +1328,9 @@ body:not([data-theme="light"]) .pw-toggle:hover { color: var(--accent); }
 .message-sender { font-size: 12px; font-weight: 700; color: var(--accent); margin-bottom: 3px; cursor: pointer; }
 .message-sender:hover { text-decoration: underline; }
 
+/* Super user badge */
+.super-user-badge { margin-right: 4px; font-size: 0.85em; vertical-align: middle; }
+
 .message-forward-label {
   font-size: 11px; color: var(--text-secondary); font-style: italic;
   border-left: 2px solid var(--accent); padding-left: 8px; margin-bottom: 5px;
