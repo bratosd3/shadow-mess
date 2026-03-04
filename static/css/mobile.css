@@ -481,14 +481,36 @@
     min-height: 48px;
   }
 
-  /* ── Calls ── */
-  .call-card { min-width: 280px; padding: 24px 20px; }
-  .active-call-card {
-    min-width: 100vw;
-    min-height: 100vh;
-    border-radius: 0;
+  /* ── Calls — fullscreen mobile ── */
+  .call-incoming-panel { max-width: 100%; }
+  .call-active-panel {
+    max-width: 100% !important;
+    max-height: 100vh !important;
+    max-height: 100dvh !important;
+    border-radius: 0 !important;
+    height: 100vh;
+    height: 100dvh;
   }
-  .call-btn { min-width: 56px; min-height: 56px; }
+  .call-audio-layer { min-height: 60vh; min-height: 60dvh; }
+  .call-remote-video { max-height: 100vh; max-height: 100dvh; }
+  .call-pip {
+    width: 100px; height: 76px;
+    bottom: 100px; right: 12px;
+    border-radius: 12px;
+  }
+  .call-bottom-controls {
+    gap: 10px; padding: 14px 12px;
+    padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  }
+  .call-ctrl-pill { width: 48px; height: 48px; }
+  .call-top-bar { padding: 10px 14px; padding-top: calc(10px + env(safe-area-inset-top, 0px)); }
+  .call-incoming-actions { gap: 56px; }
+  .call-mini-bar {
+    left: 12px; right: 12px;
+    transform: none;
+    bottom: calc(68px + env(safe-area-inset-bottom, 0px));
+    min-width: auto;
+  }
 
   /* ── Side menu ── */
   .side-menu { width: 80vw; max-width: 300px; }

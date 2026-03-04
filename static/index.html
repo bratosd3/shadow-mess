@@ -757,65 +757,84 @@
 
 <!-- ═══ CALL OVERLAYS ═══ -->
 
-<!-- Incoming Call -->
+<!-- Incoming Call — fullscreen aesthetic -->
 <div class="call-overlay hidden" id="incoming-call">
-  <div class="call-card">
-    <div class="avatar avatar-lg" id="inc-call-avatar" style="margin:0 auto"></div>
-    <div class="call-name" id="inc-call-name">Входящий звонок</div>
-    <div class="call-type" id="inc-call-type">Голосовой звонок</div>
-    <div class="call-actions">
-      <button class="call-btn call-reject" id="inc-reject-btn">
-        <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M23.36 14.753l-3.17-3.17a1.5 1.5 0 0 0-2.115 0l-1.773 1.773a.498.498 0 0 1-.635.06C14.5 12.376 13 10.5 12.587 9.337a.497.497 0 0 1 .06-.634l1.773-1.774a1.5 1.5 0 0 0 0-2.115L11.248.645A1.5 1.5 0 0 0 9.133.645L7.254 2.524C4.28 5.497 5.453 11.235 9.803 15.585S18.503 21.72 21.476 18.747l1.884-1.879a1.5 1.5 0 0 0 0-2.115zM12 0a12 12 0 0 1 0 24A12 12 0 0 1 12 0z"/></svg>
-      </button>
-      <button class="call-btn call-accept" id="inc-accept-btn">
-        <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56-.35-.12-.74-.03-1.01.24l-1.57 1.97c-2.83-1.35-5.48-3.9-6.89-6.83l1.95-1.66c.27-.28.35-.67.24-1.02-.37-1.11-.56-2.3-.56-3.53 0-.54-.45-.99-.99-.99H4.19C3.65 3 3 3.24 3 3.99 3 13.28 10.73 21 20.01 21c.71 0 .99-.63.99-1.18v-3.45c0-.54-.45-.99-.99-.99z"/></svg>
-      </button>
+  <div class="call-incoming-panel">
+    <div class="call-incoming-bg"></div>
+    <div class="call-incoming-content">
+      <div class="call-incoming-pulse">
+        <div class="avatar avatar-xxl" id="inc-call-avatar" style="margin:0 auto"></div>
+      </div>
+      <div class="call-peer-name" id="inc-call-name">Входящий звонок</div>
+      <div class="call-peer-type" id="inc-call-type">Голосовой звонок</div>
+      <div class="call-incoming-actions">
+        <button class="call-action-btn call-decline" id="inc-reject-btn">
+          <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="#fff" stroke-width="2.2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          <span>Отклонить</span>
+        </button>
+        <button class="call-action-btn call-pickup" id="inc-accept-btn">
+          <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="#fff" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.85 19.85 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6A19.85 19.85 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.362 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+          <span>Принять</span>
+        </button>
+      </div>
     </div>
   </div>
 </div>
 
-<!-- Active Call -->
+<!-- Active Call — unified panel -->
 <div class="call-overlay hidden" id="active-call-overlay">
-  <div class="call-card active-call-card" id="active-call-card">
-    <!-- Audio call view (shown for audio calls) -->
-    <div class="call-audio-view" id="call-audio-view">
-      <div class="call-audio-bg">
-        <div class="avatar avatar-xxl" id="active-call-avatar-big" style="margin:0 auto"></div>
-        <div class="call-name" id="active-call-name-audio" style="color:#fff;margin:18px 0 4px">Звонок</div>
-        <div class="call-timer" id="call-timer-audio" style="font-size:15px">00:00</div>
+  <div class="call-active-panel" id="active-call-card">
+    <!-- Video layer (always present, shown/hidden) -->
+    <div class="call-video-layer" id="call-video-layer">
+      <video id="remote-video" autoplay playsinline class="call-remote-video"></video>
+      <div class="call-screen-badge hidden" id="call-screen-badge">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+        Демонстрация экрана
       </div>
     </div>
-    <!-- Video call view (shown for video calls) -->
-    <div class="call-video-view hidden" id="call-video-view">
-      <video id="remote-video" autoplay playsinline class="remote-video"></video>
-      <video id="local-video"  autoplay playsinline muted class="local-video"></video>
-      <div class="call-card-info">
-        <div class="avatar avatar-sm" id="active-call-avatar"></div>
+    <!-- Audio-only avatar (shown when no video) -->
+    <div class="call-audio-layer" id="call-audio-layer">
+      <div class="call-audio-glow"></div>
+      <div class="avatar avatar-xxl" id="active-call-avatar-big" style="margin:0 auto"></div>
+      <div class="call-peer-name" id="active-call-name-audio">Звонок</div>
+      <div class="call-timer-big" id="call-timer-audio">00:00</div>
+    </div>
+    <!-- Local video PiP -->
+    <div class="call-pip" id="call-pip">
+      <video id="local-video" autoplay playsinline muted class="call-local-video"></video>
+      <div class="call-pip-off hidden" id="call-pip-off">
+        <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/><path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+      </div>
+    </div>
+    <!-- Top info bar -->
+    <div class="call-top-bar" id="call-top-bar">
+      <div class="call-top-info">
+        <div class="avatar avatar-xs" id="active-call-avatar"></div>
         <div>
-          <div class="call-name" id="active-call-name" style="font-size:14px;margin:0;color:#fff"></div>
-          <div class="call-timer" id="call-timer">00:00</div>
+          <div class="call-top-name" id="active-call-name"></div>
+          <div class="call-top-timer" id="call-timer">00:00</div>
         </div>
       </div>
+      <button class="call-top-btn" id="minimize-call-btn" title="Свернуть">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+      </button>
     </div>
-    <!-- Controls -->
-    <div class="call-controls">
-      <button class="call-ctrl-btn" id="toggle-mute" title="Микрофон">
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+    <!-- Bottom controls -->
+    <div class="call-bottom-controls" id="call-bottom-controls">
+      <button class="call-ctrl-pill" id="toggle-mute" title="Микрофон" data-label="Микрофон">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
       </button>
-      <button class="call-ctrl-btn" id="toggle-video" title="Видео">
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+      <button class="call-ctrl-pill" id="toggle-video" title="Видео" data-label="Камера">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
       </button>
-      <button class="call-ctrl-btn" id="toggle-screen" title="Демонстрация экрана">
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+      <button class="call-ctrl-pill" id="toggle-screen" title="Демонстрация" data-label="Экран">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
       </button>
-      <button class="call-ctrl-btn" id="toggle-speaker" title="Динамик">
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+      <button class="call-ctrl-pill" id="toggle-speaker" title="Динамик" data-label="Динамик">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
       </button>
-      <button class="call-ctrl-btn" id="minimize-call-btn" title="Свернуть">
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
-      </button>
-      <button class="call-ctrl-btn call-end-btn" id="end-call-btn" title="Завершить">
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56-.35-.12-.74-.03-1.01.24l-1.57 1.97c-2.83-1.35-5.48-3.9-6.89-6.83l1.95-1.66c.27-.28.35-.67.24-1.02-.37-1.11-.56-2.3-.56-3.53 0-.54-.45-.99-.99-.99H4.19C3.65 3 3 3.24 3 3.99 3 13.28 10.73 21 20.01 21c.71 0 .99-.63.99-1.18v-3.45c0-.54-.45-.99-.99-.99z"/></svg>
+      <button class="call-ctrl-pill call-end-pill" id="end-call-btn" title="Завершить" data-label="Конец">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#fff" stroke-width="2.2"><path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.15-1.15a2 2 0 0 1 2.11-.45c.91.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92v3a2 2 0 0 1-2.18 2A19.86 19.86 0 0 1 2.12 4.18 2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91"/><line x1="23" y1="1" x2="1" y2="23"/></svg>
       </button>
     </div>
   </div>

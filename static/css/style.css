@@ -1947,7 +1947,7 @@ body.no-animations *::after {
 }
 
 /* ── Button press feedback ── */
-button, .icon-btn, .send-btn, .fab-new-chat, .call-btn, .call-ctrl-btn {
+button, .icon-btn, .send-btn, .fab-new-chat, .call-btn, .call-ctrl-btn, .call-ctrl-pill {
   will-change: transform;
 }
 
@@ -2028,7 +2028,7 @@ button, .icon-btn, .send-btn, .fab-new-chat, .call-btn, .call-ctrl-btn {
 .call-btn {
   transition: all .3s var(--ease-out-back);
 }
-.call-ctrl-btn {
+.call-ctrl-pill {
   transition: all .3s var(--ease-smooth);
 }
 
@@ -2094,100 +2094,237 @@ button, .icon-btn, .send-btn, .fab-new-chat, .call-btn, .call-ctrl-btn {
 }
 .reaction-picker span:hover { background: var(--accent-light); transform: scale(1.4); }
 
-/* ══ CALL OVERLAYS ════════════════════════════════════════════ */
+/* ══ CALL OVERLAYS — v2.8 Redesign ════════════════════════════ */
 .call-overlay {
   position: fixed; inset: 0; z-index: 300;
+  background: rgba(0,0,0,.85);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  display: flex; align-items: center; justify-content: center;
+  animation: callFadeIn .35s ease;
+}
+@keyframes callFadeIn { from{opacity:0} to{opacity:1} }
+
+/* ── Incoming call ── */
+.call-incoming-panel {
+  position: relative;
+  width: 100%; max-width: 420px;
+  text-align: center;
+  animation: callSlideUp .5s cubic-bezier(.16,1,.3,1);
+}
+@keyframes callSlideUp { from{opacity:0;transform:translateY(40px)} to{opacity:1;transform:translateY(0)} }
+
+.call-incoming-bg {
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse at 50% 30%, rgba(var(--accent-rgb,79,124,255),.15) 0%, transparent 70%);
+  pointer-events: none;
+}
+.call-incoming-content { position: relative; z-index: 1; padding: 40px 24px; }
+
+.call-incoming-pulse {
+  position: relative; display: inline-block; margin-bottom: 24px;
+}
+.call-incoming-pulse::before,
+.call-incoming-pulse::after {
+  content: ''; position: absolute; inset: -16px;
+  border-radius: 50%; border: 2px solid var(--accent);
+  animation: callPulseRing 2s ease-out infinite;
+  opacity: 0;
+}
+.call-incoming-pulse::after { animation-delay: .8s; }
+@keyframes callPulseRing {
+  0% { transform: scale(.8); opacity: .6; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+
+.call-peer-name {
+  font-size: 24px; font-weight: 700; color: #fff;
+  margin-bottom: 6px; letter-spacing: -.3px;
+}
+.call-peer-type {
+  font-size: 14px; color: rgba(255,255,255,.5);
+  margin-bottom: 40px;
+}
+
+.call-incoming-actions {
+  display: flex; justify-content: center; gap: 48px;
+}
+.call-action-btn {
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  background: none; border: none; cursor: pointer;
+}
+.call-action-btn svg {
+  width: 28px; height: 28px;
+}
+.call-action-btn > svg,
+.call-action-btn > span:first-of-type {
+  /* icon container */
+}
+.call-action-btn span {
+  font-size: 12px; color: rgba(255,255,255,.7); font-weight: 500;
+}
+.call-decline svg { background: var(--danger); border-radius: 50%; padding: 14px; width: 56px; height: 56px; box-shadow: 0 8px 30px rgba(239,68,68,.35); transition: transform .2s, box-shadow .2s; }
+.call-decline:hover svg { transform: scale(1.1); box-shadow: 0 12px 40px rgba(239,68,68,.5); }
+.call-pickup svg { background: var(--success); border-radius: 50%; padding: 14px; width: 56px; height: 56px; box-shadow: 0 8px 30px rgba(34,197,94,.35); transition: transform .2s, box-shadow .2s; animation: callPickupBounce 1.8s ease infinite; }
+.call-pickup:hover svg { transform: scale(1.1); box-shadow: 0 12px 40px rgba(34,197,94,.5); }
+@keyframes callPickupBounce {
+  0%,100% { transform: translateY(0); }
+  30% { transform: translateY(-6px); }
+  50% { transform: translateY(0); }
+}
+
+/* ── Active call panel ── */
+.call-active-panel {
+  position: relative;
+  width: 100%; max-width: 720px;
+  max-height: 90vh; max-height: 90dvh;
+  border-radius: 20px;
+  overflow: hidden;
+  background: #0a0a14;
+  box-shadow: 0 30px 80px rgba(0,0,0,.7);
+  display: flex; flex-direction: column;
+  animation: callSlideUp .4s cubic-bezier(.16,1,.3,1);
+}
+
+/* Video layer */
+.call-video-layer {
+  position: relative;
+  flex: 1; min-height: 0;
+  background: #000;
+  display: none; /* shown by JS when video active */
+}
+.call-video-layer.active { display: flex; align-items: center; justify-content: center; }
+.call-remote-video {
+  width: 100%; max-height: 70vh; object-fit: contain;
+  display: block; background: #000;
+}
+.call-screen-badge {
+  position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+  background: rgba(0,0,0,.6); backdrop-filter: blur(8px);
+  border-radius: 20px; padding: 6px 16px;
+  font-size: 12px; color: rgba(255,255,255,.8); font-weight: 500;
+  display: flex; align-items: center; gap: 6px;
+  pointer-events: none;
+}
+
+/* Audio layer */
+.call-audio-layer {
+  flex: 1; min-height: 320px;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  position: relative; padding: 40px 20px;
+  background: linear-gradient(160deg, #0a0a1a 0%, #12122a 50%, #0a0a18 100%);
+}
+.call-audio-layer.hidden-layer { display: none; }
+.call-audio-glow {
+  position: absolute; top: 50%; left: 50%;
+  width: 260px; height: 260px;
+  transform: translate(-50%, -55%);
+  background: radial-gradient(circle, rgba(var(--accent-rgb,79,124,255),.12) 0%, transparent 70%);
+  animation: callGlowPulse 3s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes callGlowPulse {
+  0%,100% { transform: translate(-50%,-55%) scale(1); opacity: .8; }
+  50% { transform: translate(-50%,-55%) scale(1.15); opacity: 1; }
+}
+.call-timer-big {
+  font-size: 16px; color: rgba(255,255,255,.5);
+  font-variant-numeric: tabular-nums; margin-top: 6px;
+  font-weight: 500;
+}
+
+/* PiP local video */
+.call-pip {
+  position: absolute; bottom: 90px; right: 16px;
+  width: 130px; height: 100px;
+  border-radius: 14px; overflow: hidden;
+  border: 2px solid rgba(255,255,255,.15);
+  box-shadow: 0 8px 30px rgba(0,0,0,.5);
+  z-index: 5; cursor: grab;
+  transition: opacity .3s, transform .3s;
+}
+.call-pip.hidden { display: none; }
+.call-local-video {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+  transform: scaleX(-1); /* mirror */
+}
+.call-pip-off {
+  position: absolute; inset: 0;
   background: rgba(0,0,0,.7);
+  display: flex; align-items: center; justify-content: center;
+  color: rgba(255,255,255,.4);
+}
+
+/* Top info bar */
+.call-top-bar {
+  position: absolute; top: 0; left: 0; right: 0;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px; z-index: 6;
+  background: linear-gradient(to bottom, rgba(0,0,0,.6) 0%, transparent 100%);
+}
+.call-top-info {
+  display: flex; align-items: center; gap: 10px;
+}
+.call-top-name {
+  font-size: 14px; font-weight: 600; color: #fff;
+}
+.call-top-timer {
+  font-size: 12px; color: rgba(255,255,255,.5);
+  font-variant-numeric: tabular-nums;
+}
+.call-top-btn {
+  width: 36px; height: 36px; border-radius: 50%;
+  background: rgba(255,255,255,.1); border: none;
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; cursor: pointer;
+  transition: background .2s;
+}
+.call-top-btn:hover { background: rgba(255,255,255,.2); }
+
+/* Bottom controls */
+.call-bottom-controls {
+  display: flex; align-items: center; justify-content: center;
+  gap: 12px; padding: 16px 20px;
+  background: rgba(10,10,20,.95);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
+}
+.call-ctrl-pill {
+  width: 52px; height: 52px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.08);
+  border: 1.5px solid rgba(255,255,255,.12);
   display: flex; align-items: center; justify-content: center;
-  animation: modalBgIn .3s ease;
-}
-
-.call-card {
-  background: var(--bg-modal);
-  backdrop-filter: var(--blur);
-  -webkit-backdrop-filter: var(--blur);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
-  padding: 36px 32px;
-  min-width: 320px;
-  text-align: center;
-  box-shadow: var(--shadow-lg);
-  animation: modalSlide .35s cubic-bezier(.16,1,.3,1);
-}
-
-.call-name { font-size: 22px; font-weight: 700; margin: 14px 0 6px; letter-spacing: -.3px; }
-.call-type { font-size: 13px; color: var(--text-secondary); margin-bottom: 28px; }
-
-.call-actions { display: flex; justify-content: center; gap: 28px; }
-
-.call-btn {
-  width: 64px; height: 64px;
-  border-radius: var(--radius-full);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 24px;
-  transition: all .25s cubic-bezier(.4,0,.2,1);
-  box-shadow: var(--shadow-md);
-}
-
-.call-accept { background: var(--success); color: #fff; }
-.call-accept:hover { background: #16a34a; transform: scale(1.1); box-shadow: 0 8px 25px rgba(34,197,94,.4); }
-.call-reject { background: var(--danger); color: #fff; }
-.call-reject:hover { background: #dc2626; transform: scale(1.1); box-shadow: 0 8px 25px rgba(239,68,68,.4); }
-
-.active-call-card {
-  padding: 0; overflow: hidden;
-  min-width: 360px; max-width: 90vw; min-height: 280px; position: relative;
-}
-
-/* Audio call dedicated view */
-.call-audio-view {
-  width: 100%; min-height: 280px;
-  display: flex; align-items: center; justify-content: center;
-}
-.call-audio-bg {
-  text-align: center; padding: 40px 30px;
-  background: linear-gradient(135deg, rgba(0,0,0,.85), rgba(30,30,50,.9));
-  width: 100%; min-height: 280px;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-}
-
-/* Video call view */
-.call-video-view { position: relative; }
-
-.remote-video { width: 100%; min-height: 320px; max-height: 80vh; object-fit: contain; background: #000; display: block; }
-
-.local-video {
-  position: absolute; top: 14px; right: 14px;
-  width: 110px; height: 80px;
-  border-radius: var(--radius-md);
-  object-fit: cover;
-  border: 2px solid rgba(255,255,255,.2);
-  box-shadow: var(--shadow-md);
-}
-
-.call-card-info { position: absolute; top: 18px; left: 18px; display: flex; align-items: center; gap: 12px; }
-.call-timer { font-size: 13px; color: #fff; font-weight: 600; text-shadow: 0 1px 4px rgba(0,0,0,.5); }
-
-.call-controls {
-  display: flex; align-items: center; justify-content: center;
-  gap: 18px; padding: 18px; background: var(--bg-modal);
-}
-
-.call-ctrl-btn {
-  width: 50px; height: 50px;
-  border-radius: var(--radius-full);
-  background: var(--bg-hover);
-  border: 1.5px solid var(--border-mid);
-  display: flex; align-items: center; justify-content: center;
-  font-size: 20px;
+  color: #fff; cursor: pointer;
   transition: all .2s ease;
+  position: relative;
 }
-.call-ctrl-btn:hover { background: var(--accent-light); border-color: var(--accent); transform: scale(1.08); }
-.call-ctrl-btn.muted { background: rgba(239,68,68,.12); border-color: var(--danger); }
-.call-end-btn { background: var(--danger) !important; border-color: var(--danger) !important; color: #fff; }
-.call-end-btn:hover { background: #dc2626 !important; transform: scale(1.08); }
+.call-ctrl-pill:hover {
+  background: rgba(255,255,255,.15);
+  border-color: rgba(255,255,255,.25);
+  transform: scale(1.06);
+}
+.call-ctrl-pill.muted {
+  background: rgba(239,68,68,.2);
+  border-color: rgba(239,68,68,.5);
+}
+.call-ctrl-pill.muted svg { stroke: var(--danger); }
+.call-ctrl-pill.sharing {
+  background: rgba(34,197,94,.2);
+  border-color: rgba(34,197,94,.5);
+}
+.call-ctrl-pill.sharing svg { stroke: var(--success); }
+.call-end-pill {
+  background: var(--danger) !important;
+  border-color: var(--danger) !important;
+  box-shadow: 0 6px 20px rgba(239,68,68,.3);
+}
+.call-end-pill:hover {
+  background: #dc2626 !important;
+  box-shadow: 0 8px 30px rgba(239,68,68,.5);
+  transform: scale(1.06);
+}
 
 /* ═ Minimized call bar ═ */
 .call-mini-bar {
@@ -2419,10 +2556,7 @@ button, .icon-btn, .send-btn, .fab-new-chat, .call-btn, .call-ctrl-btn {
 .icon svg { pointer-events: none; }
 
 /* ══ SCREEN SHARE BUTTON ═════════════════════════════════════ */
-.call-ctrl-btn.sharing {
-  background: var(--success) !important;
-  border-color: var(--success) !important;
-  color: #fff;
+.call-ctrl-pill.sharing {
   animation: sharePulse 1.5s ease-in-out infinite;
 }
 

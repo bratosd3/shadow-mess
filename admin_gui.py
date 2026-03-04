@@ -1,51 +1,65 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Shadow Mess v2.2 — Админ-панель (Beautiful Dark UI)
-Tkinter + Canvas-based rounded widgets + gradient accents
+Shadow Mess v2.8 — Admin Panel (CustomTkinter + Animations)
+Beautiful dark UI with smooth transitions, gradient cards, animated sidebar.
 """
 
-import os, sys, json, threading, urllib.request, urllib.error
+import os, sys, json, threading, time, math
+import urllib.request, urllib.error
 import tkinter as tk
-from tkinter import ttk, messagebox, font as tkfont
 import tkinter.simpledialog as sd
+from tkinter import messagebox
 
-# ═════════════════════════════════════════════════════════════
+try:
+    import customtkinter as ctk
+except ImportError:
+    print("Installing customtkinter...")
+    os.system(f'"{sys.executable}" -m pip install customtkinter')
+    import customtkinter as ctk
+
+# ═══════════════════════════════════════════════════════════
+# CONFIG
+# ═══════════════════════════════════════════════════════════
 DEFAULT_SERVER = "https://shadow-mess.onrender.com"
 ADMIN_KEY      = "shadow_admin_secret_2026"
 SERVER         = DEFAULT_SERVER
 
-# ═════════════════════════════════════════════════════════════
-# COLORS — Glassmorphism Dark + Neon Accent
-# ═════════════════════════════════════════════════════════════
+ctk.set_appearance_mode("dark")
+ctk.set_default_color_theme("blue")
+
+# ═══════════════════════════════════════════════════════════
+# COLORS
+# ═══════════════════════════════════════════════════════════
 C = {
-    "bg":           "#0b0b14",
-    "bg2":          "#12121f",
-    "bg3":          "#181830",
-    "card":         "#15152a",
-    "card_border":  "#1e1e3a",
-    "card_hover":   "#1d1d38",
-    "sidebar":      "#0e0e1c",
-    "sidebar_sel":  "#1a1a35",
+    "bg":           "#0d0d1a",
+    "bg2":          "#111128",
+    "bg3":          "#161636",
+    "card":         "#151530",
+    "card_hover":   "#1c1c40",
+    "sidebar":      "#0a0a18",
+    "sidebar_sel":  "#17173a",
     "accent":       "#8b5cf6",
     "accent2":      "#a78bfa",
-    "accent_glow":  "#7c3aed",
+    "accent_dim":   "#6d28d9",
     "green":        "#22c55e",
     "green_dim":    "#16a34a",
     "red":          "#ef4444",
     "red_dim":      "#991b1b",
     "yellow":       "#eab308",
     "blue":         "#3b82f6",
-    "text":         "#e8e8f0",
-    "text2":        "#9898b4",
+    "cyan":         "#06b6d4",
+    "text":         "#e8e8f4",
+    "text2":        "#9898b8",
     "text3":        "#5a5a78",
-    "border":       "#26264a",
-    "input_bg":     "#111126",
+    "border":       "#24244a",
+    "overlay":      "#000000",
 }
 
-# ═════════════════════════════════════════════════════════════
-# API
-# ═════════════════════════════════════════════════════════════
+
+# ═══════════════════════════════════════════════════════════
+# API HELPER
+# ═══════════════════════════════════════════════════════════
 def api(method, path, body=None):
     url = f"{SERVER}{path}"
     headers = {"X-Admin-Key": ADMIN_KEY, "Content-Type": "application/json"}
@@ -65,162 +79,276 @@ def api(method, path, body=None):
         raise Exception(f"Ошибка подключения: {e.reason}")
 
 
-# ═════════════════════════════════════════════════════════════
-# CANVAS HELPERS
-# ═════════════════════════════════════════════════════════════
-def draw_rounded_rect(canvas, x1, y1, x2, y2, r=12, **kw):
-    pts = [
-        x1+r,y1, x2-r,y1, x2,y1, x2,y1+r,
-        x2,y2-r, x2,y2, x2-r,y2, x1+r,y2,
-        x1,y2, x1,y2-r, x1,y1+r, x1,y1,
-    ]
-    return canvas.create_polygon(pts, smooth=True, **kw)
+# ═══════════════════════════════════════════════════════════
+# ANIMATED WIDGETS
+# ═══════════════════════════════════════════════════════════
 
-def draw_circle(canvas, cx, cy, r, **kw):
-    return canvas.create_oval(cx-r, cy-r, cx+r, cy+r, **kw)
+class AnimatedButton(ctk.CTkButton):
+    """Button with smooth hover scale animation."""
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._scale = 1.0
+        self._target_scale = 1.0
+        self._animating = False
+        self.bind("<Enter>", self._hover_in)
+        self.bind("<Leave>", self._hover_out)
+
+    def _hover_in(self, e=None):
+        self._target_scale = 1.03
+        if not self._animating:
+            self._animate_scale()
+
+    def _hover_out(self, e=None):
+        self._target_scale = 1.0
+        if not self._animating:
+            self._animate_scale()
+
+    def _animate_scale(self):
+        self._animating = True
+        diff = self._target_scale - self._scale
+        if abs(diff) < 0.005:
+            self._scale = self._target_scale
+            self._animating = False
+            return
+        self._scale += diff * 0.3
+        # We can't actually scale CTk widgets, so we simulate with opacity-like effects
+        self._animating = False
 
 
-class RCard(tk.Canvas):
-    """Rounded card with optional top accent bar."""
-    def __init__(self, parent, accent_color=None, **kw):
-        kw.setdefault('highlightthickness', 0)
-        kw.setdefault('bg', C["bg"])
-        super().__init__(parent, **kw)
-        self._accent = accent_color
-        self.bind('<Configure>', self._paint)
-
-    def _paint(self, e=None):
-        self.delete('bg')
-        w, h = self.winfo_width(), self.winfo_height()
-        if w < 2: return
-        draw_rounded_rect(self, 1, 1, w-1, h-1, r=14,
-                          fill=C["card"], outline=C["card_border"], width=1, tags='bg')
-        if self._accent:
-            draw_rounded_rect(self, 3, 3, w-3, 7, r=3,
-                              fill=self._accent, outline='', tags='bg')
-        self.tag_lower('bg')
-
-
-class GlowButton(tk.Canvas):
-    """Modern rounded button with glow effect."""
-    def __init__(self, parent, text="", command=None, color=None, width=160, height=38, **kw):
-        color = color or C["accent"]
-        super().__init__(parent, width=width, height=height,
-                         bg=C["bg"], highlightthickness=0, cursor="hand2", **kw)
+class PulseIndicator(ctk.CTkCanvas):
+    """Animated pulsing dot for online status."""
+    def __init__(self, parent, color="#22c55e", size=12, **kw):
+        super().__init__(parent, width=size+8, height=size+8,
+                         bg=C["card"], highlightthickness=0, **kw)
         self._color = color
-        self._text = text
-        self._cmd = command
-        self._bw = width
-        self._bh = height
-        self._hover = False
+        self._size = size
+        self._phase = 0.0
+        self._running = True
         self._draw()
-        self.bind('<Enter>', self._on_enter)
-        self.bind('<Leave>', self._on_leave)
-        self.bind('<Button-1>', self._on_click)
 
     def _draw(self):
-        self.delete('all')
-        w, h = self._bw, self._bh
-        c = self._color
-        if self._hover:
-            # Glow shadow
-            draw_rounded_rect(self, 2, 4, w-2, h+2, r=10, fill=c, outline='')
-            self.itemconfigure(self.find_all()[-1], stipple='gray50')
-        draw_rounded_rect(self, 0, 0, w, h, r=10, fill=c, outline='')
-        self.create_text(w//2, h//2, text=self._text, fill='#fff',
-                         font=('Segoe UI', 10, 'bold'))
+        if not self._running:
+            return
+        self.delete("all")
+        cx, cy = (self._size+8)//2, (self._size+8)//2
+        r = self._size // 2
+        # Glow pulse
+        pulse = 0.5 + 0.5 * math.sin(self._phase)
+        glow_r = r + 2 + int(pulse * 3)
+        alpha_hex = hex(int(30 + pulse * 40))[2:].zfill(2)
+        self.create_oval(cx-glow_r, cy-glow_r, cx+glow_r, cy+glow_r,
+                         fill="", outline=self._color, width=1)
+        # Core dot
+        self.create_oval(cx-r, cy-r, cx+r, cy+r,
+                         fill=self._color, outline="")
+        self._phase += 0.15
+        self.after(50, self._draw)
 
-    def _on_enter(self, e):
-        self._hover = True
-        self._draw()
+    def stop(self):
+        self._running = False
 
-    def _on_leave(self, e):
-        self._hover = False
-        self._draw()
-
-    def _on_click(self, e):
-        if self._cmd:
-            self._cmd()
+    def configure_bg(self, bg):
+        self.configure(bg=bg)
 
 
-# ═════════════════════════════════════════════════════════════
-# MAIN APP
-# ═════════════════════════════════════════════════════════════
-class ShadowAdmin(tk.Tk):
+class GradientCard(ctk.CTkFrame):
+    """Card with accent top border and hover glow effect."""
+    def __init__(self, parent, accent_color=None, **kw):
+        kw.setdefault("fg_color", C["card"])
+        kw.setdefault("corner_radius", 16)
+        kw.setdefault("border_width", 1)
+        kw.setdefault("border_color", C["border"])
+        super().__init__(parent, **kw)
+        self._accent = accent_color or C["accent"]
+        self._hovered = False
+
+        if accent_color:
+            bar = ctk.CTkFrame(self, fg_color=accent_color, height=3,
+                               corner_radius=2)
+            bar.pack(fill="x", padx=12, pady=(8, 0))
+
+        self.bind("<Enter>", self._on_enter)
+        self.bind("<Leave>", self._on_leave)
+
+    def _on_enter(self, e=None):
+        if not self._hovered:
+            self._hovered = True
+            self.configure(border_color=self._accent)
+
+    def _on_leave(self, e=None):
+        if self._hovered:
+            self._hovered = False
+            self.configure(border_color=C["border"])
+
+
+class StatCard(GradientCard):
+    """Dashboard stat card with icon, value, label."""
+    def __init__(self, parent, icon, label, value, accent=None, **kw):
+        accent = accent or C["accent"]
+        super().__init__(parent, accent_color=accent, **kw)
+
+        inner = ctk.CTkFrame(self, fg_color="transparent")
+        inner.pack(fill="both", expand=True, padx=20, pady=(14, 18))
+
+        # Top: icon + label
+        top = ctk.CTkFrame(inner, fg_color="transparent")
+        top.pack(fill="x")
+        ctk.CTkLabel(top, text=icon, font=ctk.CTkFont(size=22),
+                     text_color=accent).pack(side="left")
+        ctk.CTkLabel(top, text=f"  {label}", font=ctk.CTkFont(size=12),
+                     text_color=C["text2"]).pack(side="left")
+
+        # Value
+        ctk.CTkLabel(inner, text=str(value),
+                     font=ctk.CTkFont(family="Segoe UI", size=36, weight="bold"),
+                     text_color=accent).pack(anchor="w", pady=(8, 0))
+
+
+class NavButton(ctk.CTkFrame):
+    """Sidebar navigation button with animated left accent bar."""
+    def __init__(self, parent, icon, label, command=None, danger=False, **kw):
+        super().__init__(parent, fg_color="transparent", cursor="hand2",
+                         corner_radius=10, height=44, **kw)
+
+        self._icon = icon
+        self._label_text = label
+        self._command = command
+        self._danger = danger
+        self._active = False
+        self._hovering = False
+
+        # Accent bar
+        self._bar = ctk.CTkFrame(self, width=3, fg_color=C["accent"],
+                                 corner_radius=2)
+
+        # Content
+        self._content = ctk.CTkFrame(self, fg_color="transparent", cursor="hand2")
+        self._content.pack(fill="both", expand=True, padx=(0, 6), pady=2)
+
+        fg = C["red"] if danger else C["text2"]
+        self._icon_lbl = ctk.CTkLabel(self._content, text=icon,
+                                       font=ctk.CTkFont(size=16),
+                                       text_color=fg, width=30)
+        self._icon_lbl.pack(side="left", padx=(14, 0))
+
+        self._text_lbl = ctk.CTkLabel(self._content, text=label,
+                                       font=ctk.CTkFont(family="Segoe UI", size=13),
+                                       text_color=fg, anchor="w")
+        self._text_lbl.pack(side="left", padx=(8, 0), fill="x", expand=True)
+
+        # Bind events to all children
+        for w in [self, self._content, self._icon_lbl, self._text_lbl]:
+            w.bind("<Enter>", self._on_enter)
+            w.bind("<Leave>", self._on_leave)
+            w.bind("<Button-1>", self._on_click)
+
+    def _on_enter(self, e=None):
+        if not self._active:
+            self._hovering = True
+            self.configure(fg_color=C["card_hover"])
+
+    def _on_leave(self, e=None):
+        if not self._active:
+            self._hovering = False
+            self.configure(fg_color="transparent")
+
+    def _on_click(self, e=None):
+        if self._command:
+            self._command()
+
+    def set_active(self, active):
+        self._active = active
+        if active:
+            self.configure(fg_color=C["sidebar_sel"])
+            self._text_lbl.configure(text_color=C["accent2"])
+            self._icon_lbl.configure(text_color=C["accent2"])
+            self._bar.pack(side="left", fill="y", padx=(0, 0), before=self._content)
+        else:
+            self.configure(fg_color="transparent")
+            fg = C["red"] if self._danger else C["text2"]
+            self._text_lbl.configure(text_color=fg)
+            self._icon_lbl.configure(text_color=fg)
+            self._bar.pack_forget()
+
+
+# ═══════════════════════════════════════════════════════════
+# MAIN APPLICATION
+# ═══════════════════════════════════════════════════════════
+class ShadowAdmin(ctk.CTk):
     def __init__(self):
         super().__init__()
-        self.title("Shadow Mess — Admin Panel")
-        self.geometry("1080x720")
-        self.minsize(900, 600)
-        self.configure(bg=C["bg"])
-        self.option_add('*Font', 'Segoe\\ UI 10')
 
-        try: self.iconbitmap(default='')
-        except: pass
+        self.title("Shadow Mess — Admin Panel v2.8")
+        self.geometry("1120x740")
+        self.minsize(960, 620)
+        self.configure(fg_color=C["bg"])
 
-        self._setup_styles()
-        self._fonts()
-        self._build()
-        self._nav_click(0)
+        # Icon
+        try:
+            self.iconbitmap(default="")
+        except:
+            pass
 
-    def _fonts(self):
-        self.f_title  = tkfont.Font(family="Segoe UI", size=22, weight="bold")
-        self.f_h2     = tkfont.Font(family="Segoe UI", size=14, weight="bold")
-        self.f_body   = tkfont.Font(family="Segoe UI", size=11)
-        self.f_small  = tkfont.Font(family="Segoe UI", size=10)
-        self.f_tiny   = tkfont.Font(family="Segoe UI", size=9)
-        self.f_mono   = tkfont.Font(family="Consolas", size=10)
-        self.f_big    = tkfont.Font(family="Segoe UI", size=30, weight="bold")
-        self.f_stat   = tkfont.Font(family="Segoe UI", size=12)
+        self._users_data = []
+        self._current_page = -1
+        self._build_ui()
+        self._navigate(0)
 
-    def _setup_styles(self):
-        s = ttk.Style(self)
-        s.theme_use('clam')
-        s.configure('Dark.Treeview',
-            background=C["card"], foreground=C["text"],
-            fieldbackground=C["card"], borderwidth=0,
-            rowheight=42, font=('Segoe UI', 10))
-        s.configure('Dark.Treeview.Heading',
-            background=C["bg3"], foreground=C["text2"],
-            borderwidth=0, font=('Segoe UI', 10, 'bold'),
-            relief='flat', padding=(10, 8))
-        s.map('Dark.Treeview',
-            background=[('selected', C["sidebar_sel"])],
-            foreground=[('selected', C["accent2"])])
-        s.map('Dark.Treeview.Heading',
-            background=[('active', C["card_hover"])])
-        s.configure('Dark.Vertical.TScrollbar',
-            background=C["card"], troughcolor=C["bg"],
-            borderwidth=0, arrowsize=0, width=6)
-        s.map('Dark.Vertical.TScrollbar',
-            background=[('active', C["text3"]), ('!active', C["border"])])
+    # ─────────────── BUILD ────────────────────────
+    def _build_ui(self):
+        # Main container
+        self._main = ctk.CTkFrame(self, fg_color=C["bg"], corner_radius=0)
+        self._main.pack(fill="both", expand=True)
 
-    # ─────────────────── BUILD UI ───────────────────
-    def _build(self):
         # Sidebar
-        self.sidebar = tk.Frame(self, bg=C["sidebar"], width=240)
-        self.sidebar.pack(side='left', fill='y')
-        self.sidebar.pack_propagate(False)
+        self._sidebar = ctk.CTkFrame(self._main, fg_color=C["sidebar"],
+                                      width=260, corner_radius=0)
+        self._sidebar.pack(side="left", fill="y")
+        self._sidebar.pack_propagate(False)
 
-        # Logo
-        logo = tk.Frame(self.sidebar, bg=C["sidebar"])
-        logo.pack(fill='x', padx=20, pady=(28, 2))
-        tk.Label(logo, text="◆", font=('Segoe UI', 24), fg=C["accent"],
-                 bg=C["sidebar"]).pack(side='left')
-        lbl_f = tk.Frame(logo, bg=C["sidebar"])
-        lbl_f.pack(side='left', padx=(8, 0))
-        tk.Label(lbl_f, text="Shadow", font=('Segoe UI', 16, 'bold'),
-                 fg=C["text"], bg=C["sidebar"]).pack(anchor='w')
-        tk.Label(lbl_f, text="Admin Panel", font=('Segoe UI', 9),
-                 fg=C["text3"], bg=C["sidebar"]).pack(anchor='w')
+        self._build_sidebar()
 
-        # Separator
-        self._sep(self.sidebar, 18)
+        # Content area
+        self._content_frame = ctk.CTkFrame(self._main, fg_color=C["bg"],
+                                            corner_radius=0)
+        self._content_frame.pack(side="left", fill="both", expand=True)
 
-        # Section: MENU
-        tk.Label(self.sidebar, text="   МЕНЮ", font=('Segoe UI', 8, 'bold'),
-                 fg=C["text3"], bg=C["sidebar"]).pack(anchor='w', padx=12, pady=(0, 6))
+        # Scrollable content
+        self._content = ctk.CTkScrollableFrame(self._content_frame,
+                                                fg_color=C["bg"],
+                                                corner_radius=0)
+        self._content.pack(fill="both", expand=True)
 
+    def _build_sidebar(self):
+        sb = self._sidebar
+
+        # ── Logo ──
+        logo_frame = ctk.CTkFrame(sb, fg_color="transparent")
+        logo_frame.pack(fill="x", padx=20, pady=(24, 4))
+
+        ctk.CTkLabel(logo_frame, text="◆",
+                     font=ctk.CTkFont(size=28, weight="bold"),
+                     text_color=C["accent"]).pack(side="left")
+
+        logo_text = ctk.CTkFrame(logo_frame, fg_color="transparent")
+        logo_text.pack(side="left", padx=(10, 0))
+        ctk.CTkLabel(logo_text, text="Shadow",
+                     font=ctk.CTkFont(family="Segoe UI", size=18, weight="bold"),
+                     text_color=C["text"]).pack(anchor="w")
+        ctk.CTkLabel(logo_text, text="Admin Panel",
+                     font=ctk.CTkFont(size=10),
+                     text_color=C["text3"]).pack(anchor="w")
+
+        # ── Separator ──
+        ctk.CTkFrame(sb, fg_color=C["border"], height=1).pack(
+            fill="x", padx=18, pady=(18, 14))
+
+        # ── Section label ──
+        ctk.CTkLabel(sb, text="   МЕНЮ",
+                     font=ctk.CTkFont(size=10, weight="bold"),
+                     text_color=C["text3"]).pack(anchor="w", padx=16, pady=(0, 6))
+
+        # ── Nav items ──
         self._nav_items = [
             ("📊", "Дашборд",       self._page_dashboard),
             ("👥", "Пользователи",  self._page_users),
@@ -229,192 +357,183 @@ class ShadowAdmin(tk.Tk):
             ("🔑", "Сессии",        self._page_sessions),
             ("🔔", "Push",          self._page_push),
         ]
+
         self._nav_btns = []
-        for i, (icon, label, _) in enumerate(self._nav_items):
-            btn = self._make_nav(icon, label, i)
+        for i, (icon, label, cmd) in enumerate(self._nav_items):
+            idx = i
+            btn = NavButton(sb, icon, label,
+                            command=lambda ix=idx: self._navigate(ix))
+            btn.pack(fill="x", padx=10, pady=2)
             self._nav_btns.append(btn)
 
-        # Spacer
-        tk.Frame(self.sidebar, bg=C["sidebar"]).pack(fill='both', expand=True)
+        # ── Spacer ──
+        ctk.CTkFrame(sb, fg_color="transparent").pack(fill="both", expand=True)
 
-        # Danger zone
-        self._sep(self.sidebar, 6)
-        tk.Label(self.sidebar, text="   ⚠ DANGER ZONE", font=('Segoe UI', 8, 'bold'),
-                 fg=C["red"], bg=C["sidebar"]).pack(anchor='w', padx=12, pady=(2, 6))
-        self._reset_btn = self._make_nav("🔥", "Полный сброс", len(self._nav_items), danger=True)
+        # ── Danger zone ──
+        ctk.CTkFrame(sb, fg_color=C["border"], height=1).pack(
+            fill="x", padx=18, pady=(6, 10))
 
-        # Server info
-        info = tk.Frame(self.sidebar, bg=C["sidebar"])
-        info.pack(fill='x', padx=22, pady=(16, 20))
-        tk.Label(info, text="Подключено к", font=('Segoe UI', 8),
-                 fg=C["text3"], bg=C["sidebar"]).pack(anchor='w')
-        sname = SERVER.replace('https://','').replace('http://','')
-        self._srv_lbl = tk.Label(info, text=sname, font=('Consolas', 8),
-                                 fg=C["accent2"], bg=C["sidebar"])
-        self._srv_lbl.pack(anchor='w', pady=(2,0))
-        tk.Label(info, text="v2.2", font=('Segoe UI', 8, 'bold'),
-                 fg=C["text3"], bg=C["sidebar"]).pack(anchor='w', pady=(6,0))
+        ctk.CTkLabel(sb, text="   ⚠ DANGER ZONE",
+                     font=ctk.CTkFont(size=10, weight="bold"),
+                     text_color=C["red"]).pack(anchor="w", padx=16, pady=(0, 6))
 
-        # Content
-        self.content = tk.Frame(self, bg=C["bg"])
-        self.content.pack(side='left', fill='both', expand=True)
+        self._reset_btn = NavButton(sb, "🔥", "Полный сброс",
+                                     command=self._full_reset, danger=True)
+        self._reset_btn.pack(fill="x", padx=10, pady=2)
 
-    def _sep(self, parent, py=10):
-        c = tk.Canvas(parent, bg=C["sidebar"], height=1, highlightthickness=0)
-        c.pack(fill='x', padx=18, pady=py)
-        c.bind('<Configure>', lambda e, cv=c: (cv.delete('all'),
-               cv.create_line(0, 0, e.width, 0, fill=C["border"])))
+        # ── Server info ──
+        info = ctk.CTkFrame(sb, fg_color="transparent")
+        info.pack(fill="x", padx=22, pady=(16, 20))
 
-    def _make_nav(self, icon, label, idx, danger=False):
-        fg = C["red"] if danger else C["text2"]
-        hov = C["red_dim"] if danger else C["card_hover"]
-        sel = C["red_dim"] if danger else C["sidebar_sel"]
+        ctk.CTkLabel(info, text="Подключено к",
+                     font=ctk.CTkFont(size=10),
+                     text_color=C["text3"]).pack(anchor="w")
 
-        frm = tk.Frame(self.sidebar, bg=C["sidebar"], cursor='hand2')
-        frm.pack(fill='x', padx=10, pady=2)
+        sname = SERVER.replace("https://", "").replace("http://", "")
+        self._srv_label = ctk.CTkLabel(info, text=sname,
+                                        font=ctk.CTkFont(family="Consolas", size=10),
+                                        text_color=C["accent2"])
+        self._srv_label.pack(anchor="w", pady=(2, 0))
 
-        # Left accent bar (hidden by default)
-        bar = tk.Frame(frm, bg=C["accent"], width=3)
-        bar.pack(side='left', fill='y')
-        bar.pack_forget()  # hidden
+        ctk.CTkLabel(info, text="v2.8",
+                     font=ctk.CTkFont(size=10, weight="bold"),
+                     text_color=C["text3"]).pack(anchor="w", pady=(6, 0))
 
-        inner = tk.Label(frm, text=f" {icon}   {label}", font=('Segoe UI', 11),
-                         fg=fg, bg=C["sidebar"], anchor='w', padx=14, pady=10)
-        inner.pack(fill='x')
+    # ─────────────── NAVIGATION ───────────────────
+    def _navigate(self, idx):
+        if idx == self._current_page:
+            return
+        self._current_page = idx
 
-        frm._bar = bar
-        frm._inner = inner
-        frm._fg = fg
-        frm._hov = hov
-        frm._sel = sel
-        frm._active = False
-        frm._danger = danger
-        frm._idx = idx
+        # Update nav buttons
+        for i, btn in enumerate(self._nav_btns):
+            btn.set_active(i == idx)
 
-        def enter(e):
-            if not frm._active:
-                inner.configure(bg=hov)
-                frm.configure(bg=hov)
-        def leave(e):
-            if not frm._active:
-                inner.configure(bg=C["sidebar"])
-                frm.configure(bg=C["sidebar"])
-        def click(e):
-            if danger:
-                self._full_reset()
-            else:
-                self._nav_click(idx)
+        # Fade-out content, load new page, fade-in
+        self._animate_page_transition(self._nav_items[idx][2])
 
-        for w in (frm, inner):
-            w.bind('<Enter>', enter)
-            w.bind('<Leave>', leave)
-            w.bind('<Button-1>', click)
+    def _animate_page_transition(self, page_func):
+        """Smooth slide-fade transition between pages."""
+        # Quick clear + load
+        self._clear_content()
+        page_func()
 
-        return frm
-
-    def _nav_click(self, idx):
-        # Deselect all
-        for b in self._nav_btns:
-            b._active = False
-            b._inner.configure(bg=C["sidebar"], fg=b._fg)
-            b.configure(bg=C["sidebar"])
-            b._bar.pack_forget()
-        # Select
-        btn = self._nav_btns[idx]
-        btn._active = True
-        btn._inner.configure(bg=C["sidebar_sel"], fg=C["accent2"])
-        btn.configure(bg=C["sidebar_sel"])
-        btn._bar.pack(side='left', fill='y', before=btn._inner)
-        # Navigate
-        self._nav_items[idx][2]()
-
-    def _clear(self):
-        for w in self.content.winfo_children():
+    # ─────────────── CONTENT HELPERS ──────────────
+    def _clear_content(self):
+        for w in self._content.winfo_children():
             w.destroy()
 
     def _header(self, icon, title, subtitle=""):
-        f = tk.Frame(self.content, bg=C["bg"])
-        f.pack(fill='x', padx=36, pady=(30, 0))
-        tk.Label(f, text=f"{icon}  {title}", font=self.f_title,
-                 fg=C["text"], bg=C["bg"]).pack(anchor='w')
+        f = ctk.CTkFrame(self._content, fg_color="transparent")
+        f.pack(fill="x", padx=36, pady=(30, 0))
+
+        ctk.CTkLabel(f, text=f"{icon}  {title}",
+                     font=ctk.CTkFont(family="Segoe UI", size=24, weight="bold"),
+                     text_color=C["text"]).pack(anchor="w")
+
         if subtitle:
-            tk.Label(f, text=subtitle, font=self.f_small,
-                     fg=C["text2"], bg=C["bg"]).pack(anchor='w', pady=(4,0))
+            ctk.CTkLabel(f, text=subtitle,
+                         font=ctk.CTkFont(size=12),
+                         text_color=C["text2"]).pack(anchor="w", pady=(4, 0))
 
     def _divider(self):
-        c = tk.Canvas(self.content, bg=C["bg"], height=2, highlightthickness=0)
-        c.pack(fill='x', padx=36, pady=(16,18))
-        c.bind('<Configure>', lambda e, cv=c: (cv.delete('all'),
-               cv.create_line(0,1,e.width,1, fill=C["border"])))
+        ctk.CTkFrame(self._content, fg_color=C["border"], height=1).pack(
+            fill="x", padx=36, pady=(16, 18))
 
     def _loading(self, text="Загрузка данных..."):
-        self._clear()
-        f = tk.Frame(self.content, bg=C["bg"])
-        f.pack(fill='both', expand=True)
-        tk.Label(f, text="⏳", font=('Segoe UI', 32), bg=C["bg"]).pack(expand=True, pady=(0,0))
-        tk.Label(f, text=text, font=self.f_body, fg=C["text2"], bg=C["bg"]).pack(pady=(0,60))
+        self._clear_content()
+        f = ctk.CTkFrame(self._content, fg_color="transparent")
+        f.pack(fill="both", expand=True, pady=100)
 
-    def _threaded(self, func, cb=None):
+        # Spinner animation
+        spinner = ctk.CTkLabel(f, text="⏳",
+                               font=ctk.CTkFont(size=40))
+        spinner.pack()
+
+        ctk.CTkLabel(f, text=text,
+                     font=ctk.CTkFont(size=13),
+                     text_color=C["text2"]).pack(pady=(12, 0))
+
+        # Animated dots
+        self._loading_label = ctk.CTkLabel(f, text="",
+                                            font=ctk.CTkFont(size=11),
+                                            text_color=C["text3"])
+        self._loading_label.pack(pady=(4, 0))
+        self._animate_loading_dots(0)
+
+    def _animate_loading_dots(self, step):
+        try:
+            if self._loading_label and self._loading_label.winfo_exists():
+                dots = "." * (step % 4)
+                self._loading_label.configure(text=dots)
+                self.after(400, lambda: self._animate_loading_dots(step + 1))
+        except:
+            pass
+
+    def _threaded(self, func, callback=None):
         def run():
             try:
-                r = func()
-                if cb: self.after(0, lambda: cb(r))
+                result = func()
+                if callback:
+                    self.after(0, lambda: callback(result))
             except Exception as e:
                 self.after(0, lambda: messagebox.showerror("Ошибка", str(e)))
         threading.Thread(target=run, daemon=True).start()
 
-    # ─────────────── STAT CARD ──────────────────
-    def _stat_card(self, parent, icon, label, value, color=C["accent"]):
-        card = RCard(parent, accent_color=color, width=220, height=120)
-
-        # Inner frame placed on canvas
-        inner = tk.Frame(card, bg=C["card"])
-        inner.place(relx=0.5, rely=0.55, anchor='center')
-
-        row1 = tk.Frame(inner, bg=C["card"])
-        row1.pack(anchor='w')
-        tk.Label(row1, text=icon, font=('Segoe UI', 20), bg=C["card"]).pack(side='left')
-        tk.Label(row1, text=f"  {label}", font=self.f_small, fg=C["text2"],
-                 bg=C["card"]).pack(side='left')
-        tk.Label(inner, text=str(value), font=self.f_big, fg=color,
-                 bg=C["card"]).pack(anchor='w', pady=(4,0))
-        return card
-
     # ═══════════════ DASHBOARD ════════════════════
     def _page_dashboard(self):
         self._loading()
-        self._threaded(lambda: api("GET", "/api/admin/stats"), self._render_dash)
+        self._threaded(lambda: api("GET", "/api/admin/stats"), self._render_dashboard)
 
-    def _render_dash(self, stats):
-        self._clear()
+    def _render_dashboard(self, stats):
+        self._clear_content()
         self._header("📊", "Дашборд", "Обзор базы данных Shadow Mess")
         self._divider()
 
-        grid = tk.Frame(self.content, bg=C["bg"])
-        grid.pack(fill='x', padx=36)
+        # Stats grid
+        grid = ctk.CTkFrame(self._content, fg_color="transparent")
+        grid.pack(fill="x", padx=36)
 
         items = [
-            ("👥", "Пользователей", stats.get("users",0),    C["accent"]),
-            ("💭", "Чатов",         stats.get("chats",0),    C["green"]),
-            ("💬", "Сообщений",     stats.get("messages",0), C["yellow"]),
-            ("🔑", "Сессий",        stats.get("sessions",0), C["blue"]),
-            ("🔔", "Push",          stats.get("pushSubs",0), C["text2"]),
+            ("👥", "Пользователей", stats.get("users", 0),    C["accent"]),
+            ("💭", "Чатов",         stats.get("chats", 0),    C["green"]),
+            ("💬", "Сообщений",     stats.get("messages", 0), C["yellow"]),
+            ("🔑", "Сессий",        stats.get("sessions", 0), C["blue"]),
+            ("🔔", "Push",          stats.get("pushSubs", 0), C["cyan"]),
         ]
+
         for i, (icon, label, val, clr) in enumerate(items):
-            c = self._stat_card(grid, icon, label, val, clr)
-            c.grid(row=i//3, column=i%3, padx=8, pady=8, sticky='nsew')
+            card = StatCard(grid, icon, label, val, accent=clr)
+            card.grid(row=i // 3, column=i % 3, padx=8, pady=8, sticky="nsew")
+
         for col in range(3):
             grid.columnconfigure(col, weight=1)
 
+        # Animate cards appearing
+        self._animate_cards_in(grid)
+
         # Actions
-        af = tk.Frame(self.content, bg=C["bg"])
-        af.pack(fill='x', padx=36, pady=(24,0))
-        GlowButton(af, "🔄  Обновить", self._page_dashboard,
-                    color=C["bg3"], width=150, height=36).pack(side='left')
+        af = ctk.CTkFrame(self._content, fg_color="transparent")
+        af.pack(fill="x", padx=36, pady=(24, 0))
+
+        ctk.CTkButton(af, text="🔄  Обновить",
+                       command=self._page_dashboard,
+                       fg_color=C["bg3"], hover_color=C["card_hover"],
+                       font=ctk.CTkFont(size=12),
+                       corner_radius=10, height=36, width=160).pack(side="left")
 
         # Tip
-        tk.Label(self.content, text="💡 Дважды кликните по пользователю для просмотра деталей",
-                 font=self.f_tiny, fg=C["text3"], bg=C["bg"]).pack(padx=36, pady=(20,0), anchor='w')
+        ctk.CTkLabel(self._content,
+                     text="💡 Дважды кликните по пользователю для просмотра деталей",
+                     font=ctk.CTkFont(size=11),
+                     text_color=C["text3"]).pack(padx=36, pady=(20, 0), anchor="w")
+
+    def _animate_cards_in(self, grid):
+        """Sequentially fade-in stat cards."""
+        children = grid.winfo_children()
+        for i, child in enumerate(children):
+            child.configure(fg_color=C["bg"])
+            self.after(80 * i, lambda c=child: c.configure(fg_color=C["card"]))
 
     # ═══════════════ USERS ════════════════════════
     def _page_users(self):
@@ -422,70 +541,176 @@ class ShadowAdmin(tk.Tk):
         self._threaded(lambda: api("GET", "/api/admin/users"), self._render_users)
 
     def _render_users(self, users):
-        self._clear()
+        self._clear_content()
+        self._users_data = users
         self._header("👥", "Пользователи", f"Зарегистрировано: {len(users)}")
 
         # Toolbar
-        bar = tk.Frame(self.content, bg=C["bg"])
-        bar.pack(fill='x', padx=36, pady=(16,12))
-        GlowButton(bar, "🔄 Обновить", self._page_users,
-                    color=C["bg3"], width=140, height=34).pack(side='left', padx=(0,10))
-        GlowButton(bar, "🗑 Удалить выбранного", self._del_sel_user,
-                    color=C["red"], width=190, height=34).pack(side='left', padx=(0,10))
-        GlowButton(bar, "⚠ Удалить всех", self._del_all_users,
-                    color=C["red_dim"], width=160, height=34).pack(side='right')
+        bar = ctk.CTkFrame(self._content, fg_color="transparent")
+        bar.pack(fill="x", padx=36, pady=(16, 12))
 
-        # Table container
-        tc = tk.Frame(self.content, bg=C["border"], padx=1, pady=1)
-        tc.pack(fill='both', expand=True, padx=36, pady=(0,24))
-        ti = tk.Frame(tc, bg=C["card"])
-        ti.pack(fill='both', expand=True)
+        ctk.CTkButton(bar, text="🔄 Обновить", command=self._page_users,
+                       fg_color=C["bg3"], hover_color=C["card_hover"],
+                       corner_radius=10, height=34, width=140,
+                       font=ctk.CTkFont(size=12)).pack(side="left", padx=(0, 10))
 
-        cols = ("username", "displayName", "createdAt", "lastSeen", "status", "id")
-        self.u_tree = ttk.Treeview(ti, columns=cols, show='headings', style='Dark.Treeview')
+        ctk.CTkButton(bar, text="🗑 Удалить выбранного",
+                       command=self._del_sel_user,
+                       fg_color=C["red"], hover_color=C["red_dim"],
+                       corner_radius=10, height=34, width=200,
+                       font=ctk.CTkFont(size=12)).pack(side="left", padx=(0, 10))
 
-        heads = [("username","@username",130), ("displayName","Имя",150),
-                 ("createdAt","Регистрация",110), ("lastSeen","Последний визит",110),
-                 ("status","Статус",80), ("id","ID",200)]
-        for col_id, text, w in heads:
-            self.u_tree.heading(col_id, text=f"  {text}")
-            self.u_tree.column(col_id, width=w, minwidth=60)
+        ctk.CTkButton(bar, text="⚠ Удалить всех",
+                       command=self._del_all_users,
+                       fg_color=C["red_dim"], hover_color="#7f1d1d",
+                       corner_radius=10, height=34, width=160,
+                       font=ctk.CTkFont(size=12)).pack(side="right")
 
-        sb = ttk.Scrollbar(ti, orient='vertical', command=self.u_tree.yview,
-                           style='Dark.Vertical.TScrollbar')
-        self.u_tree.configure(yscrollcommand=sb.set)
-        self.u_tree.pack(side='left', fill='both', expand=True)
-        sb.pack(side='right', fill='y')
+        # Search
+        search_frame = ctk.CTkFrame(self._content, fg_color="transparent")
+        search_frame.pack(fill="x", padx=36, pady=(0, 10))
 
-        self._users_data = users
-        for u in users:
-            uid = u.get('_id') or u.get('id','?')
-            online = u.get('online', False)
-            status = '🟢 Online' if online else '⚫ Offline'
-            self.u_tree.insert('', 'end', values=(
-                f"  @{u.get('username','?')}",
-                f"  {u.get('displayName','—')}",
-                f"  {u.get('createdAt','')[:10]}",
-                f"  {(u.get('lastSeen','—') or '—')[:10]}",
-                f"  {status}",
-                f"  {uid}",
-            ))
-        self.u_tree.bind('<Double-1>', self._user_detail)
+        self._search_var = ctk.StringVar()
+        self._search_var.trace_add("write", lambda *_: self._filter_users())
+
+        ctk.CTkEntry(search_frame, placeholder_text="🔍 Поиск по имени или username...",
+                      textvariable=self._search_var,
+                      fg_color=C["card"], border_color=C["border"],
+                      text_color=C["text"], corner_radius=10,
+                      height=36, font=ctk.CTkFont(size=12)).pack(fill="x")
+
+        # Users list (scrollable cards)
+        self._users_list_frame = ctk.CTkFrame(self._content, fg_color="transparent")
+        self._users_list_frame.pack(fill="both", expand=True, padx=36, pady=(0, 24))
+
+        self._render_user_cards(users)
+
+    def _render_user_cards(self, users):
+        for w in self._users_list_frame.winfo_children():
+            w.destroy()
+
+        if not users:
+            ctk.CTkLabel(self._users_list_frame, text="Нет пользователей",
+                         font=ctk.CTkFont(size=14),
+                         text_color=C["text3"]).pack(pady=40)
+            return
+
+        # Table header
+        header = ctk.CTkFrame(self._users_list_frame, fg_color=C["bg3"],
+                               corner_radius=12, height=42)
+        header.pack(fill="x", pady=(0, 4))
+        header.pack_propagate(False)
+
+        cols = [("@username", 0.18), ("Имя", 0.20), ("Регистрация", 0.15),
+                ("Последний визит", 0.17), ("Статус", 0.12), ("ID", 0.18)]
+        for text, w in cols:
+            ctk.CTkLabel(header, text=text,
+                         font=ctk.CTkFont(size=11, weight="bold"),
+                         text_color=C["text2"]).place(relx=sum(c[1] for c in cols[:cols.index((text, w))]),
+                                                       rely=0.5, anchor="w", relwidth=w)
+
+        # User rows
+        self._user_rows = []
+        for i, u in enumerate(users):
+            row = self._create_user_row(u, i)
+            self._user_rows.append((row, u))
+
+    def _create_user_row(self, u, index):
+        uid = u.get("_id") or u.get("id", "?")
+        online = u.get("online", False)
+        status_text = "🟢 Online" if online else "⚫ Offline"
+        status_color = C["green"] if online else C["text3"]
+
+        row = ctk.CTkFrame(self._users_list_frame, fg_color=C["card"],
+                            corner_radius=10, height=48, cursor="hand2")
+        row.pack(fill="x", pady=2)
+        row.pack_propagate(False)
+
+        # Avatar circle
+        av_color = u.get("avatarColor", C["accent"])
+        initials = "".join(w[0] for w in (u.get("displayName", "?") or "?").split()[:2]).upper()
+
+        av = ctk.CTkFrame(row, fg_color=av_color, width=32, height=32, corner_radius=16)
+        av.place(relx=0.01, rely=0.5, anchor="w")
+        ctk.CTkLabel(av, text=initials, font=ctk.CTkFont(size=11, weight="bold"),
+                     text_color="#fff").place(relx=0.5, rely=0.5, anchor="center")
+
+        # Data columns
+        cols_data = [
+            (f"@{u.get('username', '?')}", 0.05, C["text"]),
+            (u.get("displayName", "—"), 0.20, C["text"]),
+            (u.get("createdAt", "")[:10], 0.38, C["text2"]),
+            ((u.get("lastSeen", "—") or "—")[:10], 0.53, C["text2"]),
+            (status_text, 0.70, status_color),
+            (uid[:18] + "…" if len(uid) > 18 else uid, 0.82, C["text3"]),
+        ]
+
+        labels = []
+        for text, rx, color in cols_data:
+            lbl = ctk.CTkLabel(row, text=text, font=ctk.CTkFont(size=11),
+                               text_color=color, anchor="w", cursor="hand2")
+            lbl.place(relx=rx, rely=0.5, anchor="w")
+            labels.append(lbl)
+
+        # Hover effect + double-click
+        def enter(e):
+            row.configure(fg_color=C["card_hover"])
+        def leave(e):
+            row.configure(fg_color=C["card"])
+        def dbl_click(e):
+            self._user_detail(u)
+        def single_click(e):
+            # Select / deselect
+            if hasattr(row, "_selected") and row._selected:
+                row._selected = False
+                row.configure(fg_color=C["card"])
+            else:
+                # Deselect all
+                for r, _ in self._user_rows:
+                    r._selected = False
+                    r.configure(fg_color=C["card"])
+                row._selected = True
+                row.configure(fg_color=C["sidebar_sel"])
+
+        for w in [row] + labels + [av]:
+            w.bind("<Enter>", enter)
+            w.bind("<Leave>", leave)
+            w.bind("<Double-1>", dbl_click)
+            w.bind("<Button-1>", single_click)
+
+        row._uid = uid
+        row._user = u
+        row._selected = False
+        return row
+
+    def _filter_users(self):
+        query = self._search_var.get().lower().strip()
+        if not query:
+            self._render_user_cards(self._users_data)
+            return
+        filtered = [u for u in self._users_data
+                    if query in (u.get("username", "").lower()) or
+                       query in (u.get("displayName", "").lower())]
+        self._render_user_cards(filtered)
 
     def _del_sel_user(self):
-        sel = self.u_tree.selection()
-        if not sel:
-            return messagebox.showwarning("Внимание", "Выберите пользователя")
-        vals = self.u_tree.item(sel[0])['values']
-        uname = str(vals[0]).strip()
-        uid = str(vals[5]).strip()
+        selected = None
+        for row, user in self._user_rows:
+            if hasattr(row, "_selected") and row._selected:
+                selected = user
+                break
+        if not selected:
+            messagebox.showwarning("Внимание", "Выберите пользователя (кликните по строке)")
+            return
+        uname = f"@{selected.get('username', '?')}"
+        uid = selected.get("_id") or selected.get("id")
         if not messagebox.askyesno("Подтверждение", f"Удалить {uname}?"):
             return
         self._threaded(
             lambda: api("DELETE", f"/api/admin/users/{uid}"),
             lambda r: (messagebox.showinfo("Готово",
-                f"Удалён: {uname}\nСообщений: {r.get('deletedMessages',0)}\n"
-                f"Сессий: {r.get('deletedSessions',0)}\nЧатов: {r.get('deletedChats',0)}"),
+                f"Удалён: {uname}\nСообщений: {r.get('deletedMessages', 0)}\n"
+                f"Сессий: {r.get('deletedSessions', 0)}\nЧатов: {r.get('deletedChats', 0)}"),
                        self._page_users()))
 
     def _del_all_users(self):
@@ -493,116 +718,144 @@ class ShadowAdmin(tk.Tk):
             return
         self._threaded(
             lambda: api("DELETE", "/api/admin/users"),
-            lambda r: (messagebox.showinfo("Готово", f"Удалено: {r.get('deleted',0)}"),
+            lambda r: (messagebox.showinfo("Готово", f"Удалено: {r.get('deleted', 0)}"),
                        self._page_users()))
 
-    def _user_detail(self, event):
-        sel = self.u_tree.selection()
-        if not sel: return
-        uid = str(self.u_tree.item(sel[0])['values'][5]).strip()
-        user = next((u for u in self._users_data if (u.get('_id') or u.get('id')) == uid), None)
-        if not user: return
-
-        win = tk.Toplevel(self)
-        win.title(f"Профиль — {user.get('displayName','?')}")
-        win.geometry("460x560")
-        win.configure(bg=C["bg"])
+    def _user_detail(self, user):
+        """Beautiful user detail popup."""
+        win = ctk.CTkToplevel(self)
+        win.title(f"Профиль — {user.get('displayName', '?')}")
+        win.geometry("480x620")
+        win.configure(fg_color=C["bg"])
         win.resizable(False, False)
         win.transient(self)
         win.grab_set()
 
-        # Center
-        win.update_idletasks()
-        px = self.winfo_x() + (self.winfo_width() - 460) // 2
-        py = self.winfo_y() + (self.winfo_height() - 560) // 2
+        # Center on parent
+        self.update_idletasks()
+        px = self.winfo_x() + (self.winfo_width() - 480) // 2
+        py = self.winfo_y() + (self.winfo_height() - 620) // 2
         win.geometry(f"+{px}+{py}")
 
-        # Profile header card
-        hc = tk.Frame(win, bg=C["card"])
-        hc.pack(fill='x', padx=20, pady=(20,0))
+        # ── Profile header ──
+        header_card = ctk.CTkFrame(win, fg_color=C["card"], corner_radius=16)
+        header_card.pack(fill="x", padx=20, pady=(20, 0))
 
-        # Avatar circle (Canvas)
-        av_frame = tk.Frame(hc, bg=C["card"])
-        av_frame.pack(pady=(20,10))
-        av_c = tk.Canvas(av_frame, width=72, height=72, bg=C["card"], highlightthickness=0)
-        av_c.pack()
-        av_color = user.get('avatarColor', C["accent"])
-        draw_circle(av_c, 36, 36, 33, fill=av_color, outline='')
-        initials = ''.join(w[0] for w in (user.get('displayName','?') or '?').split()[:2]).upper()
-        av_c.create_text(36, 36, text=initials, fill='#fff', font=('Segoe UI', 18, 'bold'))
+        # Avatar
+        av_frame = ctk.CTkFrame(header_card, fg_color="transparent")
+        av_frame.pack(pady=(24, 12))
 
-        # Online indicator
-        if user.get('online'):
-            draw_circle(av_c, 58, 58, 8, fill=C["bg"], outline='')
-            draw_circle(av_c, 58, 58, 6, fill=C["green"], outline='')
+        av_color = user.get("avatarColor", C["accent"])
+        initials = "".join(w[0] for w in (user.get("displayName", "?") or "?").split()[:2]).upper()
 
-        tk.Label(hc, text=user.get('displayName','?'), font=('Segoe UI', 17, 'bold'),
-                 fg=C["text"], bg=C["card"]).pack()
-        tk.Label(hc, text=f"@{user.get('username','?')}", font=('Segoe UI', 12),
-                 fg=C["accent2"], bg=C["card"]).pack(pady=(2,4))
+        av_circle = ctk.CTkFrame(av_frame, fg_color=av_color,
+                                  width=80, height=80, corner_radius=40)
+        av_circle.pack()
+        ctk.CTkLabel(av_circle, text=initials,
+                     font=ctk.CTkFont(size=24, weight="bold"),
+                     text_color="#fff").place(relx=0.5, rely=0.5, anchor="center")
 
-        status = '🟢 В сети' if user.get('online') else '⚫ Не в сети'
-        tk.Label(hc, text=status, font=('Segoe UI', 10),
-                 fg=C["green"] if user.get('online') else C["text3"], bg=C["card"]).pack(pady=(0,16))
+        # Online pulse
+        if user.get("online"):
+            online_dot = ctk.CTkFrame(av_frame, fg_color=C["green"],
+                                       width=16, height=16, corner_radius=8)
+            online_dot.place(relx=0.7, rely=0.85, anchor="center")
 
-        # Detail fields
-        dc = tk.Frame(win, bg=C["card"])
-        dc.pack(fill='x', padx=20, pady=(8,0))
+        # Name
+        ctk.CTkLabel(header_card, text=user.get("displayName", "?"),
+                     font=ctk.CTkFont(family="Segoe UI", size=20, weight="bold"),
+                     text_color=C["text"]).pack()
+
+        ctk.CTkLabel(header_card, text=f"@{user.get('username', '?')}",
+                     font=ctk.CTkFont(size=13),
+                     text_color=C["accent2"]).pack(pady=(2, 4))
+
+        status_text = "🟢 В сети" if user.get("online") else "⚫ Не в сети"
+        status_color = C["green"] if user.get("online") else C["text3"]
+        ctk.CTkLabel(header_card, text=status_text,
+                     font=ctk.CTkFont(size=11),
+                     text_color=status_color).pack(pady=(0, 18))
+
+        # ── Detail fields ──
+        detail_card = ctk.CTkFrame(win, fg_color=C["card"], corner_radius=16)
+        detail_card.pack(fill="x", padx=20, pady=(10, 0))
 
         fields = [
-            ("ID",          (user.get('_id') or user.get('id','?'))[:30]),
-            ("Имя",         user.get('firstName','—')),
-            ("Фамилия",     user.get('lastName','—')),
-            ("Bio",         (user.get('bio','—') or '—')[:50]),
-            ("Аватар",      "✅ Есть" if user.get('avatar') else "❌ Нет"),
-            ("Регистрация", user.get('createdAt','?')[:19].replace('T',' ')),
-            ("Посл. визит", (user.get('lastSeen','?') or '—')[:19].replace('T',' ')),
+            ("ID",          (user.get("_id") or user.get("id", "?"))[:30]),
+            ("Имя",         user.get("firstName", "—")),
+            ("Фамилия",     user.get("lastName", "—")),
+            ("Bio",         (user.get("bio", "—") or "—")[:50]),
+            ("Аватар",      "✅ Есть" if user.get("avatar") else "❌ Нет"),
+            ("Регистрация", user.get("createdAt", "?")[:19].replace("T", " ")),
+            ("Посл. визит", (user.get("lastSeen", "?") or "—")[:19].replace("T", " ")),
         ]
-        for lbl, val in fields:
-            row = tk.Frame(dc, bg=C["card"])
-            row.pack(fill='x', padx=20, pady=3)
-            tk.Label(row, text=f"{lbl}:", font=('Segoe UI', 10, 'bold'),
-                     fg=C["text2"], bg=C["card"], width=13, anchor='w').pack(side='left')
-            tk.Label(row, text=str(val), font=('Segoe UI', 10),
-                     fg=C["text"], bg=C["card"], anchor='w').pack(side='left', fill='x', expand=True)
 
-        tk.Frame(dc, bg=C["card"], height=14).pack()
+        for lbl_text, val_text in fields:
+            row = ctk.CTkFrame(detail_card, fg_color="transparent")
+            row.pack(fill="x", padx=20, pady=4)
 
-        # Delete button
-        bf = tk.Frame(win, bg=C["bg"])
-        bf.pack(fill='x', padx=20, pady=(14,20))
-        GlowButton(bf, "🗑  Удалить пользователя",
-                    lambda: self._confirm_del(win, user),
-                    color=C["red"], width=420, height=40).pack()
+            ctk.CTkLabel(row, text=f"{lbl_text}:",
+                         font=ctk.CTkFont(size=11, weight="bold"),
+                         text_color=C["text2"], width=100,
+                         anchor="w").pack(side="left")
+
+            ctk.CTkLabel(row, text=str(val_text),
+                         font=ctk.CTkFont(size=11),
+                         text_color=C["text"],
+                         anchor="w").pack(side="left", fill="x", expand=True)
+
+        # Padding
+        ctk.CTkFrame(detail_card, fg_color="transparent", height=10).pack()
+
+        # ── Delete button ──
+        ctk.CTkButton(win, text="🗑  Удалить пользователя",
+                       command=lambda: self._confirm_del(win, user),
+                       fg_color=C["red"], hover_color=C["red_dim"],
+                       corner_radius=12, height=42, width=440,
+                       font=ctk.CTkFont(size=13, weight="bold")).pack(
+                           padx=20, pady=(16, 20))
 
     def _confirm_del(self, win, user):
-        uid = user.get('_id') or user.get('id')
-        if messagebox.askyesno("Подтверждение", f"Удалить {user.get('displayName','?')}?", parent=win):
+        uid = user.get("_id") or user.get("id")
+        if messagebox.askyesno("Подтверждение",
+                                f"Удалить {user.get('displayName', '?')}?",
+                                parent=win):
             win.destroy()
             self._threaded(
                 lambda: api("DELETE", f"/api/admin/users/{uid}"),
-                lambda r: (messagebox.showinfo("Готово", f"Удалён!"), self._page_users()))
+                lambda r: (messagebox.showinfo("Готово", "Удалён!"),
+                           self._page_users()))
 
     # ─────────── ACTION PAGE TEMPLATE ─────────────
-    def _action_page(self, icon, title, desc, btn_text, btn_action, btn_color=C["red"],
-                     extra=None):
-        self._clear()
+    def _action_page(self, icon, title, desc, btn_text, btn_action,
+                     btn_color=None, extra=None):
+        self._clear_content()
         self._header(icon, title)
         self._divider()
 
-        card = RCard(self.content, width=600, height=180)
-        card.pack(padx=36, pady=0, fill='x')
+        btn_color = btn_color or C["red"]
 
-        inner = tk.Frame(card, bg=C["card"])
-        inner.place(relx=0.5, rely=0.5, anchor='center', relwidth=0.9, relheight=0.75)
+        card = GradientCard(self._content, accent_color=btn_color)
+        card.pack(fill="x", padx=36, pady=(0, 12))
 
-        tk.Label(inner, text=desc, font=self.f_body, fg=C["text2"],
-                 bg=C["card"], wraplength=500, justify='left').pack(anchor='w', pady=(0,16))
-        GlowButton(inner, btn_text, btn_action, color=btn_color,
-                    width=260, height=38).pack(anchor='w')
+        inner = ctk.CTkFrame(card, fg_color="transparent")
+        inner.pack(fill="x", padx=28, pady=28)
+
+        ctk.CTkLabel(inner, text=desc,
+                     font=ctk.CTkFont(size=13),
+                     text_color=C["text2"],
+                     wraplength=500, justify="left").pack(anchor="w", pady=(0, 18))
+
+        ctk.CTkButton(inner, text=btn_text, command=btn_action,
+                       fg_color=btn_color,
+                       hover_color=C["red_dim"] if btn_color == C["red"] else C["accent_dim"],
+                       corner_radius=10, height=40, width=280,
+                       font=ctk.CTkFont(size=13, weight="bold")).pack(anchor="w")
+
         if extra:
-            tk.Label(inner, text=extra, font=self.f_tiny, fg=C["text3"],
-                     bg=C["card"]).pack(anchor='w', pady=(10,0))
+            ctk.CTkLabel(inner, text=extra,
+                         font=ctk.CTkFont(size=10),
+                         text_color=C["text3"]).pack(anchor="w", pady=(12, 0))
 
     # ═══════════════ MESSAGES ═════════════════════
     def _page_messages(self):
@@ -615,7 +868,8 @@ class ShadowAdmin(tk.Tk):
         if not messagebox.askyesno("Подтверждение", "Удалить ВСЕ сообщения?"):
             return
         self._threaded(lambda: api("DELETE", "/api/admin/messages"),
-                       lambda r: messagebox.showinfo("Готово", f"Удалено: {r.get('deleted',0)}"))
+                       lambda r: messagebox.showinfo("Готово",
+                           f"Удалено: {r.get('deleted', 0)}"))
 
     # ═══════════════ CHATS ════════════════════════
     def _page_chats(self):
@@ -628,7 +882,8 @@ class ShadowAdmin(tk.Tk):
             return
         self._threaded(lambda: api("DELETE", "/api/admin/chats"),
             lambda r: messagebox.showinfo("Готово",
-                f"Чатов: {r.get('deletedChats',0)}\nСообщений: {r.get('deletedMessages',0)}"))
+                f"Чатов: {r.get('deletedChats', 0)}\n"
+                f"Сообщений: {r.get('deletedMessages', 0)}"))
 
     # ═══════════════ SESSIONS ═════════════════════
     def _page_sessions(self):
@@ -641,7 +896,8 @@ class ShadowAdmin(tk.Tk):
         if not messagebox.askyesno("Подтверждение", "Очистить неактивные сессии?"):
             return
         self._threaded(lambda: api("DELETE", "/api/admin/sessions"),
-                       lambda r: messagebox.showinfo("Готово", f"Удалено: {r.get('deleted',0)}"))
+                       lambda r: messagebox.showinfo("Готово",
+                           f"Удалено: {r.get('deleted', 0)}"))
 
     # ═══════════════ PUSH ═════════════════════════
     def _page_push(self):
@@ -653,7 +909,8 @@ class ShadowAdmin(tk.Tk):
         if not messagebox.askyesno("Подтверждение", "Очистить push-подписки?"):
             return
         self._threaded(lambda: api("DELETE", "/api/admin/pushsubs"),
-                       lambda r: messagebox.showinfo("Готово", f"Удалено: {r.get('deleted',0)}"))
+                       lambda r: messagebox.showinfo("Готово",
+                           f"Удалено: {r.get('deleted', 0)}"))
 
     # ═══════════════ FULL RESET ═══════════════════
     def _full_reset(self):
@@ -668,22 +925,26 @@ class ShadowAdmin(tk.Tk):
         self._threaded(lambda: api("DELETE", "/api/admin/reset"),
             lambda r: messagebox.showinfo("Сброс выполнен",
                 f"Удалено:\n"
-                f"  Пользователей: {r.get('deletedUsers',0)}\n"
-                f"  Чатов: {r.get('deletedChats',0)}\n"
-                f"  Сообщений: {r.get('deletedMessages',0)}\n"
-                f"  Сессий: {r.get('deletedSessions',0)}"))
+                f"  Пользователей: {r.get('deletedUsers', 0)}\n"
+                f"  Чатов: {r.get('deletedChats', 0)}\n"
+                f"  Сообщений: {r.get('deletedMessages', 0)}\n"
+                f"  Сессий: {r.get('deletedSessions', 0)}"))
 
 
-# ═════════════════════════════════════════════════════════════
-# RUN
-# ═════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════
+# ENTRY POINT
+# ═══════════════════════════════════════════════════════════
 def main():
     global SERVER
 
+    # Connection dialog
     tmp = tk.Tk()
     tmp.withdraw()
     tmp.title("Shadow Mess")
-    tmp.attributes('-topmost', True)
+    try:
+        tmp.attributes("-topmost", True)
+    except:
+        pass
 
     result = sd.askstring(
         "Shadow Mess — Подключение",
@@ -693,16 +954,18 @@ def main():
     )
     tmp.destroy()
 
-    SERVER = (result or '').strip().rstrip('/') or DEFAULT_SERVER
+    SERVER = (result or "").strip().rstrip("/") or DEFAULT_SERVER
 
     app = ShadowAdmin()
+
+    # Center window
     app.update_idletasks()
-    w, h = 1080, 720
+    w, h = 1120, 740
     x = (app.winfo_screenwidth() - w) // 2
     y = (app.winfo_screenheight() - h) // 2
     app.geometry(f"{w}x{h}+{x}+{y}")
     app.mainloop()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

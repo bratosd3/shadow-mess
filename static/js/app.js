@@ -2208,20 +2208,21 @@ function startActiveCall(userId, name, avatarColor, type) {
   _activeCallType = type || 'audio';
   _activeCallName = name || '';
 
-  // Audio view
-  if (_activeCallType !== 'video') {
-    renderAvatar($('active-call-avatar-big'), { displayName: name, avatarColor }, 'avatar-xxl');
-    $('active-call-name-audio').textContent = name || '';
-    $('call-timer-audio').textContent = '00:00';
-    $('call-audio-view')?.classList.remove('hidden');
-    $('call-video-view')?.classList.add('hidden');
+  // Render avatars into both layers
+  renderAvatar($('active-call-avatar-big'), { displayName: name, avatarColor }, 'avatar-xxl');
+  renderAvatar($('active-call-avatar'), { displayName: name, avatarColor }, 'avatar-xs');
+  $('active-call-name-audio').textContent = name || '';
+  $('active-call-name').textContent = name || '';
+  $('call-timer').textContent = '00:00';
+  $('call-timer-audio').textContent = '00:00';
+
+  // Let calls.js updateCallView handle layer visibility
+  if (_activeCallType === 'video') {
+    $('call-video-layer')?.classList.add('active');
+    $('call-audio-layer')?.classList.add('hidden-layer');
   } else {
-    // Video view
-    renderAvatar($('active-call-avatar'), { displayName: name, avatarColor }, 'avatar-sm');
-    $('active-call-name').textContent = name || '';
-    $('call-timer').textContent = '00:00';
-    $('call-audio-view')?.classList.add('hidden');
-    $('call-video-view')?.classList.remove('hidden');
+    $('call-video-layer')?.classList.remove('active');
+    $('call-audio-layer')?.classList.remove('hidden-layer');
   }
 
   $('active-call-overlay').classList.remove('hidden');
@@ -2282,12 +2283,9 @@ function initCallButtons() {
   on('toggle-mute',  'click', () => { const m = window.callsModule?.toggleMute(); $('toggle-mute').classList.toggle('muted', m); });
   on('toggle-video', 'click', () => {
     window.callsModule?.toggleVideo();
-    // When user enables video during audio call, switch to video view
-    if (_activeCallType === 'audio') {
-      _activeCallType = 'video';
-      $('call-audio-view')?.classList.add('hidden');
-      $('call-video-view')?.classList.remove('hidden');
-    }
+    // Let calls.js updateCallView handle the layer switching
+    _activeCallType = 'video';
+    window.callsModule?.updateCallView();
   });
   on('toggle-speaker', 'click', () => showToast('Переключение динамика', 'info'));
   on('toggle-screen', 'click', async () => {
