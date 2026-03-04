@@ -424,6 +424,7 @@ function initSocket() {
   socket.on('call_incoming',      handleIncomingCall);
   socket.on('call_answered',      d => { stopDialTone(); playCallConnectSound(); showToast('📞 Звонок начат', 'success'); window.callsModule?.onAnswer(d); });
   socket.on('call_ice',           d => window.callsModule?.onIce(d));
+  socket.on('call_accepting',     () => { stopDialTone(); stopRingtone(); });
   socket.on('call_rejected',      () => { stopDialTone(); hideCallOverlays(); clearInterval(_callTimerInt); showToast('Звонок отклонён', 'info'); });
   socket.on('call_ended',         () => { stopDialTone(); stopRingtone(); playCallEndSound(); clearInterval(_callTimerInt); $('call-mini-bar')?.classList.add('hidden'); $('sidebar-call-indicator')?.classList.add('hidden'); showToast('📞 Звонок завершён', 'info'); window.callsModule?.onEnded(); });
   socket.on('session_revoked',    () => { showToast('Сессия завершена', 'info'); setTimeout(() => logout(), 1500); });
@@ -1033,7 +1034,9 @@ function showPastePreview(url, name) {
 function toggleSendVoiceBtn() {
   const isMobile = window.innerWidth <= 680;
   if (isMobile) {
-    // На мобильных: всегда только кнопка отправки, голосовая скрыта (CSS)
+    // На мобильных: всегда показываем кнопку отправки, голосовая скрыта
+    $('send-btn')?.classList.remove('hidden');
+    $('voice-record-btn')?.classList.add('hidden');
     return;
   }
   const has = $('msg-input').value.trim().length > 0;
@@ -2042,33 +2045,44 @@ function handleIncomingCall({ from, fromName, fromAvatarColor, offer, callType }
   $('inc-call-name').textContent = fromName || 'Неизвестный';
   $('inc-call-type').textContent = callType === 'video' ? '📹 Видеозвонок' : '📞 Голосовой звонок';
   $('incoming-call').classList.remove('hidden');
-  // Вибрация на мобильных
   if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 200]);
-  // Звук рингтона (циклический)
   if (S.notif.calls && S.notif.sound) playRingtone();
 
-  // Сохраняем данные звонка для доступа из обработчиков
   S._pendingCall = { from, fromName, fromAvatarColor, offer, callType };
+  let _handled = false;
 
   function doAccept(e) {
     e.preventDefault();
     e.stopPropagation();
+    if (_handled) return;
+    _handled = true;
     if (navigator.vibrate) navigator.vibrate(0);
     stopRingtone();
     $('incoming-call').classList.add('hidden');
-    playCallConnectSound();
-    showToast('📞 Звонок начат', 'success');
     const c = S._pendingCall;
-    if (c) {
-      startActiveCall(c.from, c.fromName, c.fromAvatarColor || '#333333', c.callType);
-      window.callsModule?.acceptCall(c.from, c.offer, c.callType);
-      S._pendingCall = null;
-    }
+    if (!c) return;
+    S._pendingCall = null;
+    // Мгновенно уведомляем звонящего — гудки прекратятся до завершения WebRTC
+    S.socket?.emit('call_accepting', { to: c.from });
+    startActiveCall(c.from, c.fromName, c.fromAvatarColor || '#333333', c.callType);
+    window.callsModule?.acceptCall(c.from, c.offer, c.callType)
+      .then(() => {
+        playCallConnectSound();
+        showToast('📞 Звонок начат', 'success');
+      })
+      .catch(err => {
+        console.error('[doAccept] acceptCall error:', err);
+        hideCallOverlays();
+        clearInterval(_callTimerInt);
+        showToast('Ошибка подключения звонка', 'error');
+      });
   }
 
   function doReject(e) {
     e.preventDefault();
     e.stopPropagation();
+    if (_handled) return;
+    _handled = true;
     if (navigator.vibrate) navigator.vibrate(0);
     stopRingtone();
     $('incoming-call').classList.add('hidden');
@@ -2076,15 +2090,12 @@ function handleIncomingCall({ from, fromName, fromAvatarColor, offer, callType }
     S._pendingCall = null;
   }
 
-  // Снимаем старые обработчики и ставим новые (click + touchend для мобильных)
   const acceptBtn = $('inc-accept-btn');
   const rejectBtn = $('inc-reject-btn');
-
   const newAccept = acceptBtn.cloneNode(true);
   const newReject = rejectBtn.cloneNode(true);
   acceptBtn.parentNode.replaceChild(newAccept, acceptBtn);
   rejectBtn.parentNode.replaceChild(newReject, rejectBtn);
-
   newAccept.addEventListener('click', doAccept);
   newAccept.addEventListener('touchend', doAccept);
   newReject.addEventListener('click', doReject);
@@ -2160,35 +2171,25 @@ function startCallTimer() {
 }
 
 function initCallButtons() {
-  on('call-audio-btn', 'click', () => {
+  async function initiateCall(type) {
     const c = S.activeChat; if (!c) return;
-    if (c.type === 'group') {
-      // Групповой звонок
-      startGroupCallUI(c);
-      return;
-    }
-    const otherId = c.type === 'private'
-      ? c.members?.find(id => id !== S.user?.id)
-      : c.members?.find(id => id !== S.user?.id);
-    if (!otherId) return;
+    if (c.type === 'group') { startGroupCallUI(c); return; }
+    const otherId = c.members?.find(id => id !== S.user?.id);
+    if (!otherId) { showToast('Не удалось определить собеседника', 'error'); return; }
     playDialTone();
-    startActiveCall(otherId, c.displayName, c.displayAvatarColor || '#333333', 'audio');
-    window.callsModule?.startCall(otherId, 'audio');
-  });
-  on('call-video-btn', 'click', () => {
-    const c = S.activeChat; if (!c) return;
-    if (c.type === 'group') {
-      startGroupCallUI(c);
-      return;
+    startActiveCall(otherId, c.displayName, c.displayAvatarColor || '#333333', type);
+    try {
+      await window.callsModule?.startCall(otherId, type);
+    } catch (err) {
+      console.error('[initiateCall] error:', err);
+      stopDialTone();
+      hideCallOverlays();
+      clearInterval(_callTimerInt);
+      showToast('Не удалось начать звонок', 'error');
     }
-    const otherId = c.type === 'private'
-      ? c.members?.find(id => id !== S.user?.id)
-      : c.members?.find(id => id !== S.user?.id);
-    if (!otherId) return;
-    playDialTone();
-    startActiveCall(otherId, c.displayName, c.displayAvatarColor || '#333333', 'video');
-    window.callsModule?.startCall(otherId, 'video');
-  });
+  }
+  on('call-audio-btn', 'click', () => initiateCall('audio'));
+  on('call-video-btn', 'click', () => initiateCall('video'));
   on('end-call-btn', 'click', () => { stopDialTone(); stopRingtone(); playCallEndSound(); clearInterval(_callTimerInt); $('active-call-overlay').classList.add('hidden'); $('call-mini-bar')?.classList.add('hidden'); $('sidebar-call-indicator')?.classList.add('hidden'); showToast('📞 Звонок завершён', 'info'); window.callsModule?.endCall(); });
   on('toggle-mute',  'click', () => { const m = window.callsModule?.toggleMute(); $('toggle-mute').classList.toggle('muted', m); });
   on('toggle-video', 'click', () => {
@@ -2672,8 +2673,8 @@ function urlBase64ToUint8Array(base64String) {
 // WELCOME WIZARD (первый запуск)
 // ══════════════════════════════════════════════════════════
 function showWelcomeWizard() {
-  // Проверяем, был ли уже показан (checkbox "не показывать снова")
-  if (localStorage.getItem('sm_wizard_done')) return;
+  // Показываем каждый раз, пока пользователь не отметит "не показывать"
+  if (localStorage.getItem('sm_wizard_hidden')) return;
 
   const overlay = $('welcome-wizard');
   if (!overlay) return;
@@ -2787,7 +2788,7 @@ function showWelcomeWizard() {
     // "Не показывать снова" checkbox
     const dontShow = $('wizard-dont-show');
     if (dontShow && dontShow.checked) {
-      localStorage.setItem('sm_wizard_done', 'true');
+      localStorage.setItem('sm_wizard_hidden', 'true');
     }
     overlay.classList.add('hidden');
   }

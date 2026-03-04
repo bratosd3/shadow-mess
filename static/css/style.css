@@ -3572,10 +3572,52 @@ body.bubble-cornered .message-row.out .message-bubble { border-bottom-right-radi
   }
 }
 
-/* ── Smooth theme transition ── */
-body, .sidebar, .chat-panel, .chat-header, .message-bubble,
-.auth-screen, .auth-card, .modal, .message-input-wrap {
-  transition: background-color .4s ease, color .3s ease, border-color .3s ease;
+/* ── Smooth theme transition (desktop only — too heavy for mobile) ── */
+@media (min-width: 681px) {
+  body, .sidebar, .chat-panel, .chat-header, .message-bubble,
+  .auth-screen, .auth-card, .modal, .message-input-wrap {
+    transition: background-color .4s ease, color .3s ease, border-color .3s ease;
+  }
+}
+
+/* ── Mobile performance: disable heavy animations ── */
+@media (max-width: 680px) {
+  /* Kill infinite FAB pulse — constant GPU repaint */
+  .fab-new-chat { animation: none !important; }
+
+  /* No spring send-btn animation — fires on every keystroke via toggleSendVoiceBtn */
+  .send-btn:not(.hidden) { animation: none !important; }
+
+  /* Simpler message animations */
+  .message-row.out.msg-sending { animation: none; opacity: 1; }
+  .message-row.in.msg-new { animation: none; opacity: 1; }
+
+  /* No chat-item ripple (causes repaints on scroll) */
+  .chat-item::after { display: none; }
+
+  /* Search item stagger — unnecessary on mobile */
+  .search-item { animation: none; opacity: 1; }
+
+  /* Simpler modal overlay — no backdrop-filter animation */
+  .modal-overlay { backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+  .modal-overlay:not(.hidden) { animation: none; }
+
+  /* Simpler toast */
+  .toast { animation: toastIn .2s ease; }
+
+  /* Less heavy chat-header backdrop — use solid bg */
+  .chat-header {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  /* Disable avatar hover scale on mobile */
+  .avatar { transition: none; }
+
+  /* Faster chat panel slide */
+  .chat-panel {
+    transition: transform .25s cubic-bezier(.32, .72, 0, 1);
+  }
 }
 
 /* ── PWA / Standalone mode (home-screen app) ── */

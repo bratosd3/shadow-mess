@@ -1106,6 +1106,12 @@ io.on('connection', async (socket) => {
     if (targetSockets) targetSockets.forEach(sid => io.to(sid).emit('call_answered', { from: userId, answer }));
   });
 
+  // Мгновенный сигнал «принимаю» — останавливает гудки у звонящего до завершения WebRTC
+  socket.on('call_accepting', ({ to }) => {
+    const targetSockets = onlineUsers.get(to);
+    if (targetSockets) targetSockets.forEach(sid => io.to(sid).emit('call_accepting', { from: userId }));
+  });
+
   socket.on('call_ice', ({ to, candidate }) => {
     const targetSockets = onlineUsers.get(to);
     if (targetSockets) targetSockets.forEach(sid => io.to(sid).emit('call_ice', { from: userId, candidate }));

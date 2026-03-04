@@ -239,6 +239,7 @@ window.callsModule = (() => {
     } catch (err) {
       console.error('[calls] startCall error:', err);
       endCall();
+      throw err;
     }
   }
 
@@ -265,6 +266,7 @@ window.callsModule = (() => {
     } catch (err) {
       console.error('[calls] acceptCall error:', err);
       endCall();
+      throw err;
     }
   }
 
