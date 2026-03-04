@@ -789,6 +789,13 @@
     .modal {
       padding-top: env(safe-area-inset-top);
     }
+    /* Fix close button behind notch on fullscreen modals */
+    .modal .modal-close {
+      top: calc(12px + env(safe-area-inset-top, 0));
+    }
+    .modal-header {
+      padding-top: calc(16px + env(safe-area-inset-top, 0));
+    }
   }
 }
 
