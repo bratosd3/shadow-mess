@@ -1,7 +1,7 @@
 // ============================================================
-// Shadow Mess v2.8 — WebRTC Calls (Full Rewrite)
+// Shadow Mess v2.9 — WebRTC Calls (Telegram-style)
+// Noise suppression · Mobile audio fix · Mic/Cam indicators
 // ============================================================
-
 'use strict';
 
 window.callsModule = (() => {
@@ -9,36 +9,89 @@ window.callsModule = (() => {
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
     { urls: 'stun:stun2.l.google.com:19302' },
-    { urls: 'stun:stun.cloudflare.com:3478'  },
+    { urls: 'stun:stun.cloudflare.com:3478' },
     { urls: 'turn:a.relay.metered.ca:80',       username: 'e8dd65c92f3adb1d372bf5b6', credential: 'kCHFaVoXn6cjsRTo' },
     { urls: 'turn:a.relay.metered.ca:443',      username: 'e8dd65c92f3adb1d372bf5b6', credential: 'kCHFaVoXn6cjsRTo' },
     { urls: 'turn:a.relay.metered.ca:443?transport=tcp', username: 'e8dd65c92f3adb1d372bf5b6', credential: 'kCHFaVoXn6cjsRTo' },
   ];
 
-  let pc             = null;
-  let localStream    = null;
-  let screenStream   = null;
-  let remoteStream   = null;
-  let currentPeer    = null;
-  let isMuted        = false;
-  let isVideoOff     = false;
+  let pc              = null;
+  let localStream     = null;
+  let screenStream    = null;
+  let remoteStream    = null;
+  let currentPeer     = null;
+  let isMuted         = false;
+  let isVideoOff      = true;
   let isScreenSharing = false;
-  let callType       = 'audio';
+  let callType        = 'audio';
   let _hasRemoteVideo = false;
+  let _audioCtx       = null;       // for noise suppression
+  let _noiseNode      = null;
 
   const $ = id => document.getElementById(id);
 
-  function getSocket() {
-    return window.State?.socket || null;
+  function getSocket() { return window.State?.socket || null; }
+  function isMobile()  { return /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent); }
+
+  // ── Noise suppression via Web Audio ────────────────────
+  function applyNoiseSuppression(stream) {
+    if (!stream || !stream.getAudioTracks().length) return stream;
+    try {
+      _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const source = _audioCtx.createMediaStreamSource(stream);
+      const dest = _audioCtx.createMediaStreamDestination();
+
+      // Highpass filter removes low-frequency rumble/hum
+      const highpass = _audioCtx.createBiquadFilter();
+      highpass.type = 'highpass';
+      highpass.frequency.value = 85;
+      highpass.Q.value = 0.7;
+
+      // Lowpass removes high-frequency hiss
+      const lowpass = _audioCtx.createBiquadFilter();
+      lowpass.type = 'lowpass';
+      lowpass.frequency.value = 14000;
+
+      // Compressor to normalize levels and reduce background noise
+      const compressor = _audioCtx.createDynamicsCompressor();
+      compressor.threshold.value = -50;
+      compressor.knee.value = 40;
+      compressor.ratio.value = 12;
+      compressor.attack.value = 0;
+      compressor.release.value = 0.25;
+
+      // Gain boost to compensate compression
+      const gain = _audioCtx.createGain();
+      gain.gain.value = 1.4;
+
+      source.connect(highpass);
+      highpass.connect(lowpass);
+      lowpass.connect(compressor);
+      compressor.connect(gain);
+      gain.connect(dest);
+
+      // Replace audio track in the original stream
+      const processedTrack = dest.stream.getAudioTracks()[0];
+      const origTrack = stream.getAudioTracks()[0];
+      stream.removeTrack(origTrack);
+      stream.addTrack(processedTrack);
+
+      // Keep reference to stop original track later
+      processedTrack._origTrack = origTrack;
+      _noiseNode = { source, highpass, lowpass, compressor, gain, dest };
+    } catch (e) {
+      console.warn('[calls] Noise suppression failed:', e);
+    }
+    return stream;
   }
 
-  // ── Show/hide video vs audio layer ─────────────────────
+  // ── Update call UI layers ──────────────────────────────
   function updateCallView() {
     const videoLayer = $('call-video-layer');
     const audioLayer = $('call-audio-layer');
     if (!videoLayer || !audioLayer) return;
 
-    const showVideo = _hasRemoteVideo || isScreenSharing || (callType === 'video' && !isVideoOff);
+    const showVideo = _hasRemoteVideo || isScreenSharing;
 
     if (showVideo) {
       videoLayer.classList.add('active');
@@ -50,21 +103,47 @@ window.callsModule = (() => {
 
     // Screen badge
     const badge = $('call-screen-badge');
-    if (badge) badge.classList.toggle('hidden', !isScreenSharing && !_hasRemoteVideo);
+    if (badge) badge.classList.toggle('hidden', !isScreenSharing);
 
-    // PiP
+    // PiP local video
     const pip = $('call-pip');
     const pipOff = $('call-pip-off');
     if (pip) {
-      if (callType === 'video' || isScreenSharing) {
-        pip.classList.remove('hidden');
-        if (pipOff) pipOff.classList.toggle('hidden', !isVideoOff);
-      } else {
-        pip.classList.add('hidden');
-      }
+      const showPip = !isVideoOff || isScreenSharing;
+      pip.classList.toggle('hidden', !showPip);
+      if (pipOff) pipOff.classList.toggle('hidden', !isVideoOff);
+    }
+
+    // Mic/video status indicators
+    _updateMicIndicator('my-mic-status', isMuted);
+    _updateCamIndicator('my-cam-status', isVideoOff);
+
+    // Peer mute indicator
+    const peerMic = $('peer-mic-status');
+    if (peerMic) {
+      // We don't know remote mic status through WebRTC alone; 
+      // it's signaled separately through socket
     }
   }
 
+  function _updateMicIndicator(id, muted) {
+    const el = $(id);
+    if (!el) return;
+    el.classList.toggle('indicator-off', muted);
+    el.title = muted ? 'Микрофон выключен' : 'Микрофон включён';
+    el.innerHTML = muted
+      ? '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2c0 .76-.13 1.49-.35 2.17"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>'
+      : '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>';
+  }
+
+  function _updateCamIndicator(id, off) {
+    const el = $(id);
+    if (!el) return;
+    el.classList.toggle('indicator-off', off);
+    el.title = off ? 'Камера выключена' : 'Камера включена';
+  }
+
+  // ── Peer Connection ────────────────────────────────────
   function createPC() {
     pc = new RTCPeerConnection({ iceServers: ICE_SERVERS, iceCandidatePoolSize: 5 });
 
@@ -79,12 +158,14 @@ window.callsModule = (() => {
       if (!stream) return;
       remoteStream = stream;
 
+      // Remote video element
       const remoteVideo = $('remote-video');
       if (remoteVideo) {
         remoteVideo.srcObject = stream;
         remoteVideo.play().catch(() => {});
       }
 
+      // Dedicated audio playback — critical for mobile
       if (event.track.kind === 'audio') {
         let remoteAudio = $('remote-audio-hidden');
         if (!remoteAudio) {
@@ -92,22 +173,34 @@ window.callsModule = (() => {
           remoteAudio.id = 'remote-audio-hidden';
           remoteAudio.autoplay = true;
           remoteAudio.playsInline = true;
+          remoteAudio.setAttribute('playsinline', '');
           remoteAudio.style.display = 'none';
           document.body.appendChild(remoteAudio);
         }
-        remoteAudio.srcObject = stream;
-        remoteAudio.play().catch(() => {});
+        // Create new MediaStream with just audio track for reliable playback on mobile
+        const audioOnlyStream = new MediaStream([event.track]);
+        remoteAudio.srcObject = audioOnlyStream;
+
+        // Force play on mobile — user gesture may be needed
+        const tryPlay = () => {
+          remoteAudio.play().then(() => {
+            remoteAudio.volume = 1.0;
+          }).catch(() => {
+            // Retry after short delay
+            setTimeout(tryPlay, 500);
+          });
+        };
+        tryPlay();
+
+        // iOS: resume AudioContext if suspended
+        if (_audioCtx?.state === 'suspended') {
+          _audioCtx.resume().catch(() => {});
+        }
       }
 
       if (event.track.kind === 'video') {
-        event.track.onunmute = () => {
-          _hasRemoteVideo = true;
-          updateCallView();
-        };
-        event.track.onmute = () => {
-          _hasRemoteVideo = false;
-          updateCallView();
-        };
+        event.track.onunmute = () => { _hasRemoteVideo = true; updateCallView(); };
+        event.track.onmute = () => { _hasRemoteVideo = false; updateCallView(); };
         if (event.track.enabled && event.track.readyState === 'live') {
           _hasRemoteVideo = true;
           updateCallView();
@@ -116,8 +209,16 @@ window.callsModule = (() => {
     };
 
     pc.onconnectionstatechange = () => {
-      const state = pc?.connectionState;
-      if (state === 'failed' || state === 'disconnected' || state === 'closed') {
+      const st = pc?.connectionState;
+      if (st === 'connected') {
+        // Emit mic/cam status to peer
+        getSocket()?.emit('call_status', {
+          to: currentPeer,
+          micMuted: isMuted,
+          camOff: isVideoOff
+        });
+      }
+      if (st === 'failed' || st === 'disconnected' || st === 'closed') {
         endCall();
       }
     };
@@ -125,28 +226,42 @@ window.callsModule = (() => {
     return pc;
   }
 
+  // ── Get local media stream (with fallbacks) ────────────
   async function getLocalStream(type) {
-    const constraints = {
-      audio: true,
-      video: type === 'video' ? { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' } : false
+    // For mobile: Use echoCancellation, noiseSuppression, autoGainControl
+    const audioConstraints = {
+      echoCancellation: true,
+      noiseSuppression: true,
+      autoGainControl: true,
     };
 
+    // Mobile-specific: set sample rate for better compatibility
+    if (isMobile()) {
+      audioConstraints.sampleRate = 48000;
+      audioConstraints.channelCount = 1;
+    }
+
+    const wantVideo = type === 'video';
+    const videoConstraints = wantVideo
+      ? { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' }
+      : false;
+
     try {
-      localStream = await navigator.mediaDevices.getUserMedia(constraints);
+      localStream = await navigator.mediaDevices.getUserMedia({
+        audio: audioConstraints,
+        video: videoConstraints
+      });
+      isVideoOff = !wantVideo;
     } catch (err) {
-      if (type === 'video') {
-        const isNotFound = err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError' ||
-                           err.name === 'OverconstrainedError' || err.name === 'NotReadableError';
-        const isDenied = err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError';
-        if (isNotFound) {
-          window.showToast?.('📷 Камера не обнаружена — звонок без видео', 'warning');
-        } else if (isDenied) {
-          window.showToast?.('📷 Доступ к камере запрещён — звонок без видео', 'warning');
-        } else {
-          window.showToast?.('📷 Ошибка камеры — звонок без видео', 'warning');
-        }
+      console.warn('[calls] getUserMedia failed:', err.name, err.message);
+
+      if (wantVideo) {
+        // Fallback: try audio-only
+        window.showToast?.('📷 Камера недоступна — звонок без видео', 'warning');
         try {
-          localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+          localStream = await navigator.mediaDevices.getUserMedia({
+            audio: audioConstraints, video: false
+          });
           isVideoOff = true;
         } catch {
           window.showToast?.('🎤 Нет доступа к микрофону — вы без звука', 'warning');
@@ -155,13 +270,16 @@ window.callsModule = (() => {
           isVideoOff = true;
         }
       } else {
-        window.showToast?.('🎤 Нет доступа к микрофону — вы в звонке без звука', 'warning');
+        window.showToast?.('🎤 Нет доступа к микрофону — подключаемся без звука', 'warning');
         localStream = createSilentStream();
         isMuted = true;
       }
     }
 
-    // Always have a video track for screen share replaceTrack
+    // Apply noise suppression
+    localStream = applyNoiseSuppression(localStream);
+
+    // Ensure we have a video track for later camera toggle / screen share
     if (!localStream.getVideoTracks().length) {
       const canvas = Object.assign(document.createElement('canvas'), { width: 2, height: 2 });
       canvas.getContext('2d').fillRect(0, 0, 2, 2);
@@ -170,17 +288,16 @@ window.callsModule = (() => {
       localStream.addTrack(dummyTrack);
     }
 
-    const localVideo = $('local-video');
-    if (localVideo) {
-      localVideo.srcObject = localStream;
-    }
+    const lv = $('local-video');
+    if (lv) lv.srcObject = localStream;
+
     updateCallView();
     return localStream;
   }
 
   function createSilentStream() {
     try {
-      const ctx = new AudioContext();
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       gain.gain.value = 0;
@@ -196,13 +313,23 @@ window.callsModule = (() => {
 
   function attachLocalTracks() {
     if (!localStream || !pc) return;
-    localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+    localStream.getTracks().forEach(track => {
+      pc.addTrack(track, localStream);
+    });
   }
 
   function stopLocalStream() {
     if (localStream) {
-      localStream.getTracks().forEach(t => t.stop());
+      localStream.getTracks().forEach(t => {
+        if (t._origTrack) t._origTrack.stop();
+        t.stop();
+      });
       localStream = null;
+    }
+    if (_audioCtx) {
+      _audioCtx.close().catch(() => {});
+      _audioCtx = null;
+      _noiseNode = null;
     }
     const lv = $('local-video');
     const rv = $('remote-video');
@@ -212,12 +339,13 @@ window.callsModule = (() => {
     if (ra) { ra.srcObject = null; ra.remove(); }
   }
 
-  // ── Public API ─────────────────────────────────────────
-
+  // ── Call API ───────────────────────────────────────────
   async function startCall(userId, type) {
-    currentPeer = userId;
-    callType    = type || 'audio';
+    currentPeer     = userId;
+    callType        = type || 'audio';
     _hasRemoteVideo = false;
+    isMuted         = false;
+    isVideoOff      = type !== 'video';
 
     try {
       createPC();
@@ -241,9 +369,11 @@ window.callsModule = (() => {
   }
 
   async function acceptCall(userId, offer, type) {
-    currentPeer = userId;
-    callType    = type || 'audio';
+    currentPeer     = userId;
+    callType        = type || 'audio';
     _hasRemoteVideo = false;
+    isMuted         = false;
+    isVideoOff      = type !== 'video';
 
     try {
       createPC();
@@ -263,22 +393,30 @@ window.callsModule = (() => {
   async function onAnswer({ from, answer }) {
     if (!pc) return;
     try { await pc.setRemoteDescription(new RTCSessionDescription(answer)); }
-    catch (err) { console.error('[calls] onAnswer error:', err); }
+    catch (e) { console.error('[calls] onAnswer error:', e); }
   }
 
   async function onIce({ from, candidate }) {
     if (!pc) return;
     try { await pc.addIceCandidate(new RTCIceCandidate(candidate)); }
-    catch (err) { console.error('[calls] onIce error:', err); }
+    catch (e) { console.error('[calls] onIce error:', e); }
+  }
+
+  // Handle peer mic/cam status
+  function onPeerStatus({ micMuted, camOff }) {
+    _updateMicIndicator('peer-mic-status', micMuted);
+    _updateCamIndicator('peer-cam-status', camOff);
   }
 
   function onEnded() {
-    endCall();
+    endCall(true);
     window.showToast?.('Звонок завершён', 'info');
   }
 
-  function endCall() {
-    if (currentPeer) getSocket()?.emit('call_end', { to: currentPeer });
+  function endCall(skipEmit = false) {
+    if (!skipEmit && currentPeer) {
+      getSocket()?.emit('call_end', { to: currentPeer });
+    }
     if (pc) { try { pc.close(); } catch {} pc = null; }
     if (screenStream) { screenStream.getTracks().forEach(t => t.stop()); screenStream = null; }
     isScreenSharing = false;
@@ -286,10 +424,12 @@ window.callsModule = (() => {
     stopLocalStream();
     currentPeer = null;
     isMuted = false;
-    isVideoOff = false;
+    isVideoOff = true;
 
     $('active-call-overlay')?.classList.add('hidden');
     $('toggle-screen')?.classList.remove('sharing');
+    $('toggle-mute')?.classList.remove('muted');
+    $('toggle-video')?.classList.remove('active');
     clearInterval(window._callTimerInterval);
 
     const vl = $('call-video-layer');
@@ -300,37 +440,69 @@ window.callsModule = (() => {
 
   function toggleMute() {
     if (!localStream) return isMuted;
+    // Toggle all audio tracks (both original and processed)
     localStream.getAudioTracks().forEach(t => { t.enabled = isMuted; });
     isMuted = !isMuted;
+
+    // Notify peer about mic status
+    if (currentPeer) {
+      getSocket()?.emit('call_status', { to: currentPeer, micMuted: isMuted, camOff: isVideoOff });
+    }
+    updateCallView();
     return isMuted;
   }
 
-  function toggleVideo() {
-    if (!localStream) return isVideoOff;
-    const videoTracks = localStream.getVideoTracks();
-    const hasDummyOnly = videoTracks.length === 1 && videoTracks[0].label === '';
+  async function toggleVideo() {
+    if (!localStream || !pc) return isVideoOff;
 
-    if (isVideoOff && hasDummyOnly) {
-      navigator.mediaDevices.getUserMedia({ video: { width:{ideal:640}, height:{ideal:480}, facingMode:'user' } })
-        .then(camStream => {
+    const videoTracks = localStream.getVideoTracks();
+    const hasDummyOnly = videoTracks.length === 1 && (videoTracks[0].label === '' || !videoTracks[0].label);
+
+    if (isVideoOff) {
+      // Turning camera ON
+      if (hasDummyOnly) {
+        try {
+          const camStream = await navigator.mediaDevices.getUserMedia({
+            video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' }
+          });
           const camTrack = camStream.getVideoTracks()[0];
+
+          // Remove dummy track
           videoTracks.forEach(t => { t.stop(); localStream.removeTrack(t); });
           localStream.addTrack(camTrack);
-          const sender = pc?.getSenders().find(s => s.track?.kind === 'video');
-          if (sender) sender.replaceTrack(camTrack);
+
+          // Replace track in peer connection
+          const sender = pc.getSenders().find(s => s.track?.kind === 'video');
+          if (sender) {
+            await sender.replaceTrack(camTrack);
+          }
+
           const lv = $('local-video');
-          if (lv) { lv.srcObject = localStream; }
+          if (lv) lv.srcObject = localStream;
+
           isVideoOff = false;
           callType = 'video';
-          updateCallView();
-        })
-        .catch(() => window.showToast?.('📷 Камера недоступна', 'warning'));
-      return isVideoOff;
+        } catch (e) {
+          console.error('[calls] toggleVideo ON error:', e);
+          window.showToast?.('📷 Камера недоступна', 'warning');
+          return isVideoOff;
+        }
+      } else {
+        // Re-enable existing video track
+        videoTracks.forEach(t => { t.enabled = true; });
+        isVideoOff = false;
+        callType = 'video';
+      }
+    } else {
+      // Turning camera OFF — just disable track, don't stop/remove
+      videoTracks.forEach(t => { t.enabled = false; });
+      isVideoOff = true;
     }
 
-    localStream.getVideoTracks().forEach(t => { t.enabled = isVideoOff; });
-    isVideoOff = !isVideoOff;
-    if (!isVideoOff) callType = 'video';
+    // Notify peer
+    if (currentPeer) {
+      getSocket()?.emit('call_status', { to: currentPeer, micMuted: isMuted, camOff: isVideoOff });
+    }
     updateCallView();
     return isVideoOff;
   }
@@ -339,7 +511,7 @@ window.callsModule = (() => {
     if (!pc) throw new Error('No active call');
     try {
       screenStream = await navigator.mediaDevices.getDisplayMedia({
-        video: { frameRate:{ideal:60,max:60}, width:{ideal:1920}, height:{ideal:1080}, cursor:'always' },
+        video: { frameRate: { ideal: 30, max: 60 }, width: { ideal: 1920 }, height: { ideal: 1080 }, cursor: 'always' },
         audio: false
       });
       isScreenSharing = true;
@@ -350,7 +522,7 @@ window.callsModule = (() => {
 
       updateCallView();
       const lv = $('local-video');
-      if (lv) { lv.srcObject = screenStream; lv.style.display = ''; }
+      if (lv) lv.srcObject = screenStream;
 
       screenTrack.onended = () => {
         stopScreenShare();
@@ -383,7 +555,11 @@ window.callsModule = (() => {
   return {
     startCall, acceptCall, onAnswer, onIce, onEnded, endCall,
     toggleMute, toggleVideo, startScreenShare, stopScreenShare,
-    isInCall: () => !!pc, updateCallView
+    onPeerStatus,
+    isInCall: () => !!pc,
+    isMuted: () => isMuted,
+    isVideoOff: () => isVideoOff,
+    updateCallView,
   };
 })();
 
@@ -394,8 +570,8 @@ window.groupCallModule = (() => {
   const ICE_SERVERS = [
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
-    { urls: 'turn:a.relay.metered.ca:80', username: 'e8dd65c92f3adb1d372bf5b6', credential: 'kCHFaVoXn6cjsRTo' },
-    { urls: 'turn:a.relay.metered.ca:443', username: 'e8dd65c92f3adb1d372bf5b6', credential: 'kCHFaVoXn6cjsRTo' },
+    { urls: 'turn:a.relay.metered.ca:80',       username: 'e8dd65c92f3adb1d372bf5b6', credential: 'kCHFaVoXn6cjsRTo' },
+    { urls: 'turn:a.relay.metered.ca:443',      username: 'e8dd65c92f3adb1d372bf5b6', credential: 'kCHFaVoXn6cjsRTo' },
     { urls: 'turn:a.relay.metered.ca:443?transport=tcp', username: 'e8dd65c92f3adb1d372bf5b6', credential: 'kCHFaVoXn6cjsRTo' },
   ];
 
@@ -409,13 +585,17 @@ window.groupCallModule = (() => {
   function getSocket() { return window.State?.socket || null; }
 
   async function getLocalStream() {
+    const audioConstraints = {
+      echoCancellation: true,
+      noiseSuppression: true,
+      autoGainControl: true,
+    };
     try {
-      localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
-      return localStream;
+      localStream = await navigator.mediaDevices.getUserMedia({ audio: audioConstraints, video: false });
     } catch {
-      window.showToast?.('🎤 Нет доступа к микрофону — вы в звонке без звука', 'warning');
+      window.showToast?.('🎤 Нет доступа к микрофону — вы без звука', 'warning');
       try {
-        const ctx = new AudioContext();
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
         const osc = ctx.createOscillator();
         const g = ctx.createGain(); g.gain.value = 0;
         osc.connect(g);
@@ -424,54 +604,80 @@ window.groupCallModule = (() => {
         localStream = dest.stream;
       } catch { localStream = new MediaStream(); }
       isMuted = true;
-      return localStream;
     }
+    return localStream;
   }
 
   function createPeerConnection(targetUserId) {
-    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS, iceCandidatePoolSize: 3 });
-    pc.onicecandidate = ({ candidate }) => {
-      if (candidate && currentChatId) getSocket()?.emit('group_call_ice', { chatId: currentChatId, to: targetUserId, candidate });
+    const peerPC = new RTCPeerConnection({ iceServers: ICE_SERVERS, iceCandidatePoolSize: 3 });
+    peerPC.onicecandidate = ({ candidate }) => {
+      if (candidate && currentChatId) {
+        getSocket()?.emit('group_call_ice', { chatId: currentChatId, to: targetUserId, candidate });
+      }
     };
-    pc.ontrack = (event) => {
+    peerPC.ontrack = (event) => {
       const pd = peers.get(targetUserId);
       if (pd && event.streams[0]) {
         pd.stream = event.streams[0];
         let a = document.getElementById(`gc-audio-${targetUserId}`);
-        if (!a) { a = document.createElement('audio'); a.id = `gc-audio-${targetUserId}`; a.autoplay = true; a.style.display = 'none'; document.body.appendChild(a); }
-        a.srcObject = event.streams[0];
+        if (!a) {
+          a = document.createElement('audio');
+          a.id = `gc-audio-${targetUserId}`;
+          a.autoplay = true;
+          a.playsInline = true;
+          a.setAttribute('playsinline', '');
+          a.style.display = 'none';
+          document.body.appendChild(a);
+        }
+        const audioStream = new MediaStream([event.track]);
+        a.srcObject = audioStream;
+        a.play().catch(() => setTimeout(() => a.play().catch(() => {}), 500));
       }
     };
-    pc.onconnectionstatechange = () => { if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') removePeer(targetUserId); };
-    if (localStream) localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
-    peers.set(targetUserId, { pc, stream: null });
-    return pc;
+    peerPC.onconnectionstatechange = () => {
+      if (peerPC.connectionState === 'failed' || peerPC.connectionState === 'disconnected') {
+        removePeer(targetUserId);
+      }
+    };
+    if (localStream) localStream.getTracks().forEach(t => peerPC.addTrack(t, localStream));
+    peers.set(targetUserId, { pc: peerPC, stream: null });
+    return peerPC;
   }
 
   function removePeer(uid) {
     const pd = peers.get(uid);
-    if (pd) { try { pd.pc.close(); } catch {} peers.delete(uid); const a = document.getElementById(`gc-audio-${uid}`); if (a) { a.srcObject = null; a.remove(); } }
+    if (pd) {
+      try { pd.pc.close(); } catch {}
+      peers.delete(uid);
+      const a = document.getElementById(`gc-audio-${uid}`);
+      if (a) { a.srcObject = null; a.remove(); }
+    }
   }
 
-  async function joinGroupCall(chatId) { currentChatId = chatId; isMuted = false; await getLocalStream(); getSocket()?.emit('group_call_join', { chatId }); }
+  async function joinGroupCall(chatId) {
+    currentChatId = chatId;
+    isMuted = false;
+    await getLocalStream();
+    getSocket()?.emit('group_call_join', { chatId });
+  }
 
   async function onUserJoined({ chatId, user }) {
     if (chatId !== currentChatId) return;
-    const pc = createPeerConnection(user.id);
-    const offer = await pc.createOffer({ offerToReceiveAudio: true });
-    await pc.setLocalDescription(offer);
-    getSocket()?.emit('group_call_offer', { chatId, to: user.id, offer: pc.localDescription });
+    const peerPC = createPeerConnection(user.id);
+    const offer = await peerPC.createOffer({ offerToReceiveAudio: true });
+    await peerPC.setLocalDescription(offer);
+    getSocket()?.emit('group_call_offer', { chatId, to: user.id, offer: peerPC.localDescription });
   }
 
   async function onJoined() {}
 
   async function onGroupOffer({ chatId, from, offer }) {
     if (chatId !== currentChatId) return;
-    const pc = createPeerConnection(from);
-    await pc.setRemoteDescription(new RTCSessionDescription(offer));
-    const answer = await pc.createAnswer();
-    await pc.setLocalDescription(answer);
-    getSocket()?.emit('group_call_answer', { chatId, to: from, answer: pc.localDescription });
+    const peerPC = createPeerConnection(from);
+    await peerPC.setRemoteDescription(new RTCSessionDescription(offer));
+    const answer = await peerPC.createAnswer();
+    await peerPC.setLocalDescription(answer);
+    getSocket()?.emit('group_call_answer', { chatId, to: from, answer: peerPC.localDescription });
   }
 
   async function onGroupAnswer({ chatId, from, answer }) {

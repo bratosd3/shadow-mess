@@ -481,8 +481,14 @@
     min-height: 48px;
   }
 
-  /* ── Calls — fullscreen mobile ── */
-  .call-incoming-panel { max-width: 100%; }
+  /* ── Calls — fullscreen mobile Telegram-style ── */
+  .call-incoming-panel { max-width: 100%; padding: 0 16px; }
+  .call-incoming-content { padding: 60px 20px 48px; }
+  .call-incoming-pulse { margin-bottom: 32px; }
+  .call-peer-name { font-size: 24px; }
+  .call-incoming-actions { gap: 72px; }
+  .call-decline svg, .call-pickup svg { width: 64px; height: 64px; padding: 18px; }
+
   .call-active-panel {
     max-width: 100% !important;
     max-height: 100vh !important;
@@ -491,20 +497,50 @@
     height: 100vh;
     height: 100dvh;
   }
-  .call-audio-layer { min-height: 60vh; min-height: 60dvh; }
+  .call-audio-layer {
+    min-height: 70vh; min-height: 70dvh;
+    justify-content: center;
+    padding: 60px 20px 40px;
+  }
+  .call-audio-glow {
+    width: 320px; height: 320px;
+  }
+  .call-avatar-wrap .avatar-xxl {
+    width: 110px !important; height: 110px !important;
+    font-size: 44px !important;
+  }
+  .call-status-badges {
+    bottom: -4px; right: -4px;
+  }
+  .call-peer-name {
+    font-size: 22px;
+  }
+  .call-timer-big {
+    font-size: 16px;
+  }
   .call-remote-video { max-height: 100vh; max-height: 100dvh; }
   .call-pip {
-    width: 100px; height: 76px;
-    bottom: 100px; right: 12px;
-    border-radius: 12px;
+    width: 110px; height: 84px;
+    bottom: 110px; right: 14px;
+    border-radius: 14px;
   }
   .call-bottom-controls {
-    gap: 10px; padding: 14px 12px;
-    padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+    gap: 12px; padding: 16px 16px 20px;
+    padding-bottom: calc(20px + env(safe-area-inset-bottom, 0px));
   }
-  .call-ctrl-pill { width: 48px; height: 48px; }
-  .call-top-bar { padding: 10px 14px; padding-top: calc(10px + env(safe-area-inset-top, 0px)); }
-  .call-incoming-actions { gap: 56px; }
+  .call-ctrl-pill {
+    width: 52px; height: 52px;
+  }
+  .call-ctrl-pill::after {
+    font-size: 9px;
+    bottom: -18px;
+  }
+  .call-end-pill { width: 58px; }
+  .call-top-bar {
+    padding: 14px 16px;
+    padding-top: calc(14px + env(safe-area-inset-top, 0px));
+  }
+  .call-incoming-actions { gap: 64px; }
   .call-mini-bar {
     left: 12px; right: 12px;
     transform: none;

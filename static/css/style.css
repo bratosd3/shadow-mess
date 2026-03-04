@@ -2094,18 +2094,18 @@ button, .icon-btn, .send-btn, .fab-new-chat, .call-btn, .call-ctrl-btn, .call-ct
 }
 .reaction-picker span:hover { background: var(--accent-light); transform: scale(1.4); }
 
-/* ══ CALL OVERLAYS — v2.8 Redesign ════════════════════════════ */
+/* ══ CALL OVERLAYS — v2.9 Telegram-style Redesign ═════════════ */
 .call-overlay {
   position: fixed; inset: 0; z-index: 300;
-  background: rgba(0,0,0,.85);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+  background: rgba(0,0,0,.92);
+  backdrop-filter: blur(30px);
+  -webkit-backdrop-filter: blur(30px);
   display: flex; align-items: center; justify-content: center;
   animation: callFadeIn .35s ease;
 }
 @keyframes callFadeIn { from{opacity:0} to{opacity:1} }
 
-/* ── Incoming call ── */
+/* ── Incoming call — Telegram-style centered ── */
 .call-incoming-panel {
   position: relative;
   width: 100%; max-width: 420px;
@@ -2116,17 +2116,17 @@ button, .icon-btn, .send-btn, .fab-new-chat, .call-btn, .call-ctrl-btn, .call-ct
 
 .call-incoming-bg {
   position: absolute; inset: 0;
-  background: radial-gradient(ellipse at 50% 30%, rgba(var(--accent-rgb,79,124,255),.15) 0%, transparent 70%);
+  background: radial-gradient(ellipse at 50% 30%, rgba(var(--accent-rgb,79,124,255),.18) 0%, transparent 70%);
   pointer-events: none;
 }
-.call-incoming-content { position: relative; z-index: 1; padding: 40px 24px; }
+.call-incoming-content { position: relative; z-index: 1; padding: 48px 24px 40px; }
 
 .call-incoming-pulse {
-  position: relative; display: inline-block; margin-bottom: 24px;
+  position: relative; display: inline-block; margin-bottom: 28px;
 }
 .call-incoming-pulse::before,
 .call-incoming-pulse::after {
-  content: ''; position: absolute; inset: -16px;
+  content: ''; position: absolute; inset: -18px;
   border-radius: 50%; border: 2px solid var(--accent);
   animation: callPulseRing 2s ease-out infinite;
   opacity: 0;
@@ -2134,54 +2134,64 @@ button, .icon-btn, .send-btn, .fab-new-chat, .call-btn, .call-ctrl-btn, .call-ct
 .call-incoming-pulse::after { animation-delay: .8s; }
 @keyframes callPulseRing {
   0% { transform: scale(.8); opacity: .6; }
-  100% { transform: scale(1.6); opacity: 0; }
+  100% { transform: scale(1.7); opacity: 0; }
 }
 
 .call-peer-name {
-  font-size: 24px; font-weight: 700; color: #fff;
+  font-size: 26px; font-weight: 700; color: #fff;
   margin-bottom: 6px; letter-spacing: -.3px;
 }
 .call-peer-type {
-  font-size: 14px; color: rgba(255,255,255,.5);
-  margin-bottom: 40px;
+  font-size: 14px; color: rgba(255,255,255,.45);
+  margin-bottom: 48px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: 500;
 }
 
 .call-incoming-actions {
-  display: flex; justify-content: center; gap: 48px;
+  display: flex; justify-content: center; gap: 64px;
 }
 .call-action-btn {
-  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
   background: none; border: none; cursor: pointer;
 }
-.call-action-btn svg {
-  width: 28px; height: 28px;
-}
-.call-action-btn > svg,
-.call-action-btn > span:first-of-type {
-  /* icon container */
-}
+.call-action-btn svg { width: 28px; height: 28px; }
 .call-action-btn span {
-  font-size: 12px; color: rgba(255,255,255,.7); font-weight: 500;
+  font-size: 13px; color: rgba(255,255,255,.65); font-weight: 500;
 }
-.call-decline svg { background: var(--danger); border-radius: 50%; padding: 14px; width: 56px; height: 56px; box-shadow: 0 8px 30px rgba(239,68,68,.35); transition: transform .2s, box-shadow .2s; }
-.call-decline:hover svg { transform: scale(1.1); box-shadow: 0 12px 40px rgba(239,68,68,.5); }
-.call-pickup svg { background: var(--success); border-radius: 50%; padding: 14px; width: 56px; height: 56px; box-shadow: 0 8px 30px rgba(34,197,94,.35); transition: transform .2s, box-shadow .2s; animation: callPickupBounce 1.8s ease infinite; }
-.call-pickup:hover svg { transform: scale(1.1); box-shadow: 0 12px 40px rgba(34,197,94,.5); }
+.call-decline svg {
+  background: var(--danger); border-radius: 50%; padding: 16px;
+  width: 60px; height: 60px;
+  box-shadow: 0 8px 32px rgba(239,68,68,.4);
+  transition: transform .2s, box-shadow .2s;
+}
+.call-decline:hover svg { transform: scale(1.12); box-shadow: 0 12px 44px rgba(239,68,68,.55); }
+.call-decline:active svg { transform: scale(.95); }
+.call-pickup svg {
+  background: var(--success); border-radius: 50%; padding: 16px;
+  width: 60px; height: 60px;
+  box-shadow: 0 8px 32px rgba(34,197,94,.4);
+  transition: transform .2s, box-shadow .2s;
+  animation: callPickupBounce 1.8s ease infinite;
+}
+.call-pickup:hover svg { transform: scale(1.12); box-shadow: 0 12px 44px rgba(34,197,94,.55); }
+.call-pickup:active svg { transform: scale(.95); }
 @keyframes callPickupBounce {
   0%,100% { transform: translateY(0); }
-  30% { transform: translateY(-6px); }
+  30% { transform: translateY(-8px); }
   50% { transform: translateY(0); }
 }
 
-/* ── Active call panel ── */
+/* ── Active call panel — Telegram-style ── */
 .call-active-panel {
   position: relative;
   width: 100%; max-width: 720px;
-  max-height: 90vh; max-height: 90dvh;
-  border-radius: 20px;
+  max-height: 92vh; max-height: 92dvh;
+  border-radius: 24px;
   overflow: hidden;
-  background: #0a0a14;
-  box-shadow: 0 30px 80px rgba(0,0,0,.7);
+  background: linear-gradient(170deg, #0c0c1a 0%, #141428 40%, #0e0e1e 100%);
+  box-shadow: 0 30px 90px rgba(0,0,0,.8), inset 0 1px 0 rgba(255,255,255,.04);
   display: flex; flex-direction: column;
   animation: callSlideUp .4s cubic-bezier(.16,1,.3,1);
 }
@@ -2191,140 +2201,191 @@ button, .icon-btn, .send-btn, .fab-new-chat, .call-btn, .call-ctrl-btn, .call-ct
   position: relative;
   flex: 1; min-height: 0;
   background: #000;
-  display: none; /* shown by JS when video active */
+  display: none;
 }
 .call-video-layer.active { display: flex; align-items: center; justify-content: center; }
 .call-remote-video {
-  width: 100%; max-height: 70vh; object-fit: contain;
+  width: 100%; max-height: 75vh; object-fit: contain;
   display: block; background: #000;
 }
 .call-screen-badge {
-  position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
-  background: rgba(0,0,0,.6); backdrop-filter: blur(8px);
-  border-radius: 20px; padding: 6px 16px;
-  font-size: 12px; color: rgba(255,255,255,.8); font-weight: 500;
-  display: flex; align-items: center; gap: 6px;
+  position: absolute; top: 16px; left: 50%; transform: translateX(-50%);
+  background: rgba(0,0,0,.55); backdrop-filter: blur(10px);
+  border-radius: 24px; padding: 6px 18px;
+  font-size: 12px; color: rgba(255,255,255,.85); font-weight: 500;
+  display: flex; align-items: center; gap: 8px;
   pointer-events: none;
+  border: 1px solid rgba(255,255,255,.08);
 }
 
-/* Audio layer */
+/* Audio layer — Telegram-style centered */
 .call-audio-layer {
-  flex: 1; min-height: 320px;
+  flex: 1; min-height: 360px;
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
-  position: relative; padding: 40px 20px;
-  background: linear-gradient(160deg, #0a0a1a 0%, #12122a 50%, #0a0a18 100%);
+  position: relative; padding: 48px 20px 40px;
+  background: linear-gradient(170deg, #0c0c20 0%, #151530 45%, #0d0d1e 100%);
 }
 .call-audio-layer.hidden-layer { display: none; }
 .call-audio-glow {
   position: absolute; top: 50%; left: 50%;
-  width: 260px; height: 260px;
+  width: 300px; height: 300px;
   transform: translate(-50%, -55%);
-  background: radial-gradient(circle, rgba(var(--accent-rgb,79,124,255),.12) 0%, transparent 70%);
-  animation: callGlowPulse 3s ease-in-out infinite;
+  background: radial-gradient(circle, rgba(var(--accent-rgb,79,124,255),.14) 0%, transparent 65%);
+  animation: callGlowPulse 3.5s ease-in-out infinite;
   pointer-events: none;
 }
 @keyframes callGlowPulse {
-  0%,100% { transform: translate(-50%,-55%) scale(1); opacity: .8; }
-  50% { transform: translate(-50%,-55%) scale(1.15); opacity: 1; }
+  0%,100% { transform: translate(-50%,-55%) scale(1); opacity: .7; }
+  50% { transform: translate(-50%,-55%) scale(1.18); opacity: 1; }
 }
+
+.call-avatar-wrap {
+  position: relative;
+  display: inline-block;
+  margin-bottom: 20px;
+}
+
+.call-status-badges {
+  position: absolute;
+  bottom: -6px; right: -6px;
+  display: flex; gap: 4px;
+}
+.call-status-badge {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: rgba(34,197,94,.9);
+  border: 2px solid rgba(12,12,26,.95);
+  display: flex; align-items: center; justify-content: center;
+  transition: background .2s;
+  font-size: 0;
+}
+.call-status-badge.indicator-off {
+  background: rgba(239,68,68,.9);
+}
+.call-status-badge svg {
+  width: 12px; height: 12px;
+  stroke: #fff; fill: none;
+}
+
+.call-my-status {
+  display: flex; gap: 8px;
+  margin-top: 18px;
+  opacity: .7;
+  font-size: 0;
+}
+
 .call-timer-big {
-  font-size: 16px; color: rgba(255,255,255,.5);
-  font-variant-numeric: tabular-nums; margin-top: 6px;
-  font-weight: 500;
+  font-size: 17px; color: rgba(255,255,255,.45);
+  font-variant-numeric: tabular-nums; margin-top: 8px;
+  font-weight: 500; letter-spacing: 1px;
 }
 
 /* PiP local video */
 .call-pip {
-  position: absolute; bottom: 90px; right: 16px;
-  width: 130px; height: 100px;
-  border-radius: 14px; overflow: hidden;
-  border: 2px solid rgba(255,255,255,.15);
-  box-shadow: 0 8px 30px rgba(0,0,0,.5);
+  position: absolute; bottom: 100px; right: 18px;
+  width: 140px; height: 105px;
+  border-radius: 16px; overflow: hidden;
+  border: 2px solid rgba(255,255,255,.12);
+  box-shadow: 0 8px 32px rgba(0,0,0,.55);
   z-index: 5; cursor: grab;
   transition: opacity .3s, transform .3s;
 }
 .call-pip.hidden { display: none; }
 .call-local-video {
   width: 100%; height: 100%; object-fit: cover; display: block;
-  transform: scaleX(-1); /* mirror */
+  transform: scaleX(-1);
 }
 .call-pip-off {
   position: absolute; inset: 0;
-  background: rgba(0,0,0,.7);
+  background: rgba(0,0,0,.75);
   display: flex; align-items: center; justify-content: center;
-  color: rgba(255,255,255,.4);
+  color: rgba(255,255,255,.35);
 }
 
 /* Top info bar */
 .call-top-bar {
   position: absolute; top: 0; left: 0; right: 0;
   display: flex; align-items: center; justify-content: space-between;
-  padding: 14px 18px; z-index: 6;
-  background: linear-gradient(to bottom, rgba(0,0,0,.6) 0%, transparent 100%);
+  padding: 16px 20px; z-index: 6;
+  background: linear-gradient(to bottom, rgba(0,0,0,.65) 0%, transparent 100%);
 }
-.call-top-info {
-  display: flex; align-items: center; gap: 10px;
-}
-.call-top-name {
-  font-size: 14px; font-weight: 600; color: #fff;
-}
+.call-top-info { display: flex; align-items: center; gap: 12px; }
+.call-top-name { font-size: 15px; font-weight: 600; color: #fff; }
 .call-top-timer {
   font-size: 12px; color: rgba(255,255,255,.5);
   font-variant-numeric: tabular-nums;
 }
 .call-top-btn {
-  width: 36px; height: 36px; border-radius: 50%;
-  background: rgba(255,255,255,.1); border: none;
+  width: 38px; height: 38px; border-radius: 50%;
+  background: rgba(255,255,255,.08); border: 1px solid rgba(255,255,255,.1);
   display: flex; align-items: center; justify-content: center;
   color: #fff; cursor: pointer;
-  transition: background .2s;
+  transition: all .2s;
 }
-.call-top-btn:hover { background: rgba(255,255,255,.2); }
+.call-top-btn:hover { background: rgba(255,255,255,.18); border-color: rgba(255,255,255,.2); }
 
-/* Bottom controls */
+/* Bottom controls — Telegram-style pill bar */
 .call-bottom-controls {
   display: flex; align-items: center; justify-content: center;
-  gap: 12px; padding: 16px 20px;
-  background: rgba(10,10,20,.95);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  gap: 14px; padding: 18px 24px 22px;
+  background: rgba(8,8,18,.97);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-top: 1px solid rgba(255,255,255,.04);
 }
 .call-ctrl-pill {
-  width: 52px; height: 52px;
+  width: 54px; height: 54px;
   border-radius: 50%;
-  background: rgba(255,255,255,.08);
-  border: 1.5px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.07);
+  border: 1.5px solid rgba(255,255,255,.1);
   display: flex; align-items: center; justify-content: center;
   color: #fff; cursor: pointer;
-  transition: all .2s ease;
+  transition: all .22s ease;
   position: relative;
 }
-.call-ctrl-pill:hover {
-  background: rgba(255,255,255,.15);
-  border-color: rgba(255,255,255,.25);
-  transform: scale(1.06);
+.call-ctrl-pill::after {
+  content: attr(data-label);
+  position: absolute; bottom: -20px; left: 50%;
+  transform: translateX(-50%);
+  font-size: 10px; color: rgba(255,255,255,.4);
+  white-space: nowrap; font-weight: 500;
+  pointer-events: none;
 }
+.call-ctrl-pill:hover {
+  background: rgba(255,255,255,.14);
+  border-color: rgba(255,255,255,.22);
+  transform: scale(1.08);
+}
+.call-ctrl-pill:active { transform: scale(.94); }
 .call-ctrl-pill.muted {
-  background: rgba(239,68,68,.2);
-  border-color: rgba(239,68,68,.5);
+  background: rgba(239,68,68,.18);
+  border-color: rgba(239,68,68,.45);
 }
 .call-ctrl-pill.muted svg { stroke: var(--danger); }
+.call-ctrl-pill.active {
+  background: rgba(79,124,255,.18);
+  border-color: rgba(79,124,255,.45);
+}
+.call-ctrl-pill.active svg { stroke: var(--accent); }
 .call-ctrl-pill.sharing {
-  background: rgba(34,197,94,.2);
-  border-color: rgba(34,197,94,.5);
+  background: rgba(34,197,94,.18);
+  border-color: rgba(34,197,94,.45);
 }
 .call-ctrl-pill.sharing svg { stroke: var(--success); }
 .call-end-pill {
   background: var(--danger) !important;
   border-color: var(--danger) !important;
-  box-shadow: 0 6px 20px rgba(239,68,68,.3);
+  box-shadow: 0 6px 24px rgba(239,68,68,.35);
+  width: 60px; height: 54px;
+  border-radius: 28px;
 }
 .call-end-pill:hover {
   background: #dc2626 !important;
-  box-shadow: 0 8px 30px rgba(239,68,68,.5);
+  box-shadow: 0 10px 36px rgba(239,68,68,.5);
   transform: scale(1.06);
 }
+.call-end-pill:active { transform: scale(.94); }
 
 /* ═ Minimized call bar ═ */
 .call-mini-bar {
@@ -2335,7 +2396,7 @@ button, .icon-btn, .send-btn, .fab-new-chat, .call-btn, .call-ctrl-btn, .call-ct
   -webkit-backdrop-filter: var(--blur);
   border: 1px solid var(--border-mid);
   border-radius: var(--radius-full);
-  padding: 8px 16px;
+  padding: 8px 18px;
   display: flex; align-items: center; gap: 14px;
   box-shadow: var(--shadow-lg);
   animation: slideUp .3s var(--ease-out-expo);
@@ -2346,15 +2407,15 @@ button, .icon-btn, .send-btn, .fab-new-chat, .call-btn, .call-ctrl-btn, .call-ct
 .call-mini-pulse {
   width: 10px; height: 10px; border-radius: 50%;
   background: var(--success);
-  box-shadow: 0 0 8px rgba(34,197,94,.5);
+  box-shadow: 0 0 10px rgba(34,197,94,.6);
   animation: pulse-dot 1.5s infinite;
 }
-@keyframes pulse-dot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.6;transform:scale(1.3)} }
+@keyframes pulse-dot { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.5;transform:scale(1.4)} }
 .call-mini-name { font-weight: 600; font-size: 13px; color: var(--text-primary); }
 .call-mini-timer { font-size: 12px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
 .call-mini-actions { display: flex; gap: 6px; }
 .call-mini-btn {
-  width: 32px; height: 32px; border-radius: 50%;
+  width: 34px; height: 34px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   font-size: 14px; border: 1px solid var(--border-mid);
   background: var(--bg-hover); cursor: pointer;
@@ -3635,6 +3696,63 @@ body.bubble-cornered .message-row.out .message-bubble { border-bottom-right-radi
 .wiz-theme-swatch {
   width: 44px; height: 44px; border-radius: 10px;
   box-shadow: 0 2px 8px rgba(0,0,0,.12);
+}
+
+/* ── Wizard permission cards ── */
+.wizard-perm-card {
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px 16px;
+  transition: border-color .2s, background .2s;
+}
+.wizard-perm-card.granted {
+  border-color: rgba(34,197,94,.35);
+  background: rgba(34,197,94,.06);
+}
+.wizard-perm-card.denied {
+  border-color: rgba(239,68,68,.25);
+  background: rgba(239,68,68,.04);
+}
+.wizard-perm-info {
+  display: flex; align-items: center; gap: 12px;
+}
+.wizard-perm-icon {
+  font-size: 22px; line-height: 1;
+}
+.wizard-perm-title {
+  font-size: 14px; font-weight: 600; color: var(--text-primary);
+}
+.wizard-perm-desc {
+  font-size: 11px; color: var(--text-muted); margin-top: 2px;
+}
+.wizard-perm-btn {
+  padding: 7px 16px;
+  border-radius: var(--radius-full);
+  background: var(--accent-light);
+  color: var(--accent);
+  font-size: 12px; font-weight: 600;
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: all .2s;
+  white-space: nowrap;
+}
+.wizard-perm-btn:hover {
+  background: var(--accent);
+  color: var(--text-on-accent);
+}
+.wizard-perm-card.granted .wizard-perm-btn {
+  background: rgba(34,197,94,.12);
+  color: var(--success);
+  border-color: rgba(34,197,94,.3);
+  cursor: default;
+}
+.wizard-perm-card.denied .wizard-perm-btn {
+  background: rgba(239,68,68,.08);
+  color: var(--danger);
+  border-color: rgba(239,68,68,.2);
+  cursor: default;
 }
 
 /* =============================================================================

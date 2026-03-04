@@ -7,10 +7,12 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
   <meta name="theme-color" content="#000000"/>
   <title>Shadow Message</title>
-  <link rel="stylesheet" href="/static/css/style.css?v=20260304e"/>
-  <link rel="stylesheet" href="/static/css/mobile.css?v=20260304e" media="(max-width: 900px)"/>
+  <link rel="manifest" href="/manifest.json"/>
+  <link rel="apple-touch-icon" href="/static/icons/icon-192.svg"/>
+  <link rel="stylesheet" href="/static/css/style.css?v=20260305a"/>
+  <link rel="stylesheet" href="/static/css/mobile.css?v=20260305a" media="(max-width: 900px)"/>
 </head>
-<body data-theme="light">
+<body data-theme="dark">
 
 <!-- ══════════════ SUCCESS OVERLAY ══════════════ -->
 <div id="auth-success-overlay" class="auth-success-overlay hidden">
@@ -795,9 +797,19 @@
     <!-- Audio-only avatar (shown when no video) -->
     <div class="call-audio-layer" id="call-audio-layer">
       <div class="call-audio-glow"></div>
-      <div class="avatar avatar-xxl" id="active-call-avatar-big" style="margin:0 auto"></div>
+      <div class="call-avatar-wrap">
+        <div class="avatar avatar-xxl" id="active-call-avatar-big" style="margin:0 auto"></div>
+        <div class="call-status-badges">
+          <span class="call-status-badge" id="peer-mic-status" title="Микрофон собеседника"></span>
+          <span class="call-status-badge" id="peer-cam-status" title="Камера собеседника"></span>
+        </div>
+      </div>
       <div class="call-peer-name" id="active-call-name-audio">Звонок</div>
       <div class="call-timer-big" id="call-timer-audio">00:00</div>
+      <div class="call-my-status">
+        <span class="call-status-badge" id="my-mic-status" title="Мой микрофон"></span>
+        <span class="call-status-badge" id="my-cam-status" title="Моя камера"></span>
+      </div>
     </div>
     <!-- Local video PiP -->
     <div class="call-pip" id="call-pip">
@@ -922,24 +934,45 @@
         <h3 style="margin:0 0 6px;font-size:18px">Уведомления и разрешения</h3>
         <p style="color:var(--text-secondary);font-size:13px;margin:0 0 16px">Для звонков и пуш-уведомлений</p>
 
-        <div style="display:flex;flex-direction:column;gap:10px;text-align:left;max-width:300px;margin:0 auto">
-          <button class="btn-secondary btn-full" id="wizard-notif-btn" style="display:flex;align-items:center;gap:10px;justify-content:flex-start;padding:12px 16px">
-            <span style="font-size:20px">🔔</span>
-            <span>Push-уведомления</span>
-            <span id="wizard-notif-status" style="margin-left:auto;font-size:14px">—</span>
-          </button>
-          <button class="btn-secondary btn-full" id="wizard-mic-btn" style="display:flex;align-items:center;gap:10px;justify-content:flex-start;padding:12px 16px">
-            <span style="font-size:20px">🎤</span>
-            <span>Микрофон</span>
-            <span id="wizard-mic-status" style="margin-left:auto;font-size:14px">—</span>
-          </button>
-          <button class="btn-secondary btn-full" id="wizard-cam-btn" style="display:flex;align-items:center;gap:10px;justify-content:flex-start;padding:12px 16px">
-            <span style="font-size:20px">📷</span>
-            <span>Камера</span>
-            <span id="wizard-cam-status" style="margin-left:auto;font-size:14px">—</span>
-          </button>
+        <div style="display:flex;flex-direction:column;gap:12px;text-align:left;max-width:300px;margin:0 auto">
+          <div class="wizard-perm-card" id="wizard-notif-card">
+            <div class="wizard-perm-info">
+              <span class="wizard-perm-icon">🔔</span>
+              <div>
+                <div class="wizard-perm-title">Push-уведомления</div>
+                <div class="wizard-perm-desc">Сообщения, звонки</div>
+              </div>
+            </div>
+            <button class="wizard-perm-btn" id="wizard-notif-btn">
+              <span id="wizard-notif-status">Включить</span>
+            </button>
+          </div>
+          <div class="wizard-perm-card" id="wizard-mic-card">
+            <div class="wizard-perm-info">
+              <span class="wizard-perm-icon">🎤</span>
+              <div>
+                <div class="wizard-perm-title">Микрофон</div>
+                <div class="wizard-perm-desc">Голосовые звонки</div>
+              </div>
+            </div>
+            <button class="wizard-perm-btn" id="wizard-mic-btn">
+              <span id="wizard-mic-status">Включить</span>
+            </button>
+          </div>
+          <div class="wizard-perm-card" id="wizard-cam-card">
+            <div class="wizard-perm-info">
+              <span class="wizard-perm-icon">📷</span>
+              <div>
+                <div class="wizard-perm-title">Камера</div>
+                <div class="wizard-perm-desc">Видеозвонки</div>
+              </div>
+            </div>
+            <button class="wizard-perm-btn" id="wizard-cam-btn">
+              <span id="wizard-cam-status">Включить</span>
+            </button>
+          </div>
         </div>
-        <p style="color:var(--text-muted);font-size:11px;margin-top:12px">Можно пропустить — мессенджер будет работать и без разрешений</p>
+        <p style="color:var(--text-muted);font-size:11px;margin-top:14px">Можно пропустить — мессенджер будет работать и без разрешений</p>
       </div>
     </div>
 
@@ -970,11 +1003,11 @@
       <button class="btn-primary" id="wizard-next" style="padding:8px 20px;font-size:14px">Далее</button>
     </div>
 
-    <!-- Don't show again checkbox -->
+    <!-- Don't show again -->
     <div style="text-align:center;padding:0 20px 16px">
-      <label style="font-size:12px;color:var(--text-muted);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px">
-        <input type="checkbox" id="wizard-dont-show" style="accent-color:var(--accent)"/>
-        Не показывать это окно снова
+      <label class="toggle-row" style="font-size:12px;color:var(--text-muted);cursor:pointer;display:inline-flex;align-items:center;gap:8px;justify-content:center;padding:6px 14px;border-radius:var(--radius-full);background:var(--bg-hover);transition:background .2s">
+        <span>Не показывать снова</span>
+        <label class="toggle-switch" style="width:38px;height:20px;transform:scale(.85)"><input type="checkbox" id="wizard-dont-show"/><span class="toggle-slider"></span></label>
       </label>
     </div>
   </div>
@@ -990,16 +1023,16 @@
       <button class="btn-secondary btn-full" id="login-setup-no">Нет</button>
       <button class="btn-primary btn-full" id="login-setup-yes">Да</button>
     </div>
-    <label style="font-size:12px;color:var(--text-muted);cursor:pointer;display:flex;justify-content:center;align-items:center;gap:6px">
-      <input type="checkbox" id="login-setup-dont-show" style="accent-color:var(--accent)"/>
-      Больше не показывать
+    <label class="toggle-row" style="font-size:12px;color:var(--text-muted);cursor:pointer;display:inline-flex;align-items:center;gap:8px;justify-content:center;padding:6px 14px;border-radius:var(--radius-full);background:var(--bg-hover);transition:background .2s">
+      <span>Больше не показывать</span>
+      <label class="toggle-switch" style="width:38px;height:20px;transform:scale(.85)"><input type="checkbox" id="login-setup-dont-show"/><span class="toggle-slider"></span></label>
     </label>
   </div>
 </div>
 
 <script src="/socket.io/socket.io.js"></script>
-<script src="/static/js/calls.js?v=20260304e"></script>
-<script src="/static/js/app.js?v=20260304e"></script>
+<script src="/static/js/calls.js?v=20260305a"></script>
+<script src="/static/js/app.js?v=20260305a"></script>
 <script>
 // Register Service Worker for push notifications
 if ('serviceWorker' in navigator) {

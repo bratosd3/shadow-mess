@@ -1157,6 +1157,12 @@ io.on('connection', async (socket) => {
     if (targetSockets) targetSockets.forEach(sid => io.to(sid).emit('call_ended', { from: userId }));
   });
 
+  // Mic/cam status relay
+  socket.on('call_status', ({ to, micMuted, camOff }) => {
+    const targetSockets = onlineUsers.get(to);
+    if (targetSockets) targetSockets.forEach(sid => io.to(sid).emit('call_status', { from: userId, micMuted, camOff }));
+  });
+
   // --- Group call signaling ---
   socket.on('group_call_join', async ({ chatId }) => {
     if (!groupCallRooms.has(chatId)) groupCallRooms.set(chatId, new Set());

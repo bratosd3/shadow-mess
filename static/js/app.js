@@ -515,6 +515,7 @@ function initSocket() {
   socket.on('call_accepting',     () => { stopDialTone(); stopRingtone(); });
   socket.on('call_rejected',      () => { stopDialTone(); hideCallOverlays(); clearInterval(_callTimerInt); showToast('Звонок отклонён', 'info'); });
   socket.on('call_ended',         () => { stopDialTone(); stopRingtone(); playCallEndSound(); clearInterval(_callTimerInt); $('call-mini-bar')?.classList.add('hidden'); $('sidebar-call-indicator')?.classList.add('hidden'); showToast('📞 Звонок завершён', 'info'); window.callsModule?.onEnded(); });
+  socket.on('call_status',        d => window.callsModule?.onPeerStatus(d));
   socket.on('session_revoked',    () => { showToast('Сессия завершена', 'info'); setTimeout(() => logout(), 1500); });
 
   // Group call signaling
@@ -2281,11 +2282,15 @@ function initCallButtons() {
   on('call-video-btn', 'click', () => initiateCall('video'));
   on('end-call-btn', 'click', () => { stopDialTone(); stopRingtone(); playCallEndSound(); clearInterval(_callTimerInt); $('active-call-overlay').classList.add('hidden'); $('call-mini-bar')?.classList.add('hidden'); $('sidebar-call-indicator')?.classList.add('hidden'); showToast('📞 Звонок завершён', 'info'); window.callsModule?.endCall(); });
   on('toggle-mute',  'click', () => { const m = window.callsModule?.toggleMute(); $('toggle-mute').classList.toggle('muted', m); });
-  on('toggle-video', 'click', () => {
-    window.callsModule?.toggleVideo();
-    // Let calls.js updateCallView handle the layer switching
-    _activeCallType = 'video';
-    window.callsModule?.updateCallView();
+  on('toggle-video', 'click', async () => {
+    try {
+      const off = await window.callsModule?.toggleVideo();
+      $('toggle-video')?.classList.toggle('active', !off);
+      if (!off) _activeCallType = 'video';
+    } catch (err) {
+      console.error('[toggle-video] error:', err);
+      showToast('Ошибка переключения камеры', 'error');
+    }
   });
   on('toggle-speaker', 'click', () => showToast('Переключение динамика', 'info'));
   on('toggle-screen', 'click', async () => {
@@ -2804,24 +2809,33 @@ function showWelcomeWizard(force = false) {
   });
 
   // ── Step 3: Permissions ──
-  function bindPerm(btnId, statusId, permFn) {
+  function bindPerm(btnId, statusId, cardId, permFn) {
     const btn = document.getElementById(btnId);
     const st = document.getElementById(statusId);
+    const card = document.getElementById(cardId);
     if (!btn || !st) return;
     btn.addEventListener('click', async () => {
       try {
         const ok = await permFn();
-        st.textContent = ok ? '✅' : '❌';
-        st.style.color = ok ? 'var(--success, #22c55e)' : 'var(--danger, #ef4444)';
+        if (ok) {
+          st.textContent = 'Включено ✓';
+          if (card) card.classList.add('granted');
+          if (card) card.classList.remove('denied');
+        } else {
+          st.textContent = 'Отклонено';
+          if (card) card.classList.add('denied');
+          if (card) card.classList.remove('granted');
+        }
       } catch {
-        st.textContent = '❌';
-        st.style.color = 'var(--danger, #ef4444)';
+        st.textContent = 'Ошибка';
+        if (card) card.classList.add('denied');
+        if (card) card.classList.remove('granted');
       }
     });
   }
 
   // Notifications — request permission + subscribe to push
-  bindPerm('wizard-notif-btn', 'wizard-notif-status', async () => {
+  bindPerm('wizard-notif-btn', 'wizard-notif-status', 'wizard-notif-card', async () => {
     if (!('Notification' in window)) return false;
     const perm = await Notification.requestPermission();
     if (perm === 'granted') {
@@ -2830,12 +2844,12 @@ function showWelcomeWizard(force = false) {
     }
     return false;
   });
-  bindPerm('wizard-mic-btn', 'wizard-mic-status', async () => {
+  bindPerm('wizard-mic-btn', 'wizard-mic-status', 'wizard-mic-card', async () => {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
     stream.getTracks().forEach(t => t.stop());
     return true;
   });
-  bindPerm('wizard-cam-btn', 'wizard-cam-status', async () => {
+  bindPerm('wizard-cam-btn', 'wizard-cam-status', 'wizard-cam-card', async () => {
     const stream = await navigator.mediaDevices.getUserMedia({ video: true });
     stream.getTracks().forEach(t => t.stop());
     return true;
@@ -2985,8 +2999,12 @@ function initApp() {
 // BOOTSTRAP
 // ══════════════════════════════════════════════════════════
 (async () => {
-  // Apply light theme immediately to prevent dark flash
-  applyTheme('light');
+  // Apply saved theme immediately to prevent flash
+  try {
+    const savedUser = JSON.parse(localStorage.getItem('sm_user') || '{}');
+    const savedTheme = savedUser?.settings?.theme || 'dark';
+    applyTheme(savedTheme);
+  } catch { applyTheme('dark'); }
 
   initAuth();
   const tok = localStorage.getItem('sm_token');
