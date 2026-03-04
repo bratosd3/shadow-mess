@@ -31,7 +31,7 @@ COLORS = {
     "bg_input":     "#1a1a2e",
     "accent":       "#6c5ce7",
     "accent_hover": "#7c6cf7",
-    "accent_light": "#6c5ce720",
+    "accent_light": "#1e1a3a",
     "success":      "#22c55e",
     "danger":       "#ef4444",
     "danger_hover": "#dc2626",
