@@ -45,7 +45,27 @@ const API = {
   post: (p,b) => API.req('POST',   p, b),
   put:  (p,b) => API.req('PUT',    p, b),
   del:  p     => API.req('DELETE', p),
-  up:   (p,f) => API.req('POST',   p, f, true),
+  up: (p, f, onProgress) => {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', p);
+      if (S.token) xhr.setRequestHeader('Authorization', `Bearer ${S.token}`);
+      if (onProgress) {
+        xhr.upload.addEventListener('progress', (e) => {
+          if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+        });
+      }
+      xhr.onload = () => {
+        try {
+          const d = JSON.parse(xhr.responseText);
+          if (xhr.status >= 200 && xhr.status < 300) resolve(d);
+          else reject(new Error(d.error || `HTTP ${xhr.status}`));
+        } catch { reject(new Error(`HTTP ${xhr.status}`)); }
+      };
+      xhr.onerror = () => reject(new Error('Ошибка сети'));
+      xhr.send(f);
+    });
+  },
 };
 
 // ── DOM shortcuts ─────────────────────────────────────────
@@ -512,6 +532,7 @@ function initSocket() {
   socket.on('call_incoming',      handleIncomingCall);
   socket.on('call_answered',      d => { stopDialTone(); playCallConnectSound(); showToast('📞 Звонок начат', 'success'); window.callsModule?.onAnswer(d); });
   socket.on('call_ice',           d => window.callsModule?.onIce(d));
+  socket.on('call_renegotiate',   d => window.callsModule?.onRenegotiate(d));
   socket.on('call_accepting',     () => { stopDialTone(); stopRingtone(); });
   socket.on('call_rejected',      () => { stopDialTone(); hideCallOverlays(); clearInterval(_callTimerInt); showToast('Звонок отклонён', 'info'); });
   socket.on('call_ended',         () => { stopDialTone(); stopRingtone(); playCallEndSound(); clearInterval(_callTimerInt); $('call-mini-bar')?.classList.add('hidden'); $('sidebar-call-indicator')?.classList.add('hidden'); showToast('📞 Звонок завершён', 'info'); window.callsModule?.onEnded(); });
@@ -799,10 +820,36 @@ function buildMsgEl(msg) {
 
   // Content
   if (msg.type === 'image' && msg.fileUrl) {
+    const mediaWrap = document.createElement('div');
+    mediaWrap.className = 'message-media-wrap';
     const img = document.createElement('img');
     img.className = 'message-image'; img.src = msg.fileUrl; img.alt = '';
+    img.loading = 'lazy';
     img.addEventListener('click', () => openLightbox(msg.fileUrl));
-    bubble.appendChild(img);
+    mediaWrap.appendChild(img);
+    // Action buttons
+    const actions = document.createElement('div');
+    actions.className = 'media-actions';
+    actions.innerHTML = `<button class="media-action-btn media-preview-btn" title="Просмотр">👁</button><a class="media-action-btn media-download-btn" href="${escHtml(msg.fileUrl)}" download="${escHtml(msg.fileName || 'image')}" title="Скачать" onclick="event.stopPropagation()">⬇</a>`;
+    actions.querySelector('.media-preview-btn').addEventListener('click', (e) => { e.stopPropagation(); openLightbox(msg.fileUrl); });
+    mediaWrap.appendChild(actions);
+    bubble.appendChild(mediaWrap);
+  } else if (msg.type === 'video' && msg.fileUrl) {
+    const mediaWrap = document.createElement('div');
+    mediaWrap.className = 'message-media-wrap message-video-wrap';
+    const video = document.createElement('video');
+    video.className = 'message-video';
+    video.src = msg.fileUrl;
+    video.preload = 'metadata';
+    video.playsInline = true;
+    video.setAttribute('playsinline', '');
+    video.controls = true;
+    mediaWrap.appendChild(video);
+    const actions = document.createElement('div');
+    actions.className = 'media-actions';
+    actions.innerHTML = `<a class="media-action-btn media-download-btn" href="${escHtml(msg.fileUrl)}" download="${escHtml(msg.fileName || 'video')}" title="Скачать" onclick="event.stopPropagation()">⬇</a>`;
+    mediaWrap.appendChild(actions);
+    bubble.appendChild(mediaWrap);
   } else if (msg.type === 'file' && msg.fileUrl) {
     const a = document.createElement('a');
     a.className = 'message-file'; a.href = msg.fileUrl; a.target = '_blank'; a.download = msg.fileName || '';
@@ -852,9 +899,19 @@ function buildMsgEl(msg) {
   bubble.addEventListener('contextmenu', e => { e.preventDefault(); showCtxMenu(e, msg); });
 
   // Long press mobile
-  let lpTimer;
-  bubble.addEventListener('touchstart', () => { lpTimer = setTimeout(() => showCtxMenu(null, msg), 600); }, { passive: true });
-  bubble.addEventListener('touchend',   () => clearTimeout(lpTimer));
+  let lpTimer, lpTouchMoved = false;
+  bubble.addEventListener('touchstart', (e) => {
+    lpTouchMoved = false;
+    lpTimer = setTimeout(() => {
+      if (!lpTouchMoved) {
+        if (navigator.vibrate) navigator.vibrate(30);
+        showCtxMenu(null, msg);
+      }
+    }, 500);
+  }, { passive: true });
+  bubble.addEventListener('touchmove', () => { lpTouchMoved = true; clearTimeout(lpTimer); }, { passive: true });
+  bubble.addEventListener('touchend',   () => clearTimeout(lpTimer), { passive: true });
+  bubble.addEventListener('touchcancel', () => clearTimeout(lpTimer), { passive: true });
 
   // Double-tap reply
   let tapTime = 0;
@@ -872,6 +929,7 @@ function buildVoiceEl(msg) {
   const wrap = document.createElement('div');
   wrap.className = 'message-voice';
   const audio = new Audio(msg.fileUrl);
+  audio.preload = 'metadata';
   let playing = false;
 
   const playBtn = document.createElement('button');
@@ -881,16 +939,65 @@ function buildVoiceEl(msg) {
     if (playing) { audio.pause(); playBtn.innerHTML = '▶'; playing = false; }
     else { audio.play(); playBtn.innerHTML = '⏸'; playing = true; }
   });
-  audio.addEventListener('ended', () => { playBtn.innerHTML = '▶'; playing = false; });
+  audio.addEventListener('ended', () => { playBtn.innerHTML = '▶'; playing = false; progressFill.style.width = '0%'; });
 
   const dur = document.createElement('div');
   dur.className = 'voice-duration';
-  dur.textContent = msg.duration ? `${Math.round(msg.duration)}с` : '0с';
+  const displayDur = msg.duration ? `${Math.round(msg.duration)}с` : '';
+  dur.textContent = displayDur || '—';
+
+  // Update duration from audio metadata if not provided
+  audio.addEventListener('loadedmetadata', () => {
+    if (!msg.duration && audio.duration && isFinite(audio.duration)) {
+      dur.textContent = `${Math.round(audio.duration)}с`;
+    }
+  });
 
   wrap.appendChild(playBtn);
+
+  // Waveform container with fake bars and progress overlay
   const barWrap = document.createElement('div');
   barWrap.className = 'voice-waveform';
-  barWrap.style.cssText = 'flex:1;height:28px;background:var(--accent-light);border-radius:4px';
+
+  // Generate pseudo-random waveform bars
+  const barsContainer = document.createElement('div');
+  barsContainer.className = 'voice-bars';
+  const barCount = 32;
+  const seed = (msg.id || '').split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+  for (let i = 0; i < barCount; i++) {
+    const bar = document.createElement('span');
+    bar.className = 'voice-bar';
+    const h = 20 + ((Math.sin(seed * 0.3 + i * 0.7) * 0.5 + 0.5) * 80);
+    bar.style.height = h + '%';
+    barsContainer.appendChild(bar);
+  }
+  barWrap.appendChild(barsContainer);
+
+  // Progress overlay
+  const progressFill = document.createElement('div');
+  progressFill.className = 'voice-progress-fill';
+  barWrap.appendChild(progressFill);
+
+  // Seek on click
+  barWrap.addEventListener('click', (e) => {
+    const rect = barWrap.getBoundingClientRect();
+    const pct = (e.clientX - rect.left) / rect.width;
+    if (audio.duration && isFinite(audio.duration)) {
+      audio.currentTime = pct * audio.duration;
+      if (!playing) { audio.play(); playBtn.innerHTML = '⏸'; playing = true; }
+    }
+  });
+
+  // Update progress during playback
+  audio.addEventListener('timeupdate', () => {
+    if (audio.duration && isFinite(audio.duration)) {
+      const pct = (audio.currentTime / audio.duration) * 100;
+      progressFill.style.width = pct + '%';
+      const remaining = Math.round(audio.duration - audio.currentTime);
+      dur.textContent = `${remaining}с`;
+    }
+  });
+
   wrap.appendChild(barWrap);
   wrap.appendChild(dur);
   return wrap;
@@ -1057,6 +1164,9 @@ function initInput() {
   // Voice record
   on('voice-record-btn', 'click', toggleVoiceRecord);
 
+  // Video message record
+  on('video-msg-btn', 'click', toggleVideoMsgRecord);
+
   // Paste image from clipboard (PrtSc / Ctrl+V)
   document.addEventListener('paste', handlePasteImage);
 }
@@ -1121,16 +1231,10 @@ function showPastePreview(url, name) {
 }
 
 function toggleSendVoiceBtn() {
-  const isMobile = window.innerWidth <= 680;
-  if (isMobile) {
-    // На мобильных: всегда показываем кнопку отправки, голосовая скрыта
-    $('send-btn')?.classList.remove('hidden');
-    $('voice-record-btn')?.classList.add('hidden');
-    return;
-  }
-  const has = $('msg-input').value.trim().length > 0;
-  $('send-btn').classList.toggle('hidden', !has);
-  $('voice-record-btn').classList.toggle('hidden', has);
+  const has = $('msg-input')?.value.trim().length > 0;
+  $('send-btn')?.classList.toggle('hidden', !has);
+  $('voice-record-btn')?.classList.toggle('hidden', has);
+  $('video-msg-btn')?.classList.toggle('hidden', has);
 }
 
 let _isSending = false;
@@ -1177,48 +1281,221 @@ async function uploadFile() {
   if (!files.length || !S.activeChat) return;
   for (const f of files) {
     const fd = new FormData(); fd.append('file', f);
+    // Show upload progress
+    const progEl = createUploadProgress(f.name);
     try {
-      const msg = await API.up(`/api/chats/${S.activeChat.id}/upload`, fd);
+      const msg = await API.up(`/api/chats/${S.activeChat.id}/upload`, fd, (pct) => {
+        updateUploadProgress(progEl, pct);
+      });
+      removeUploadProgress(progEl);
       handleNewMessage(msg);
     }
-    catch (e) { showToast(e.message, 'error'); }
+    catch (e) { removeUploadProgress(progEl); showToast(e.message, 'error'); }
   }
   $('file-input').value = '';
+}
+
+function createUploadProgress(fileName) {
+  const area = $('messages-area');
+  if (!area) return null;
+  const el = document.createElement('div');
+  el.className = 'upload-progress-bar';
+  el.innerHTML = `
+    <div class="upload-progress-info">
+      <span class="upload-progress-name">${escHtml(fileName?.slice(0,30) || 'Файл')}</span>
+      <span class="upload-progress-pct">0%</span>
+    </div>
+    <div class="upload-progress-track"><div class="upload-progress-fill"></div></div>
+  `;
+  area.appendChild(el);
+  area.scrollTop = area.scrollHeight;
+  return el;
+}
+
+function updateUploadProgress(el, pct) {
+  if (!el) return;
+  const fill = el.querySelector('.upload-progress-fill');
+  const pctEl = el.querySelector('.upload-progress-pct');
+  if (fill) fill.style.width = pct + '%';
+  if (pctEl) pctEl.textContent = pct + '%';
+}
+
+function removeUploadProgress(el) {
+  if (el) {
+    el.style.animation = 'toastOut .3s ease forwards';
+    setTimeout(() => el.remove(), 300);
+  }
 }
 
 async function toggleVoiceRecord() {
   if (!S.isRecording) {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+      });
       S.voiceChunks = [];
-      S.voiceRecorder = new MediaRecorder(stream);
-      S.voiceRecorder.addEventListener('dataavailable', e => S.voiceChunks.push(e.data));
+      // Choose best supported MIME type
+      const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus') ? 'audio/webm;codecs=opus'
+        : MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm'
+        : MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4'
+        : MediaRecorder.isTypeSupported('audio/ogg') ? 'audio/ogg' : '';
+      const opts = mimeType ? { mimeType } : {};
+      S.voiceRecorder = new MediaRecorder(stream, opts);
+      S.voiceRecorder.addEventListener('dataavailable', e => {
+        if (e.data.size > 0) S.voiceChunks.push(e.data);
+      });
       S.voiceRecorder.addEventListener('stop', sendVoiceMessage);
-      S.voiceRecorder.start();
+      S.voiceRecorder.start(100); // collect data every 100ms
+      S.voiceRecordStart = Date.now();
       S.isRecording = true;
-      $('voice-record-btn').classList.add('recording');
+      $('voice-record-btn')?.classList.add('recording');
       $('voice-record-btn').title = 'Остановить запись';
+      // Show recording timer
+      _voiceTimerInt = setInterval(() => {
+        const sec = Math.round((Date.now() - S.voiceRecordStart) / 1000);
+        $('voice-record-btn').title = `Запись: ${sec}с`;
+      }, 500);
     } catch { showToast('Нет доступа к микрофону', 'error'); }
   } else {
+    clearInterval(_voiceTimerInt);
     S.voiceRecorder?.stop();
     S.voiceRecorder?.stream?.getTracks().forEach(t => t.stop());
     S.isRecording = false;
-    $('voice-record-btn').classList.remove('recording');
+    $('voice-record-btn')?.classList.remove('recording');
     $('voice-record-btn').title = 'Голосовое сообщение';
   }
 }
+let _voiceTimerInt;
 
 async function sendVoiceMessage() {
   if (!S.voiceChunks.length || !S.activeChat) return;
-  const blob = new Blob(S.voiceChunks, { type: 'audio/webm' });
+  const mimeType = S.voiceChunks[0].type || 'audio/webm';
+  const ext = mimeType.includes('mp4') ? 'mp4' : mimeType.includes('ogg') ? 'ogg' : 'webm';
+  const blob = new Blob(S.voiceChunks, { type: mimeType });
+  const duration = S.voiceRecordStart ? Math.round((Date.now() - S.voiceRecordStart) / 1000) : 0;
   const fd = new FormData();
-  fd.append('file', blob, 'voice.webm');
+  fd.append('file', blob, `voice_${Date.now()}.${ext}`);
   fd.append('type', 'voice');
+  fd.append('duration', String(duration));
   try {
     const msg = await API.up(`/api/chats/${S.activeChat.id}/upload`, fd);
     handleNewMessage(msg);
   }
   catch (e) { showToast(e.message, 'error'); }
+  S.voiceRecordStart = null;
+}
+
+// ── Video message recording ──────────────────────────
+let _videoRecorder = null;
+let _videoChunks = [];
+let _videoStream = null;
+let _videoRecStart = null;
+let _videoTimerInt = null;
+let _videoPreviewOverlay = null;
+
+async function toggleVideoMsgRecord() {
+  if (_videoRecorder && _videoRecorder.state === 'recording') {
+    // Stop recording
+    _videoRecorder.stop();
+    clearInterval(_videoTimerInt);
+    $('video-msg-btn')?.classList.remove('recording');
+    $('video-msg-btn').title = 'Видеосообщение';
+    return;
+  }
+
+  try {
+    _videoStream = await navigator.mediaDevices.getUserMedia({
+      video: { width: { ideal: 480 }, height: { ideal: 480 }, facingMode: 'user' },
+      audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+    });
+
+    // Show preview overlay
+    _videoPreviewOverlay = document.createElement('div');
+    _videoPreviewOverlay.className = 'video-msg-preview-overlay';
+    _videoPreviewOverlay.innerHTML = `
+      <div class="video-msg-preview-wrap">
+        <video class="video-msg-preview" autoplay playsinline muted></video>
+        <div class="video-msg-timer">0с</div>
+        <button class="video-msg-stop-btn">⏹ Остановить</button>
+      </div>
+    `;
+    document.body.appendChild(_videoPreviewOverlay);
+
+    const previewVideo = _videoPreviewOverlay.querySelector('.video-msg-preview');
+    previewVideo.srcObject = _videoStream;
+
+    const stopBtn = _videoPreviewOverlay.querySelector('.video-msg-stop-btn');
+    stopBtn.addEventListener('click', () => {
+      if (_videoRecorder && _videoRecorder.state === 'recording') {
+        _videoRecorder.stop();
+      }
+    });
+
+    _videoChunks = [];
+    const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus') ? 'video/webm;codecs=vp9,opus'
+      : MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus') ? 'video/webm;codecs=vp8,opus'
+      : MediaRecorder.isTypeSupported('video/webm') ? 'video/webm'
+      : MediaRecorder.isTypeSupported('video/mp4') ? 'video/mp4' : '';
+    const opts = mimeType ? { mimeType } : {};
+    _videoRecorder = new MediaRecorder(_videoStream, opts);
+    _videoRecorder.addEventListener('dataavailable', e => {
+      if (e.data.size > 0) _videoChunks.push(e.data);
+    });
+    _videoRecorder.addEventListener('stop', sendVideoMessage);
+    _videoRecorder.start(200);
+    _videoRecStart = Date.now();
+
+    $('video-msg-btn')?.classList.add('recording');
+    $('video-msg-btn').title = 'Остановить запись';
+
+    _videoTimerInt = setInterval(() => {
+      const sec = Math.round((Date.now() - _videoRecStart) / 1000);
+      const timerEl = _videoPreviewOverlay?.querySelector('.video-msg-timer');
+      if (timerEl) timerEl.textContent = `${sec}с`;
+    }, 500);
+  } catch (e) {
+    console.error('[videoMsg] error:', e);
+    showToast('Нет доступа к камере', 'error');
+  }
+}
+
+async function sendVideoMessage() {
+  clearInterval(_videoTimerInt);
+  // Clean up preview
+  if (_videoPreviewOverlay) {
+    _videoPreviewOverlay.remove();
+    _videoPreviewOverlay = null;
+  }
+  // Stop stream
+  if (_videoStream) {
+    _videoStream.getTracks().forEach(t => t.stop());
+    _videoStream = null;
+  }
+  $('video-msg-btn')?.classList.remove('recording');
+  $('video-msg-btn').title = 'Видеосообщение';
+
+  if (!_videoChunks.length || !S.activeChat) return;
+  const mimeType = _videoChunks[0].type || 'video/webm';
+  const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
+  const blob = new Blob(_videoChunks, { type: mimeType });
+  const duration = _videoRecStart ? Math.round((Date.now() - _videoRecStart) / 1000) : 0;
+
+  const fd = new FormData();
+  fd.append('file', blob, `video_${Date.now()}.${ext}`);
+  fd.append('duration', String(duration));
+
+  const progressEl = createUploadProgress(`video_${Date.now()}.${ext}`);
+  try {
+    const msg = await API.up(`/api/chats/${S.activeChat.id}/upload`, fd, (pct) => updateUploadProgress(progressEl, pct));
+    removeUploadProgress(progressEl);
+    handleNewMessage(msg);
+    showToast('Видеосообщение отправлено', 'success');
+  } catch (e) {
+    removeUploadProgress(progressEl);
+    showToast(e.message, 'error');
+  }
+  _videoChunks = [];
+  _videoRecStart = null;
 }
 
 async function reactMsg(msgId, emoji) {
@@ -1245,17 +1522,50 @@ function hideReplyPreview() {
 function showCtxMenu(e, msg) {
   S.ctxMsg = msg;
   const menu = $('context-menu');
-  menu.classList.remove('hidden');
   const isMine = msg.senderId === S.user?.id;
   menu.querySelector('[data-action="edit"]')?.style && (menu.querySelector('[data-action="edit"]').style.display = isMine ? '' : 'none');
   menu.querySelector('[data-action="delete"]')?.style && (menu.querySelector('[data-action="delete"]').style.display = isMine ? '' : 'none');
 
-  if (e) {
-    const x = Math.min(e.clientX, window.innerWidth  - 190);
-    const y = Math.min(e.clientY, window.innerHeight - 320);
-    menu.style.cssText += `;left:${x}px;top:${y}px;transform:none`;
+  // Remove old backdrop
+  let backdrop = document.querySelector('.ctx-backdrop');
+  if (backdrop) backdrop.remove();
+
+  if (isMobile) {
+    // Mobile: bottom sheet
+    backdrop = document.createElement('div');
+    backdrop.className = 'ctx-backdrop';
+    backdrop.addEventListener('click', () => hideCtxMenu());
+    document.body.appendChild(backdrop);
+    menu.classList.remove('hidden');
+    menu.classList.add('ctx-bottom-sheet');
+    menu.style.cssText = '';
+    requestAnimationFrame(() => {
+      backdrop.classList.add('visible');
+      menu.classList.add('visible');
+    });
   } else {
-    menu.style.cssText += `;left:50%;top:50%;transform:translate(-50%,-50%)`;
+    // Desktop: popup at cursor
+    menu.classList.remove('ctx-bottom-sheet', 'visible');
+    menu.classList.remove('hidden');
+    if (e) {
+      const x = Math.min(e.clientX, window.innerWidth  - 190);
+      const y = Math.min(e.clientY, window.innerHeight - 320);
+      menu.style.cssText = `left:${x}px;top:${y}px;transform:none`;
+    } else {
+      menu.style.cssText = `left:50%;top:50%;transform:translate(-50%,-50%)`;
+    }
+  }
+}
+
+function hideCtxMenu() {
+  const menu = $('context-menu');
+  const backdrop = document.querySelector('.ctx-backdrop');
+  menu.classList.add('hidden');
+  menu.classList.remove('visible', 'ctx-bottom-sheet');
+  menu.style.cssText = '';
+  if (backdrop) {
+    backdrop.classList.remove('visible');
+    setTimeout(() => backdrop.remove(), 250);
   }
 }
 
@@ -1265,7 +1575,7 @@ function initCtxMenu() {
     const btn = e.target.closest('[data-action]');
     if (!btn || !S.ctxMsg) return;
     const action = btn.dataset.action;
-    menu.classList.add('hidden');
+    hideCtxMenu();
     const msg = S.ctxMsg;
 
     switch (action) {
@@ -1281,7 +1591,7 @@ function initCtxMenu() {
   });
 
   document.addEventListener('click', e => {
-    if (!$('context-menu').contains(e.target)) $('context-menu').classList.add('hidden');
+    if (!$('context-menu').contains(e.target)) hideCtxMenu();
   });
 }
 

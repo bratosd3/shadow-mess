@@ -27,6 +27,7 @@ window.callsModule = (() => {
   let _hasRemoteVideo = false;
   let _audioCtx       = null;       // for noise suppression
   let _noiseNode      = null;
+  let _reconnectTimer = null;
 
   const $ = id => document.getElementById(id);
 
@@ -44,30 +45,67 @@ window.callsModule = (() => {
       // Highpass filter removes low-frequency rumble/hum
       const highpass = _audioCtx.createBiquadFilter();
       highpass.type = 'highpass';
-      highpass.frequency.value = 85;
-      highpass.Q.value = 0.7;
+      highpass.frequency.value = 100;
+      highpass.Q.value = 0.8;
+
+      // Second highpass for sharper roll-off
+      const highpass2 = _audioCtx.createBiquadFilter();
+      highpass2.type = 'highpass';
+      highpass2.frequency.value = 75;
+      highpass2.Q.value = 0.5;
 
       // Lowpass removes high-frequency hiss
       const lowpass = _audioCtx.createBiquadFilter();
       lowpass.type = 'lowpass';
-      lowpass.frequency.value = 14000;
+      lowpass.frequency.value = 13000;
+
+      // Notch filter to remove 50/60 Hz mains hum
+      const notch = _audioCtx.createBiquadFilter();
+      notch.type = 'notch';
+      notch.frequency.value = 50;
+      notch.Q.value = 30;
 
       // Compressor to normalize levels and reduce background noise
       const compressor = _audioCtx.createDynamicsCompressor();
-      compressor.threshold.value = -50;
-      compressor.knee.value = 40;
-      compressor.ratio.value = 12;
-      compressor.attack.value = 0;
-      compressor.release.value = 0.25;
+      compressor.threshold.value = -45;
+      compressor.knee.value = 30;
+      compressor.ratio.value = 16;
+      compressor.attack.value = 0.003;
+      compressor.release.value = 0.15;
+
+      // Noise gate via ScriptProcessor (threshold-based)
+      const bufSize = 2048;
+      const gateNode = _audioCtx.createScriptProcessor(bufSize, 1, 1);
+      let _gateOpen = false;
+      const GATE_THRESHOLD = 0.008;
+      const GATE_ATTACK = 0.005;
+      const GATE_RELEASE = 0.05;
+      let _gateGain = 0;
+      gateNode.onaudioprocess = (e) => {
+        const input = e.inputBuffer.getChannelData(0);
+        const output = e.outputBuffer.getChannelData(0);
+        let rms = 0;
+        for (let i = 0; i < input.length; i++) rms += input[i] * input[i];
+        rms = Math.sqrt(rms / input.length);
+        const target = rms > GATE_THRESHOLD ? 1 : 0;
+        const rate = target > _gateGain ? GATE_ATTACK : GATE_RELEASE;
+        for (let i = 0; i < input.length; i++) {
+          _gateGain += (target - _gateGain) * rate;
+          output[i] = input[i] * _gateGain;
+        }
+      };
 
       // Gain boost to compensate compression
       const gain = _audioCtx.createGain();
-      gain.gain.value = 1.4;
+      gain.gain.value = 1.6;
 
       source.connect(highpass);
-      highpass.connect(lowpass);
+      highpass.connect(highpass2);
+      highpass2.connect(notch);
+      notch.connect(lowpass);
       lowpass.connect(compressor);
-      compressor.connect(gain);
+      compressor.connect(gateNode);
+      gateNode.connect(gain);
       gain.connect(dest);
 
       // Replace audio track in the original stream
@@ -78,7 +116,7 @@ window.callsModule = (() => {
 
       // Keep reference to stop original track later
       processedTrack._origTrack = origTrack;
-      _noiseNode = { source, highpass, lowpass, compressor, gain, dest };
+      _noiseNode = { source, highpass, highpass2, notch, lowpass, compressor, gateNode, gain, dest };
     } catch (e) {
       console.warn('[calls] Noise suppression failed:', e);
     }
@@ -211,6 +249,8 @@ window.callsModule = (() => {
     pc.onconnectionstatechange = () => {
       const st = pc?.connectionState;
       if (st === 'connected') {
+        // Reset reconnect timer
+        if (_reconnectTimer) { clearTimeout(_reconnectTimer); _reconnectTimer = null; }
         // Emit mic/cam status to peer
         getSocket()?.emit('call_status', {
           to: currentPeer,
@@ -218,7 +258,19 @@ window.callsModule = (() => {
           camOff: isVideoOff
         });
       }
-      if (st === 'failed' || st === 'disconnected' || st === 'closed') {
+      if (st === 'disconnected') {
+        // Temporary disconnect — wait before ending call (common on mobile)
+        if (!_reconnectTimer) {
+          _reconnectTimer = setTimeout(() => {
+            if (pc?.connectionState === 'disconnected' || pc?.connectionState === 'failed') {
+              endCall();
+            }
+            _reconnectTimer = null;
+          }, 8000); // wait 8 seconds before giving up
+        }
+      }
+      if (st === 'failed' || st === 'closed') {
+        if (_reconnectTimer) { clearTimeout(_reconnectTimer); _reconnectTimer = null; }
         endCall();
       }
     };
@@ -475,6 +527,8 @@ window.callsModule = (() => {
           const sender = pc.getSenders().find(s => s.track?.kind === 'video');
           if (sender) {
             await sender.replaceTrack(camTrack);
+          } else {
+            pc.addTrack(camTrack, localStream);
           }
 
           const lv = $('local-video');
@@ -482,6 +536,9 @@ window.callsModule = (() => {
 
           isVideoOff = false;
           callType = 'video';
+
+          // Trigger renegotiation so remote peer sees video
+          await _renegotiate();
         } catch (e) {
           console.error('[calls] toggleVideo ON error:', e);
           window.showToast?.('📷 Камера недоступна', 'warning');
@@ -505,6 +562,23 @@ window.callsModule = (() => {
     }
     updateCallView();
     return isVideoOff;
+  }
+
+  // ── Renegotiation helper ──
+  async function _renegotiate() {
+    if (!pc || !currentPeer) return;
+    try {
+      const offer = await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      getSocket()?.emit('call_offer', {
+        to: currentPeer,
+        offer: pc.localDescription,
+        callType,
+        renegotiate: true
+      });
+    } catch (e) {
+      console.warn('[calls] renegotiation error:', e);
+    }
   }
 
   async function startScreenShare() {
@@ -552,10 +626,23 @@ window.callsModule = (() => {
     updateCallView();
   }
 
+  // ── Handle renegotiation offer from peer (e.g. camera toggled on) ─
+  async function onRenegotiate({ from, offer }) {
+    if (!pc || from !== currentPeer) return;
+    try {
+      await pc.setRemoteDescription(new RTCSessionDescription(offer));
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      getSocket()?.emit('call_answer', { to: from, answer: pc.localDescription });
+    } catch (e) {
+      console.warn('[calls] renegotiation answer error:', e);
+    }
+  }
+
   return {
     startCall, acceptCall, onAnswer, onIce, onEnded, endCall,
     toggleMute, toggleVideo, startScreenShare, stopScreenShare,
-    onPeerStatus,
+    onPeerStatus, onRenegotiate,
     isInCall: () => !!pc,
     isMuted: () => isMuted,
     isVideoOff: () => isVideoOff,

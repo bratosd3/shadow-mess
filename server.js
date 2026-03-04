@@ -141,6 +141,7 @@ const messageSchema = new mongoose.Schema({
   fileSize:         Number,
   fileUrl:          String,
   fileMime:         String,
+  duration:         Number,
   timestamp:        { type: Date, default: Date.now },
   editedAt:         Date,
   replyTo:          String,
@@ -984,22 +985,29 @@ app.post('/api/chats/:id/upload', authMiddleware, (req, res, next) => {
 
     const sender = await User.findById(req.user.id);
     const isImage = req.file.mimetype.startsWith('image/');
+    const isVideo = req.file.mimetype.startsWith('video/');
     const isVoice = req.file.mimetype.startsWith('audio/') || (req.body.type === 'voice');
+    let msgType = 'file';
+    if (isVoice) msgType = 'voice';
+    else if (isVideo) msgType = 'video';
+    else if (isImage) msgType = 'image';
 
-    const msg = await Message.create({
+    const msgData = {
       chatId:       req.params.id,
       senderId:     req.user.id,
       senderName:   sender ? sender.displayName : '',
       senderAvatar: sender ? sender.avatar : null,
       senderAvatarColor: sender ? sender.avatarColor : null,
-      type:         isVoice ? 'voice' : isImage ? 'image' : 'file',
+      type:         msgType,
       text:         '',
       fileName:     req.file.originalname,
       fileSize:     req.file.size,
       fileUrl:      `/uploads/${req.file.filename}`,
       fileMime:     req.file.mimetype,
       readBy:       [req.user.id]
-    });
+    };
+    if (req.body.duration) msgData.duration = parseFloat(req.body.duration);
+    const msg = await Message.create(msgData);
 
     const senderSockets = onlineUsers.get(req.user.id);
     if (senderSockets) {
@@ -1114,12 +1122,12 @@ io.on('connection', async (socket) => {
   if (!global._groupCallRooms) global._groupCallRooms = new Map();
   const groupCallRooms = global._groupCallRooms;
 
-  socket.on('call_offer', async ({ to, offer, callType }) => {
+  socket.on('call_offer', async ({ to, offer, callType, renegotiate }) => {
     const caller = await User.findById(userId);
     const targetSockets = onlineUsers.get(to);
     if (targetSockets) {
       targetSockets.forEach(sid => {
-        io.to(sid).emit('call_incoming', {
+        io.to(sid).emit(renegotiate ? 'call_renegotiate' : 'call_incoming', {
           from: userId,
           fromName: caller ? caller.displayName : '',
           fromAvatar: caller ? caller.avatar : null,
