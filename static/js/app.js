@@ -3046,6 +3046,7 @@ function updatePushStatusUI() {
   }
 
   const perm = typeof Notification !== 'undefined' ? Notification.permission : 'default';
+  const isYandex = /YaBrowser/i.test(navigator.userAgent);
   if (perm === 'denied') {
     statusEl.textContent = '❌ Заблокированы в браузере';
     statusEl.style.color = '#ef4444';
@@ -3056,7 +3057,9 @@ function updatePushStatusUI() {
     if (helpEl) {
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
       const isAndroid = /Android/i.test(navigator.userAgent);
-      if (isAndroid) {
+      if (isYandex) {
+        helpEl.innerHTML = '🌐 <b>Яндекс Браузер — как разблокировать:</b><br>1. Нажмите <b>🔒</b> слева от адреса сайта<br>2. Нажмите <b>«Подробнее»</b><br>3. Найдите <b>«Уведомления»</b><br>4. Выберите <b>«Разрешить»</b><br>5. Обновите страницу';
+      } else if (isAndroid) {
         helpEl.innerHTML = '📱 <b>Как разблокировать:</b><br>1. Нажмите <b>⋮</b> (три точки справа вверху)<br>2. <b>Настройки</b> → <b>Настройки сайтов</b><br>3. <b>Уведомления</b> → найдите этот сайт<br>4. Переключите на <b>«Разрешить»</b><br>5. Обновите страницу';
       } else if (isIOS) {
         const browser = navigator.userAgent.includes('CriOS') ? 'Chrome' : 'Safari';
@@ -3086,12 +3089,19 @@ function updatePushStatusUI() {
       });
     });
   } else {
-    statusEl.textContent = 'Не настроены';
+    statusEl.textContent = isYandex ? 'Требует ручного разрешения' : 'Не настроены';
     statusEl.style.color = 'var(--text-secondary)';
     btn.textContent = 'Включить';
     btn.disabled = false;
     const helpEl = $('push-help-text');
-    if (helpEl) helpEl.style.display = 'none';
+    if (helpEl) {
+      if (isYandex) {
+        helpEl.innerHTML = '🌐 <b>Яндекс Браузер:</b> запрос может не появиться автоматически.<br>Если после нажатия «Включить» ничего не произошло:<br>1. Нажмите <b>🔒</b> слева от адреса сайта<br>2. Нажмите <b>«Подробнее»</b><br>3. Найдите <b>«Уведомления»</b> → <b>«Разрешить»</b><br>4. После этого обновите страницу';
+        helpEl.style.display = 'block';
+      } else {
+        helpEl.style.display = 'none';
+      }
+    }
   }
 }
 
@@ -3127,26 +3137,29 @@ async function subscribeToPush(manual = false) {
     }
 
     // Ask permission (will show browser prompt only if 'default')
+    const isYandex = /YaBrowser/i.test(navigator.userAgent);
     const permission = await Notification.requestPermission();
     if (permission !== 'granted') {
       console.warn('Push: notification permission result:', permission);
       if (manual) {
-        // After requestPermission, check if it's now permanently denied
         const afterPerm = Notification.permission;
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
         const isAndroid = /Android/i.test(navigator.userAgent);
         if (afterPerm === 'denied') {
-          // User denied or browser auto-blocked — show how to unblock
-          if (isAndroid) {
-            showToast('Уведомления заблокированы. Чтобы разблокировать:\n1. Нажмите ⋮ (три точки) → Настройки\n2. Настройки сайтов → Уведомления\n3. Найдите этот сайт и нажмите «Разрешить»\n4. Обновите страницу', 'error');
+          if (isYandex) {
+            showToast('Уведомления заблокированы в Яндекс Браузере. Нажмите 🔒 слева от адреса → Подробнее → Уведомления → Разрешить. Затем обновите страницу.', 'error');
+          } else if (isAndroid) {
+            showToast('Уведомления заблокированы. Нажмите ⋮ → Настройки → Настройки сайтов → Уведомления → найдите сайт → Разрешить. Обновите страницу.', 'error');
           } else if (isIOS) {
             const browser = navigator.userAgent.includes('CriOS') ? 'Chrome' : 'Safari';
-            showToast('Уведомления заблокированы. Откройте Настройки iPhone → ' + browser + ' → Уведомления → Разрешить для этого сайта. Затем обновите страницу.', 'error');
+            showToast('Уведомления заблокированы. Настройки iPhone → ' + browser + ' → Уведомления → Разрешить. Обновите страницу.', 'error');
           } else {
-            showToast('Уведомления заблокированы. Нажмите 🔒 слева от адреса сайта → Разрешения → Уведомления → Разрешить. Затем обновите страницу.', 'error');
+            showToast('Уведомления заблокированы. Нажмите 🔒 слева от адреса → Разрешения → Уведомления → Разрешить. Обновите страницу.', 'error');
           }
+        } else if (isYandex) {
+          // Yandex Browser often doesn't show the prompt and returns 'default'
+          showToast('Яндекс Браузер не показал запрос. Разрешите вручную: нажмите 🔒 слева от адреса → прокрутите вниз → Уведомления → Разрешить. Затем обновите страницу и нажмите «Включить».', 'warning');
         } else {
-          // Permission is still 'default' — prompt was dismissed, can try again
           showToast('Запрос был закрыт. Нажмите «Включить» ещё раз и выберите «Разрешить» в появившемся окне.', 'warning');
         }
       }
