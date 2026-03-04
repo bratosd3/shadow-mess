@@ -287,10 +287,10 @@ class ShadowAdminApp(tk.Tk):
 
     def _loading(self, text="Загрузка..."):
         self._clear_content()
-        lbl = tk.Label(self.content, text=text, font=self.font_normal,
-                       fg=COLORS["text_sec"], bg=COLORS["bg"])
-        lbl.place(relx=0.5, rely=0.5, anchor="center")
-        self.update_idletasks()
+        frame = tk.Frame(self.content, bg=COLORS["bg"])
+        frame.pack(fill="both", expand=True)
+        tk.Label(frame, text=text, font=self.font_normal,
+                 fg=COLORS["text_sec"], bg=COLORS["bg"]).pack(expand=True)
 
     def _threaded(self, func, callback=None):
         """Run func in thread, call callback(result) in main thread"""
@@ -652,73 +652,38 @@ class ShadowAdminApp(tk.Tk):
 
 
 # ═══════════════════════════════════════════════════════════
-# SERVER SELECTION DIALOG
-# ═══════════════════════════════════════════════════════════
-class ServerDialog(tk.Toplevel):
-    def __init__(self, parent):
-        super().__init__(parent)
-        self.title("Подключение к серверу")
-        self.geometry("420x200")
-        self.configure(bg=COLORS["bg_card"])
-        self.resizable(False, False)
-        self.transient(parent)
-        self.grab_set()
-        self.result = None
-
-        tk.Label(self, text="◆ Shadow Mess", font=("Segoe UI", 16, "bold"),
-                 fg=COLORS["accent"], bg=COLORS["bg_card"]).pack(pady=(20, 4))
-        tk.Label(self, text="Введите URL сервера", font=("Segoe UI", 10),
-                 fg=COLORS["text_sec"], bg=COLORS["bg_card"]).pack()
-
-        frame = tk.Frame(self, bg=COLORS["bg_card"])
-        frame.pack(fill="x", padx=30, pady=(16, 8))
-
-        self.entry = tk.Entry(frame, font=("Consolas", 11), bg=COLORS["bg_input"],
-                              fg=COLORS["text"], insertbackground=COLORS["text"],
-                              relief="flat", borderwidth=0)
-        self.entry.pack(fill="x", ipady=8, padx=2)
-        self.entry.insert(0, DEFAULT_SERVER)
-        self.entry.select_range(0, "end")
-        self.entry.focus_set()
-
-        btn_frame = tk.Frame(self, bg=COLORS["bg_card"])
-        btn_frame.pack(fill="x", padx=30, pady=(8, 20))
-
-        connect_btn = tk.Label(btn_frame, text="Подключиться", font=("Segoe UI", 11, "bold"),
-                               fg="#fff", bg=COLORS["accent"], padx=16, pady=8, cursor="hand2")
-        connect_btn.pack(fill="x")
-        connect_btn.bind("<Enter>", lambda e: connect_btn.configure(bg=COLORS["accent_hover"]))
-        connect_btn.bind("<Leave>", lambda e: connect_btn.configure(bg=COLORS["accent"]))
-        connect_btn.bind("<Button-1>", lambda e: self._connect())
-        self.bind("<Return>", lambda e: self._connect())
-
-    def _connect(self):
-        self.result = self.entry.get().strip().rstrip("/") or DEFAULT_SERVER
-        self.destroy()
-
-
-# ═══════════════════════════════════════════════════════════
 # ЗАПУСК
 # ═══════════════════════════════════════════════════════════
 def main():
     global SERVER
 
-    # Temporary root for dialog
-    root = tk.Tk()
-    root.withdraw()
+    # Диалог ввода сервера через простой inputbox
+    import tkinter.simpledialog as sd
 
-    dialog = ServerDialog(root)
-    root.wait_window(dialog)
+    tmp = tk.Tk()
+    tmp.withdraw()
+    tmp.title("Shadow Mess")
+    # Чтобы окно отобразилось поверх всех
+    tmp.attributes("-topmost", True)
 
-    if dialog.result:
-        SERVER = dialog.result
-    else:
-        SERVER = DEFAULT_SERVER
+    result = sd.askstring(
+        "Shadow Mess — Подключение",
+        "Введите URL сервера:\n(Enter = по умолчанию)",
+        initialvalue=DEFAULT_SERVER,
+        parent=tmp
+    )
+    tmp.destroy()
 
-    root.destroy()
+    SERVER = (result or "").strip().rstrip("/") or DEFAULT_SERVER
 
     # Main app
     app = ShadowAdminApp()
+    # Центрируем окно
+    app.update_idletasks()
+    w, h = 1000, 650
+    x = (app.winfo_screenwidth() - w) // 2
+    y = (app.winfo_screenheight() - h) // 2
+    app.geometry(f"{w}x{h}+{x}+{y}")
     app.mainloop()
 
 
