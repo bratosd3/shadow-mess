@@ -135,8 +135,24 @@ window.callsModule = (() => {
           throw audioErr;
         }
       } else {
-        window.showToast?.('Нет доступа к микрофону', 'error');
-        throw err;
+        // Нет доступа к микрофону — создаём тихий поток вместо отключения
+        window.showToast?.('🎤 Нет доступа к микрофону — вы в звонке без звука', 'warning');
+        try {
+          const silentCtx = new AudioContext();
+          const oscillator = silentCtx.createOscillator();
+          const gain = silentCtx.createGain();
+          gain.gain.value = 0;
+          oscillator.connect(gain);
+          const dest = silentCtx.createMediaStreamDestination();
+          gain.connect(dest);
+          oscillator.start();
+          localStream = dest.stream;
+          isMuted = true;
+        } catch (silentErr) {
+          // Совсем не получилось — создаём пустой MediaStream
+          localStream = new MediaStream();
+          isMuted = true;
+        }
       }
     }
 
@@ -422,7 +438,7 @@ window.callsModule = (() => {
   }
 
   // Public interface
-  return { startCall, acceptCall, onAnswer, onIce, onEnded, endCall, toggleMute, toggleVideo, startScreenShare, stopScreenShare };
+  return { startCall, acceptCall, onAnswer, onIce, onEnded, endCall, toggleMute, toggleVideo, startScreenShare, stopScreenShare, isInCall: () => !!pc };
 })();
 
 // ============================================================
@@ -453,8 +469,23 @@ window.groupCallModule = (() => {
       localStream = await navigator.mediaDevices.getUserMedia(constraints);
       return localStream;
     } catch (err) {
-      window.showToast?.('Нет доступа к микрофону', 'error');
-      throw err;
+      // Нет микрофона — создаём тихий поток, не отключаем пользователя
+      window.showToast?.('🎤 Нет доступа к микрофону — вы в звонке без звука', 'warning');
+      try {
+        const silentCtx = new AudioContext();
+        const oscillator = silentCtx.createOscillator();
+        const gain = silentCtx.createGain();
+        gain.gain.value = 0;
+        oscillator.connect(gain);
+        const dest = silentCtx.createMediaStreamDestination();
+        gain.connect(dest);
+        oscillator.start();
+        localStream = dest.stream;
+      } catch {
+        localStream = new MediaStream();
+      }
+      isMuted = true;
+      return localStream;
     }
   }
 

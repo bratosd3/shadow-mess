@@ -425,7 +425,7 @@ function initSocket() {
   socket.on('call_answered',      d => { stopDialTone(); playCallConnectSound(); showToast('📞 Звонок начат', 'success'); window.callsModule?.onAnswer(d); });
   socket.on('call_ice',           d => window.callsModule?.onIce(d));
   socket.on('call_rejected',      () => { stopDialTone(); hideCallOverlays(); clearInterval(_callTimerInt); showToast('Звонок отклонён', 'info'); });
-  socket.on('call_ended',         () => { stopDialTone(); stopRingtone(); playCallEndSound(); clearInterval(_callTimerInt); $('call-mini-bar')?.classList.add('hidden'); showToast('📞 Звонок завершён', 'info'); window.callsModule?.onEnded(); });
+  socket.on('call_ended',         () => { stopDialTone(); stopRingtone(); playCallEndSound(); clearInterval(_callTimerInt); $('call-mini-bar')?.classList.add('hidden'); $('sidebar-call-indicator')?.classList.add('hidden'); showToast('📞 Звонок завершён', 'info'); window.callsModule?.onEnded(); });
   socket.on('session_revoked',    () => { showToast('Сессия завершена', 'info'); setTimeout(() => logout(), 1500); });
 
   // Group call signaling
@@ -2042,21 +2042,53 @@ function handleIncomingCall({ from, fromName, fromAvatarColor, offer, callType }
   $('inc-call-name').textContent = fromName || 'Неизвестный';
   $('inc-call-type').textContent = callType === 'video' ? '📹 Видеозвонок' : '📞 Голосовой звонок';
   $('incoming-call').classList.remove('hidden');
+  // Вибрация на мобильных
+  if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 200]);
   // Звук рингтона (циклический)
   if (S.notif.calls && S.notif.sound) playRingtone();
-  $('inc-accept-btn').onclick = () => {
+
+  // Сохраняем данные звонка для доступа из обработчиков
+  S._pendingCall = { from, fromName, fromAvatarColor, offer, callType };
+
+  function doAccept(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (navigator.vibrate) navigator.vibrate(0);
     stopRingtone();
     $('incoming-call').classList.add('hidden');
     playCallConnectSound();
     showToast('📞 Звонок начат', 'success');
-    startActiveCall(from, fromName, fromAvatarColor || '#333333', callType);
-    window.callsModule?.acceptCall(from, offer, callType);
-  };
-  $('inc-reject-btn').onclick = () => {
+    const c = S._pendingCall;
+    if (c) {
+      startActiveCall(c.from, c.fromName, c.fromAvatarColor || '#333333', c.callType);
+      window.callsModule?.acceptCall(c.from, c.offer, c.callType);
+      S._pendingCall = null;
+    }
+  }
+
+  function doReject(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (navigator.vibrate) navigator.vibrate(0);
     stopRingtone();
     $('incoming-call').classList.add('hidden');
     S.socket?.emit('call_reject', { to: from });
-  };
+    S._pendingCall = null;
+  }
+
+  // Снимаем старые обработчики и ставим новые (click + touchend для мобильных)
+  const acceptBtn = $('inc-accept-btn');
+  const rejectBtn = $('inc-reject-btn');
+
+  const newAccept = acceptBtn.cloneNode(true);
+  const newReject = rejectBtn.cloneNode(true);
+  acceptBtn.parentNode.replaceChild(newAccept, acceptBtn);
+  rejectBtn.parentNode.replaceChild(newReject, rejectBtn);
+
+  newAccept.addEventListener('click', doAccept);
+  newAccept.addEventListener('touchend', doAccept);
+  newReject.addEventListener('click', doReject);
+  newReject.addEventListener('touchend', doReject);
 }
 
 function hideCallOverlays() {
@@ -2066,6 +2098,7 @@ function hideCallOverlays() {
   $('incoming-call').classList.add('hidden');
   $('active-call-overlay').classList.add('hidden');
   $('call-mini-bar')?.classList.add('hidden');
+  $('sidebar-call-indicator')?.classList.add('hidden');
   S._callMinimized = false;
 }
 
@@ -2094,6 +2127,7 @@ function startActiveCall(userId, name, avatarColor, type) {
 
   $('active-call-overlay').classList.remove('hidden');
   $('call-mini-bar')?.classList.add('hidden');
+  $('sidebar-call-indicator')?.classList.remove('hidden');
   S._callMinimized = false;
   startCallTimer();
 }
@@ -2102,6 +2136,7 @@ function minimizeCall() {
   $('active-call-overlay').classList.add('hidden');
   $('call-mini-bar')?.classList.remove('hidden');
   $('call-mini-name').textContent = _activeCallName || 'Звонок';
+  $('sidebar-call-indicator')?.classList.remove('hidden');
   S._callMinimized = true;
 }
 
@@ -2154,7 +2189,7 @@ function initCallButtons() {
     startActiveCall(otherId, c.displayName, c.displayAvatarColor || '#333333', 'video');
     window.callsModule?.startCall(otherId, 'video');
   });
-  on('end-call-btn', 'click', () => { stopDialTone(); stopRingtone(); playCallEndSound(); clearInterval(_callTimerInt); $('active-call-overlay').classList.add('hidden'); $('call-mini-bar')?.classList.add('hidden'); showToast('📞 Звонок завершён', 'info'); window.callsModule?.endCall(); });
+  on('end-call-btn', 'click', () => { stopDialTone(); stopRingtone(); playCallEndSound(); clearInterval(_callTimerInt); $('active-call-overlay').classList.add('hidden'); $('call-mini-bar')?.classList.add('hidden'); $('sidebar-call-indicator')?.classList.add('hidden'); showToast('📞 Звонок завершён', 'info'); window.callsModule?.endCall(); });
   on('toggle-mute',  'click', () => { const m = window.callsModule?.toggleMute(); $('toggle-mute').classList.toggle('muted', m); });
   on('toggle-video', 'click', () => {
     window.callsModule?.toggleVideo();
@@ -2186,10 +2221,13 @@ function initCallButtons() {
   // Minimize / expand call
   on('minimize-call-btn', 'click', () => minimizeCall());
   on('call-mini-expand', 'click', (e) => { e.stopPropagation(); expandCall(); });
-  on('call-mini-end', 'click', (e) => { e.stopPropagation(); stopDialTone(); stopRingtone(); playCallEndSound(); clearInterval(_callTimerInt); $('call-mini-bar')?.classList.add('hidden'); showToast('📞 Звонок завершён', 'info'); window.callsModule?.endCall(); });
+  on('call-mini-end', 'click', (e) => { e.stopPropagation(); stopDialTone(); stopRingtone(); playCallEndSound(); clearInterval(_callTimerInt); $('call-mini-bar')?.classList.add('hidden'); $('sidebar-call-indicator')?.classList.add('hidden'); showToast('📞 Звонок завершён', 'info'); window.callsModule?.endCall(); });
   on('call-mini-mute', 'click', (e) => { e.stopPropagation(); const m = window.callsModule?.toggleMute(); $('toggle-mute').classList.toggle('muted', m); $('call-mini-mute').textContent = m ? '🔇' : '🎙'; });
   // Click on mini bar to expand
   $('call-mini-bar')?.addEventListener('click', () => expandCall());
+
+  // Sidebar call indicator — click to expand call
+  on('sidebar-call-indicator', 'click', () => expandCall());
 
   // Group call controls
   on('gc-toggle-mute', 'click', () => {
@@ -2275,6 +2313,10 @@ function endGroupCallUI() {
 // ══════════════════════════════════════════════════════════
 function initBackBtn() {
   on('back-btn', 'click', () => {
+    // Auto-minimize active call when going back to sidebar
+    if (!$('active-call-overlay')?.classList.contains('hidden') && window.callsModule?.isInCall?.()) {
+      minimizeCall();
+    }
     $('chat-panel').classList.remove('mobile-active');
     $('back-btn').classList.add('hidden');
     S.activeChat = null;
@@ -2630,7 +2672,7 @@ function urlBase64ToUint8Array(base64String) {
 // WELCOME WIZARD (первый запуск)
 // ══════════════════════════════════════════════════════════
 function showWelcomeWizard() {
-  // Проверяем, был ли уже показан
+  // Проверяем, был ли уже показан (checkbox "не показывать снова")
   if (localStorage.getItem('sm_wizard_done')) return;
 
   const overlay = $('welcome-wizard');
@@ -2655,16 +2697,55 @@ function showWelcomeWizard() {
     $('wizard-next').textContent = step >= totalSteps ? 'Готово!' : 'Далее';
   }
 
-  // Кнопка разрешения уведомлений
-  on('wizard-notif-btn', 'click', async () => {
-    if ('Notification' in window) {
-      const perm = await Notification.requestPermission();
-      $('wizard-notif-status').textContent = perm === 'granted' ? '✅ Уведомления разрешены!' : '⚠️ Уведомления отклонены';
-      if (perm === 'granted') subscribeToPush();
+  // ── Step 2: Permission buttons ──
+  const micStatus = $('wizard-mic-status');
+  const camStatus = $('wizard-cam-status');
+  const notifStatus = $('wizard-notif-status');
+
+  // Микрофон
+  on('wizard-mic-btn', 'click', async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach(t => t.stop());
+      micStatus.textContent = '✅';
+      micStatus.style.color = 'var(--success)';
+    } catch (e) {
+      micStatus.textContent = '❌';
+      micStatus.style.color = 'var(--danger)';
     }
   });
 
-  // Выбор темы
+  // Камера
+  on('wizard-cam-btn', 'click', async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      stream.getTracks().forEach(t => t.stop());
+      camStatus.textContent = '✅';
+      camStatus.style.color = 'var(--success)';
+    } catch (e) {
+      camStatus.textContent = '❌';
+      camStatus.style.color = 'var(--danger)';
+    }
+  });
+
+  // Уведомления
+  on('wizard-notif-btn', 'click', async () => {
+    if ('Notification' in window) {
+      const perm = await Notification.requestPermission();
+      if (perm === 'granted') {
+        notifStatus.textContent = '✅';
+        notifStatus.style.color = 'var(--success)';
+        subscribeToPush();
+      } else {
+        notifStatus.textContent = '❌';
+        notifStatus.style.color = 'var(--danger)';
+      }
+    } else {
+      notifStatus.textContent = '—';
+    }
+  });
+
+  // ── Step 3: Выбор темы ──
   overlay.querySelectorAll('.wizard-theme-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       overlay.querySelectorAll('.wizard-theme-btn').forEach(b => {
@@ -2703,7 +2784,11 @@ function showWelcomeWizard() {
     // Сохраняем тему на сервер
     API.put('/api/me', { settings: { theme: selectedTheme } }).catch(() => {});
 
-    localStorage.setItem('sm_wizard_done', 'true');
+    // "Не показывать снова" checkbox
+    const dontShow = $('wizard-dont-show');
+    if (dontShow && dontShow.checked) {
+      localStorage.setItem('sm_wizard_done', 'true');
+    }
     overlay.classList.add('hidden');
   }
 }

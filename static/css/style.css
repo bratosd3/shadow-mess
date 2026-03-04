@@ -1149,6 +1149,31 @@ body:not([data-theme="light"]) .pw-toggle:hover { color: var(--accent); }
 .chat-header-info { flex: 1; min-width: 0; cursor: pointer; }
 .chat-header-actions { display: flex; align-items: center; gap: 2px; }
 
+/* ── Sidebar call indicator (blinks during active call) ── */
+.sidebar-call-indicator {
+  flex-shrink: 0;
+  color: var(--success);
+  animation: callIndicatorPulse 1.2s ease-in-out infinite;
+  position: relative;
+}
+.sidebar-call-indicator::after {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  background: var(--success);
+  opacity: 0.15;
+  animation: callIndicatorRing 1.2s ease-in-out infinite;
+}
+@keyframes callIndicatorPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+@keyframes callIndicatorRing {
+  0%, 100% { opacity: 0.15; }
+  50% { opacity: 0.3; }
+}
+
 /* ── In-chat searchbar ── */
 .chat-searchbar {
   background: var(--bg-header);
@@ -2466,13 +2491,46 @@ button, .icon-btn, .send-btn, .fab-new-chat, .call-btn, .call-ctrl-btn {
   /* ── Chat header on mobile ── */
   .chat-header {
     padding: 6px 8px;
-    gap: 6px;
+    gap: 4px;
     min-height: 54px;
     flex-shrink: 0;
     box-shadow: none;
   }
   .chat-header-name { font-size: 15px; }
   .chat-header-status { font-size: 11px; }
+
+  /* ── Header action buttons: always visible ── */
+  .chat-header-actions {
+    gap: 0;
+    flex-shrink: 0;
+  }
+  .chat-header-action-btn {
+    min-width: 40px !important;
+    min-height: 40px !important;
+    width: 40px;
+    height: 40px;
+    padding: 0;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .chat-header-action-btn svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  /* ── Chat header info: truncate for space ── */
+  .chat-header-info {
+    min-width: 0;
+    flex: 1;
+    overflow: hidden;
+  }
+  .chat-header-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 
   /* ── Settings: stack nav to top tabs ── */
   .settings-layout { flex-direction: column; }
