@@ -139,6 +139,7 @@ function renderAvatar(el, user, size='') {
   if (user?.avatar) {
     const img = document.createElement('img');
     img.src = user.avatar; img.alt = '';
+    img.width = 44; img.height = 44;
     el.appendChild(img);
   } else {
     el.style.background = user?.avatarColor || '#333333';
@@ -169,6 +170,15 @@ function linkify(text) {
 function debounce(fn, ms) {
   let t;
   return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); };
+}
+
+function throttle(fn, ms) {
+  let last = 0, raf;
+  return (...a) => {
+    const now = performance.now();
+    if (now - last >= ms) { last = now; fn(...a); }
+    else if (!raf) { raf = requestAnimationFrame(() => { raf = null; last = performance.now(); fn(...a); }); }
+  };
 }
 
 // ── Theme & Font ─────────────────────────────────────────
@@ -622,7 +632,9 @@ function renderChatList(filter = '') {
   // Pinned first
   const pinned   = chats.filter(c => c.pinned);
   const unpinned = chats.filter(c => !c.pinned);
-  [...pinned, ...unpinned].forEach(chat => list.appendChild(buildChatItem(chat)));
+  const frag = document.createDocumentFragment();
+  [...pinned, ...unpinned].forEach(chat => frag.appendChild(buildChatItem(chat)));
+  list.appendChild(frag);
 
   // Update browser tab title with unread count
   updateTabTitle();
@@ -878,6 +890,7 @@ function buildMsgEl(msg) {
     const img = document.createElement('img');
     img.className = 'message-image'; img.src = msg.fileUrl; img.alt = '';
     img.loading = 'lazy';
+    img.width = 280; img.height = 280;
     img.addEventListener('click', () => openLightbox(msg.fileUrl));
     mediaWrap.appendChild(img);
     // Action buttons
@@ -3323,10 +3336,10 @@ function initScrollBtn() {
   const btn = $('scroll-bottom-btn');
   if (!area || !btn) return;
 
-  area.addEventListener('scroll', () => {
+  area.addEventListener('scroll', throttle(() => {
     const gap = area.scrollHeight - area.scrollTop - area.clientHeight;
     btn.classList.toggle('hidden', gap < 200);
-  });
+  }, 100));
 
   btn.addEventListener('click', () => {
     area.scrollTop = area.scrollHeight;
@@ -3361,7 +3374,7 @@ function initMobileKeyboardFix() {
     document.documentElement.style.setProperty('--vh', `${h * 0.01}px`);
   }
   setVH();
-  (window.visualViewport || window).addEventListener('resize', setVH);
+  (window.visualViewport || window).addEventListener('resize', throttle(setVH, 100));
 
   // ── Keyboard open/close detection ──
   const initialHeight = window.visualViewport?.height || window.innerHeight;
@@ -3391,11 +3404,11 @@ function initMobileKeyboardFix() {
   }
 
   if (window.visualViewport) {
-    window.visualViewport.addEventListener('resize', onViewportResize);
-    window.visualViewport.addEventListener('scroll', () => {
+    window.visualViewport.addEventListener('resize', throttle(onViewportResize, 100));
+    window.visualViewport.addEventListener('scroll', throttle(() => {
       // Keep fixed-like elements in view on iOS scroll
       document.documentElement.style.setProperty('--vv-offset', `${window.visualViewport.offsetTop}px`);
-    });
+    }, 100));
   }
 
   // ── Scroll input into view after focus (with delay for keyboard) ──

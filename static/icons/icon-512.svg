@@ -4,14 +4,33 @@
       <stop offset="0%" stop-color="#1a1a2e"/>
       <stop offset="100%" stop-color="#0a0a15"/>
     </linearGradient>
-    <linearGradient id="hg" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#ffffff"/>
-      <stop offset="100%" stop-color="#c0c0d0"/>
-    </linearGradient>
   </defs>
   <rect width="512" height="512" rx="117" fill="url(#bg)"/>
-  <ellipse cx="256" cy="267" rx="140" ry="140" fill="#ffffff" opacity=".03"/>
-  <rect x="149" y="117" width="48" height="277" rx="24" fill="url(#hg)"/>
-  <rect x="315" y="117" width="48" height="277" rx="24" fill="url(#hg)"/>
-  <rect x="149" y="232" width="214" height="48" rx="24" fill="url(#hg)"/>
+  <g stroke="#ffffff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <!-- Sitting figure (right) -->
+    <circle cx="330" cy="155" r="24" fill="#ffffff" opacity=".15"/><!-- head -->
+    <line x1="330" y1="179" x2="330" y2="270"/><!-- body -->
+    <line x1="330" y1="270" x2="295" y2="330"/><!-- left leg (bent) -->
+    <line x1="295" y1="330" x2="310" y2="380"/><!-- lower left leg -->
+    <line x1="330" y1="270" x2="370" y2="330"/><!-- right leg -->
+    <line x1="370" y1="330" x2="355" y2="380"/><!-- lower right leg -->
+    <!-- Shield (held by sitting figure) -->
+    <path d="M270 200 L270 310 Q270 340 300 350 L300 350 Q270 340 270 310" stroke="none" fill="none"/>
+    <ellipse cx="275" cy="260" rx="35" ry="55" fill="#ffffff" opacity=".12" stroke="#ffffff" stroke-width="7"/>
+    <!-- Arm holding shield -->
+    <line x1="330" y1="215" x2="295" y2="250"/>
+    <line x1="330" y1="215" x2="310" y2="260"/>
+
+    <!-- Standing figure (left) -->
+    <circle cx="175" cy="130" r="24" fill="#ffffff" opacity=".15"/><!-- head -->
+    <line x1="175" y1="154" x2="175" y2="275"/><!-- body -->
+    <line x1="175" y1="275" x2="145" y2="380"/><!-- left leg -->
+    <line x1="175" y1="275" x2="205" y2="380"/><!-- right leg -->
+    <!-- Arms: both hands on sword thrust forward -->
+    <line x1="175" y1="200" x2="220" y2="230"/><!-- upper arm -->
+    <line x1="220" y1="230" x2="248" y2="255"/><!-- forearm to sword -->
+    <!-- Sword (thrust into shield) -->
+    <line x1="230" y1="240" x2="275" y2="260" stroke-width="6"/><!-- blade -->
+    <line x1="225" y1="248" x2="235" y2="232" stroke-width="7"/><!-- crossguard -->
+  </g>
 </svg>
