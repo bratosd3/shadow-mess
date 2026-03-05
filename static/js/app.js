@@ -167,6 +167,33 @@ function linkify(text) {
   return t;
 }
 
+/* Link preview cache & fetcher */
+const _linkCache = new Map();
+async function fetchLinkPreview(url, bubble) {
+  try {
+    let data;
+    if (_linkCache.has(url)) { data = _linkCache.get(url); }
+    else {
+      const resp = await fetch(`/api/link-preview?url=${encodeURIComponent(url)}`, { headers: { 'Authorization': `Bearer ${S.token}` } });
+      data = await resp.json();
+      _linkCache.set(url, data);
+    }
+    if (!data.title && !data.description) return;
+    const preview = document.createElement('div');
+    preview.className = 'link-preview';
+    preview.innerHTML = `${data.image ? `<img src="${escHtml(data.image)}" alt="" style="max-width:100%;max-height:120px;border-radius:6px;margin-bottom:6px;display:block" loading="lazy">` : ''}
+      ${data.siteName ? `<div style="font-size:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px">${escHtml(data.siteName)}</div>` : ''}
+      <div class="link-preview-title">${escHtml(data.title)}</div>
+      ${data.description ? `<div class="link-preview-desc">${escHtml(data.description.slice(0,150))}</div>` : ''}`;
+    preview.style.cursor = 'pointer';
+    preview.addEventListener('click', () => window.open(url, '_blank'));
+    // Insert before meta
+    const meta = bubble.querySelector('.message-meta');
+    if (meta) bubble.insertBefore(preview, meta);
+    else bubble.appendChild(preview);
+  } catch(e) { /* silent */ }
+}
+
 function debounce(fn, ms) {
   let t;
   return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); };
@@ -997,6 +1024,10 @@ function buildMsgEl(msg) {
     t.className = 'message-text';
     t.innerHTML = linkify(msg.text);
     bubble.appendChild(t);
+
+    // TG-style link preview
+    const urlMatch = msg.text.match(/(https?:\/\/[^\s]+)/);
+    if (urlMatch) fetchLinkPreview(urlMatch[1], bubble);
   }
 
   // Self-destruct badge
@@ -1007,14 +1038,14 @@ function buildMsgEl(msg) {
     bubble.appendChild(bd);
   }
 
-  // Meta
+  // Meta — TG-style: time+status floated inside bubble text
   const meta = document.createElement('div');
   meta.className = 'message-meta';
   if (msg.editedAt) meta.innerHTML += `<span class="message-edited">изм.</span>`;
   meta.innerHTML += `<span class="message-time">${formatTime(msg.timestamp)}</span>`;
   if (isMine) {
     const read = (msg.readBy||[]).some(id => id !== S.user.id);
-    meta.innerHTML += `<span class="message-status${read?' read':''}">✓${read?'✓':''}</span>`;
+    meta.innerHTML += `<span class="message-status${read?' read':''}">✓✓</span>`;
   }
   bubble.appendChild(meta);
 
@@ -1819,6 +1850,7 @@ function initCtxMenu() {
       case 'forward':   openForwardModal(msg); break;
       case 'pin':       pinMessage(msg); break;
       case 'favourite': saveToFavourites(msg); break;
+      case 'select':    enterSelectMode(msg); break;
       case 'delete':    await deleteMsg(msg.id); break;
     }
   });
@@ -1879,6 +1911,125 @@ function pinMessage(msg) {
 function saveToFavourites(msg) {
   S.favourites.push(msg);
   showToast('Добавлено в избранное');
+}
+
+/* ══ MULTI-SELECT MODE (TG-style) ══════════════════════════ */
+S.selectMode = false;
+S.selectedMsgIds = new Set();
+
+function enterSelectMode(msg) {
+  S.selectMode = true;
+  S.selectedMsgIds.clear();
+  if (msg) toggleSelectMsg(msg.id);
+  const area = document.querySelector('.messages-area');
+  if (area) area.classList.add('select-mode');
+  // Add click handlers to existing rows
+  area?.querySelectorAll('.message-row').forEach(row => {
+    row._selectClick = () => toggleSelectMsg(row.dataset.msgid);
+    row.addEventListener('click', row._selectClick);
+  });
+  showSelectBar();
+}
+
+function exitSelectMode() {
+  S.selectMode = false;
+  S.selectedMsgIds.clear();
+  const area = document.querySelector('.messages-area');
+  if (area) {
+    area.classList.remove('select-mode');
+    area.querySelectorAll('.message-row.selected').forEach(r => r.classList.remove('selected'));
+    area.querySelectorAll('.message-row').forEach(row => {
+      if (row._selectClick) {
+        row.removeEventListener('click', row._selectClick);
+        delete row._selectClick;
+      }
+    });
+  }
+  hideSelectBar();
+}
+
+function toggleSelectMsg(msgId) {
+  if (S.selectedMsgIds.has(msgId)) S.selectedMsgIds.delete(msgId);
+  else S.selectedMsgIds.add(msgId);
+  const row = document.querySelector(`[data-msgid="${msgId}"]`);
+  if (row) row.classList.toggle('selected', S.selectedMsgIds.has(msgId));
+  updateSelectBar();
+  if (S.selectedMsgIds.size === 0) exitSelectMode();
+}
+
+function showSelectBar() {
+  let bar = document.querySelector('.select-action-bar');
+  if (!bar) {
+    bar = document.createElement('div');
+    bar.className = 'select-action-bar';
+    bar.innerHTML = `
+      <button class="select-cancel-btn">Отмена</button>
+      <span class="select-count">0 выбрано</span>
+      <div class="select-actions">
+        <button class="select-action-btn sa-copy">Копировать</button>
+        <button class="select-action-btn sa-forward">Переслать</button>
+        <button class="select-action-btn sa-delete">Удалить</button>
+      </div>`;
+    bar.querySelector('.select-cancel-btn').addEventListener('click', exitSelectMode);
+    bar.querySelector('.sa-copy').addEventListener('click', copySelectedMsgs);
+    bar.querySelector('.sa-forward').addEventListener('click', forwardSelectedMsgs);
+    bar.querySelector('.sa-delete').addEventListener('click', deleteSelectedMsgs);
+    const inputWrap = document.querySelector('.message-input-wrap');
+    if (inputWrap) inputWrap.parentNode.insertBefore(bar, inputWrap);
+  }
+  const inputWrap = document.querySelector('.message-input-wrap');
+  if (inputWrap) inputWrap.style.display = 'none';
+  updateSelectBar();
+}
+
+function hideSelectBar() {
+  const bar = document.querySelector('.select-action-bar');
+  if (bar) bar.remove();
+  const inputWrap = document.querySelector('.message-input-wrap');
+  if (inputWrap) inputWrap.style.display = '';
+}
+
+function updateSelectBar() {
+  const bar = document.querySelector('.select-action-bar');
+  if (!bar) return;
+  const n = S.selectedMsgIds.size;
+  bar.querySelector('.select-count').textContent = `${n} выбрано`;
+  // Only show delete if all selected msgs are mine
+  const allMine = [...S.selectedMsgIds].every(id => {
+    const m = S.messages.find(x => x.id === id);
+    return m && m.senderId === S.user?.id;
+  });
+  bar.querySelector('.sa-delete').style.display = allMine ? '' : 'none';
+}
+
+function copySelectedMsgs() {
+  const texts = [...S.selectedMsgIds].map(id => {
+    const m = S.messages.find(x => x.id === id);
+    return m ? `${m.senderName}: ${m.text || ''}` : '';
+  }).filter(Boolean).join('\n');
+  navigator.clipboard.writeText(texts).then(() => showToast('Скопировано'));
+  exitSelectMode();
+}
+
+function forwardSelectedMsgs() {
+  // Open forward modal with first selected msg, mentioning count
+  const ids = [...S.selectedMsgIds];
+  if (!ids.length) return;
+  const msgs = ids.map(id => S.messages.find(x => x.id === id)).filter(Boolean);
+  const combined = { text: msgs.map(m => m.text || '').join('\n'), senderName: msgs[0]?.senderName || '' };
+  openForwardModal(combined);
+  exitSelectMode();
+}
+
+async function deleteSelectedMsgs() {
+  const ids = [...S.selectedMsgIds];
+  if (!ids.length) return;
+  if (!confirm(`Удалить ${ids.length} сообщений для всех?`)) return;
+  for (const id of ids) {
+    try { await API.del(`/api/messages/${id}`); } catch(e) {}
+  }
+  showToast(`Удалено: ${ids.length}`, 'success');
+  exitSelectMode();
 }
 
 // Forward

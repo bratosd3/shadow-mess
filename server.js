@@ -486,6 +486,41 @@ app.delete('/api/admin/reset', adminKeyMiddleware, async (req, res) => {
   });
 });
 
+// ── Link preview (OG meta) ────────────────────────────────────────────────
+const linkPreviewCache = new Map();
+app.get('/api/link-preview', authMiddleware, async (req, res) => {
+  const url = req.query.url;
+  if (!url) return res.status(400).json({ error: 'url required' });
+  try {
+    if (linkPreviewCache.has(url)) return res.json(linkPreviewCache.get(url));
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    const resp = await fetch(url, {
+      signal: controller.signal,
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; ShadowMess/1.0)' },
+      redirect: 'follow',
+    });
+    clearTimeout(timeout);
+    const ct = resp.headers.get('content-type') || '';
+    if (!ct.includes('text/html')) return res.json({ url, title: '', description: '', image: '' });
+    const html = await resp.text();
+    const og = (prop) => { const m = html.match(new RegExp(`<meta[^>]*property=["']og:${prop}["'][^>]*content=["']([^"']+)["']`, 'i')); return m ? m[1] : ''; };
+    const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+    const result = {
+      url,
+      title: og('title') || (titleMatch ? titleMatch[1].trim() : ''),
+      description: og('description') || '',
+      image: og('image') || '',
+      siteName: og('site_name') || '',
+    };
+    linkPreviewCache.set(url, result);
+    if (linkPreviewCache.size > 500) { const first = linkPreviewCache.keys().next().value; linkPreviewCache.delete(first); }
+    res.json(result);
+  } catch (e) {
+    res.json({ url, title: '', description: '', image: '', error: e.message });
+  }
+});
+
 // ── Register ──────────────────────────────────────────────────────────────
 app.post('/api/register', async (req, res) => {
   try {
