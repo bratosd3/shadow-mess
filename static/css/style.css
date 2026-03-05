@@ -3,7 +3,7 @@
    Multi-theme, rich animations, clean aesthetics
    ═══════════════════════════════════════════════════════════ */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+/* Font loaded via <link> in HTML for faster rendering */
 
 :root {
   /* ── Monochrome palette ── */
@@ -80,9 +80,9 @@
   --ease-out-back: cubic-bezier(.34,1.56,.64,1);
   --ease-smooth: cubic-bezier(.25,.1,.25,1);
 
-  --glass: rgba(255,255,255,.75);
+  --glass: rgba(255,255,255,.92);
   --glass-border: rgba(255,255,255,.5);
-  --blur: blur(20px);
+  --blur: none;
 }
 
 /* ── Dark theme — warm deep blue accent ── */
@@ -282,12 +282,11 @@ body[data-theme="slate"] .success-circle { color: #e2e8f0; }
   justify-content: center;
   color: #000;
   filter: drop-shadow(0 0 40px rgba(0,0,0,.15));
-  animation: successPulse 2s ease-in-out infinite;
 }
 
 @keyframes successPulse {
-  0%, 100% { filter: drop-shadow(0 0 40px rgba(0,0,0,.1)); }
-  50%      { filter: drop-shadow(0 0 60px rgba(0,0,0,.25)); }
+  0%, 100% { transform: scale(1); opacity: .9; }
+  50%      { transform: scale(1.05); opacity: 1; }
 }
 
 .success-check { display: inline-block; width: 52px; height: 52px; }
@@ -366,9 +365,7 @@ body[data-theme="slate"] .success-circle { color: #e2e8f0; }
 }
 
 .auth-card {
-  background: rgba(255,255,255,.85);
-  backdrop-filter: blur(30px);
-  -webkit-backdrop-filter: blur(30px);
+  background: rgba(255,255,255,.96);
   border: 1px solid rgba(0,0,0,.08);
   border-radius: var(--radius-xl);
   padding: 44px 38px 38px;
@@ -1052,7 +1049,6 @@ body:not([data-theme="light"]) .pw-toggle:hover { color: var(--accent); }
   border-radius: var(--radius-full);
   border: 2.5px solid var(--bg-sidebar);
   box-shadow: 0 0 8px rgba(34,197,94,.5);
-  animation: onlinePulse 2.5s ease-in-out infinite;
 }
 
 /* ══ CHAT PANEL ═══════════════════════════════════════════════ */
@@ -1399,8 +1395,7 @@ body:not([data-theme="light"]) .pw-toggle:hover { color: var(--accent); }
 .media-action-btn {
   width: 32px; height: 32px;
   border-radius: var(--radius-full);
-  background: rgba(0,0,0,.55);
-  backdrop-filter: blur(8px);
+  background: rgba(0,0,0,.75);
   color: #fff;
   display: flex; align-items: center; justify-content: center;
   font-size: 14px;
@@ -1802,9 +1797,7 @@ body:not([data-theme="light"]) .pw-toggle:hover { color: var(--accent); }
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,.5);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: rgba(0,0,0,.7);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1814,8 +1807,8 @@ body:not([data-theme="light"]) .pw-toggle:hover { color: var(--accent); }
 }
 
 @keyframes modalBgIn {
-  from { opacity: 0; backdrop-filter: blur(0); }
-  to   { opacity: 1; backdrop-filter: blur(8px); }
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 .modal {
@@ -2081,11 +2074,6 @@ body.no-animations *::after {
   transition-duration: 0s !important;
 }
 
-/* ── Smooth global transitions ── */
-*, *::before, *::after {
-  transition-timing-function: var(--ease-smooth);
-}
-
 
 /* ── Hover lift for cards & interactive panels ── */
 .auth-card { transition: transform .4s var(--ease-smooth), box-shadow .4s var(--ease-smooth); }
@@ -2174,11 +2162,6 @@ button, .icon-btn, .send-btn, .fab-new-chat, .call-btn, .call-ctrl-btn, .call-ct
 .voice-play-btn:hover { transform: scale(1.12); }
 
 /* ── Online pulse smoother ── */
-@keyframes onlinePulse {
-  0%   { box-shadow: 0 0 0 0 rgba(34,197,94,.5); }
-  50%  { box-shadow: 0 0 0 5px rgba(34,197,94,0); }
-  100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); }
-}
 
 /* ── Pinned bar hover ── */
 .pinned-message-bar {
@@ -2307,9 +2290,7 @@ button, .icon-btn, .send-btn, .fab-new-chat, .call-btn, .call-ctrl-btn, .call-ct
 /* ══ CALL OVERLAYS — v2.9 Telegram-style Redesign ═════════════ */
 .call-overlay {
   position: fixed; inset: 0; z-index: 300;
-  background: rgba(0,0,0,.92);
-  backdrop-filter: blur(30px);
-  -webkit-backdrop-filter: blur(30px);
+  background: rgba(0,0,0,.95);
   display: flex; align-items: center; justify-content: center;
   animation: callFadeIn .35s ease;
 }
@@ -2420,7 +2401,7 @@ button, .icon-btn, .send-btn, .fab-new-chat, .call-btn, .call-ctrl-btn, .call-ct
 }
 .call-screen-badge {
   position: absolute; top: 16px; left: 50%; transform: translateX(-50%);
-  background: rgba(0,0,0,.55); backdrop-filter: blur(10px);
+  background: rgba(0,0,0,.8);
   border-radius: 24px; padding: 6px 18px;
   font-size: 12px; color: rgba(255,255,255,.85); font-weight: 500;
   display: flex; align-items: center; gap: 8px;
@@ -2539,9 +2520,7 @@ button, .icon-btn, .send-btn, .fab-new-chat, .call-btn, .call-ctrl-btn, .call-ct
 .call-bottom-controls {
   display: flex; align-items: center; justify-content: center;
   gap: 14px; padding: 18px 24px 22px;
-  background: rgba(8,8,18,.97);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  background: rgba(8,8,18,.98);
   border-top: 1px solid rgba(255,255,255,.04);
 }
 .call-ctrl-pill {
@@ -2638,8 +2617,7 @@ button, .icon-btn, .send-btn, .fab-new-chat, .call-btn, .call-ctrl-btn, .call-ct
 
 /* ══ GROUP CALL ═══════════════════════════════════════════════ */
 .group-call-card {
-  background: linear-gradient(135deg, rgba(15,15,30,.97), rgba(25,25,50,.97));
-  backdrop-filter: blur(30px);
+  background: linear-gradient(135deg, rgba(15,15,30,.99), rgba(25,25,50,.99));
   border-radius: var(--radius-xl);
   padding: 24px;
   width: 100%; max-width: 560px;
@@ -2744,11 +2722,6 @@ button, .icon-btn, .send-btn, .fab-new-chat, .call-btn, .call-ctrl-btn, .call-ct
 
 /* ── Mobile performance optimizations ── */
 @media (max-width: 680px) {
-  /* Reduce heavy effects on mobile */
-  .sidebar, .chat-header, .bg-input, .modal {
-    backdrop-filter: blur(10px) !important;
-    -webkit-backdrop-filter: blur(10px) !important;
-  }
   /* Hardware-accelerated scrolling */
   .messages-area, .chat-list, .modal-body, .forward-chat-list {
     -webkit-overflow-scrolling: touch;
@@ -2861,8 +2834,8 @@ button, .icon-btn, .send-btn, .fab-new-chat, .call-btn, .call-ctrl-btn, .call-ct
 }
 
 @keyframes sharePulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(34,197,94,.3); }
-  50%      { box-shadow: 0 0 0 8px rgba(34,197,94,0); }
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50%      { transform: scale(1.08); opacity: .8; }
 }
 
 /* ══ DARK/MIDNIGHT THEME OVERRIDES ═════════════════════════════ */
@@ -3683,14 +3656,10 @@ body.bubble-cornered .message-row.out .message-bubble { border-bottom-right-radi
 
 /* ── FAB pulse on idle ── */
 .fab-new-chat {
-  animation: fabPulse 3s ease-in-out infinite;
-}
-@keyframes fabPulse {
-  0%, 100% { box-shadow: 0 6px 20px var(--accent-glow); }
-  50%      { box-shadow: 0 6px 35px var(--accent-glow), 0 0 60px var(--accent-glow); }
+  box-shadow: 0 6px 20px var(--accent-glow);
 }
 .fab-new-chat:hover {
-  animation: none;
+  box-shadow: 0 6px 35px var(--accent-glow), 0 0 60px var(--accent-glow);
 }
 
 /* ── Sidebar tab switch with underline slide ── */
@@ -3723,14 +3692,14 @@ body.bubble-cornered .message-row.out .message-bubble { border-bottom-right-radi
 
 /* ── Modal backdrop blur animation ── */
 .modal-overlay {
-  transition: backdrop-filter .3s ease, background .3s ease;
+  transition: background .3s ease;
 }
 .modal-overlay:not(.hidden) {
   animation: overlayFadeIn .3s ease;
 }
 @keyframes overlayFadeIn {
-  from { backdrop-filter: blur(0px); background: transparent; }
-  to   { backdrop-filter: var(--blur); background: rgba(0,0,0,.5); }
+  from { background: transparent; opacity: 0; }
+  to   { background: rgba(0,0,0,.5); opacity: 1; }
 }
 
 /* ── Notification badge bounce ── */
@@ -3846,7 +3815,7 @@ body.bubble-cornered .message-row.out .message-bubble { border-bottom-right-radi
    ============================================================================= */
 .wizard-overlay {
   position: fixed; inset: 0; z-index: 10000;
-  background: rgba(0,0,0,.55); backdrop-filter: blur(8px);
+  background: rgba(0,0,0,.75);
   display: flex; align-items: center; justify-content: center;
   animation: overlayFadeIn .3s ease;
 }
@@ -4044,8 +4013,7 @@ body.hints-enabled [data-hint]:focus::after {
 /* ══ PASTE PREVIEW (скриншот из буфера) ═══════════════════ */
 .paste-preview-overlay {
   position: fixed; inset: 0;
-  background: rgba(0,0,0,.65);
-  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  background: rgba(0,0,0,.8);
   display: flex; align-items: center; justify-content: center;
   z-index: 99998;
   animation: fadeIn .2s ease;

@@ -561,7 +561,7 @@ function initSocket() {
     socket.emit('join_chat', { chatId: chat.id });
     try { await loadChats(); } catch(e) { console.error('[chat_created] loadChats error:', e); }
   });
-  socket.on('chat_updated',       chat => { const i=S.chats.findIndex(c=>c.id===chat.id); if(i!==-1){S.chats[i]={...S.chats[i],...chat}; renderChatList();} });
+  socket.on('chat_updated',       chat => { const i=S.chats.findIndex(c=>c.id===chat.id); if(i!==-1){S.chats[i]={...S.chats[i],...chat}; updateSingleChatItem(chat.id);} });
   socket.on('chat_deleted',       ({chatId}) => { S.chats=S.chats.filter(c=>c.id!==chatId); if(S.activeChat?.id===chatId){S.activeChat=null; $('active-chat').classList.add('hidden'); $('welcome-screen').classList.remove('hidden');} renderChatList(); });
   socket.on('call_incoming',      handleIncomingCall);
   socket.on('call_answered',      d => { stopDialTone(); playCallConnectSound(); showToast('📞 Звонок начат', 'success'); window.callsModule?.onAnswer(d); });
@@ -637,6 +637,26 @@ function renderChatList(filter = '') {
   list.appendChild(frag);
 
   // Update browser tab title with unread count
+  updateTabTitle();
+}
+
+/* ── Fast single-chat-item update (avoids full DOM rebuild) ── */
+function updateSingleChatItem(chatId) {
+  const list = $('chat-list');
+  if (!list) return;
+  const chat = S.chats.find(c => c.id === chatId);
+  if (!chat) return;
+  const old = list.querySelector(`.chat-item[data-chatid="${chatId}"]`);
+  if (!old) { renderChatList(); return; }
+  const fresh = buildChatItem(chat);
+  old.replaceWith(fresh);
+  // Move to top of unpinned section (or top of list if pinned)
+  const firstUnpinned = list.querySelector('.chat-item:not([data-pinned])');
+  if (chat.pinned) {
+    list.insertBefore(fresh, list.querySelector('.chat-item'));
+  } else if (firstUnpinned && firstUnpinned !== fresh) {
+    list.insertBefore(fresh, firstUnpinned);
+  }
   updateTabTitle();
 }
 
@@ -782,7 +802,7 @@ async function openChat(chatId) {
   S.socket?.emit('join_chat', { chatId });
   S.socket?.emit('mark_read', { chatId });
   const c = S.chats.find(x => x.id === chatId);
-  if (c) { c.unreadCount = 0; renderChatList(); }
+  if (c) { c.unreadCount = 0; updateSingleChatItem(chatId); }
 
   // Mobile
   if (window.innerWidth <= 680) {
@@ -1186,7 +1206,7 @@ function handleNewMessage(msg) {
       const tb = b.lastMessage ? new Date(b.lastMessage.timestamp) : new Date(b.createdAt || 0);
       return tb - ta;
     });
-    renderChatList();
+    updateSingleChatItem(msg.chatId);
   }
 
   // Notification
@@ -1237,7 +1257,12 @@ function updateOnlineStatus(userId, online, lastSeen) {
   if (S.activeChat?.type === 'group') {
     updateChatStatus(S.activeChat);
   }
-  renderChatList();
+  // Update affected chat items without full rebuild
+  S.chats.forEach(c => {
+    if ((c.type === 'private' && c.members?.includes(userId)) || c.membersInfo?.some(m => m.id === userId)) {
+      updateSingleChatItem(c.id);
+    }
+  });
 }
 
 // ══════════════════════════════════════════════════════════
@@ -2183,7 +2208,7 @@ function initChatInfo() {
     const c = S.chats.find(x => x.id === S.activeChat?.id); if (!c) return;
     try {
       await API.put(`/api/chats/${S.activeChat.id}`, { pinned: !c.pinned });
-      c.pinned = !c.pinned; renderChatList();
+      c.pinned = !c.pinned; updateSingleChatItem(c.id);
       showToast(c.pinned ? 'Чат закреплён' : 'Откреплён');
     } catch (e) { showToast(e.message, 'error'); }
   });
@@ -2198,7 +2223,7 @@ function initChatInfo() {
 
   on('mute-chat-btn', 'click', () => {
     const c = S.chats.find(x => x.id === S.activeChat?.id); if (!c) return;
-    c.muted = !c.muted; showToast(c.muted ? 'Уведомления отключены' : 'Уведомления включены'); renderChatList();
+    c.muted = !c.muted; showToast(c.muted ? 'Уведомления отключены' : 'Уведомления включены'); updateSingleChatItem(c.id);
   });
 
   on('unpin-btn', 'click', () => {

@@ -15,6 +15,7 @@ const fs         = require('fs');
 const path       = require('path');
 const mongoose   = require('mongoose');
 const webpush    = require('web-push');
+const compression = require('compression');
 
 const app  = express();
 const srv  = http.createServer(app);
@@ -184,10 +185,11 @@ const storage = multer.diskStorage({
 const upload = multer({ storage, limits: { fileSize: 100 * 1024 * 1024 } });
 
 // ── Middleware ────────────────────────────────────────────────────────────
+app.use(compression());
 app.use(cors());
 app.use(express.json());
-app.use('/static', express.static(STATIC_DIR));
-app.use('/uploads', express.static(UPLOADS_DIR));
+app.use('/static', express.static(STATIC_DIR, { maxAge: '7d', etag: true }));
+app.use('/uploads', express.static(UPLOADS_DIR, { maxAge: '30d', immutable: true }));
 
 // ── Auth middleware ────────────────────────────────────────────────────────
 function authMiddleware(req, res, next) {
