@@ -5,62 +5,91 @@
       <stop offset="100%" stop-color="#0a0a15"/>
     </linearGradient>
     <linearGradient id="bl" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#fff" stop-opacity=".9"/>
-      <stop offset="100%" stop-color="#fff" stop-opacity=".4"/>
+      <stop offset="0%" stop-color="#fff" stop-opacity=".95"/>
+      <stop offset="100%" stop-color="#ccc" stop-opacity=".5"/>
     </linearGradient>
-    <radialGradient id="gl" cx=".5" cy=".85" r=".5">
-      <stop offset="0%" stop-color="#4f7cff" stop-opacity=".25"/>
+    <radialGradient id="gl" cx=".5" cy=".9" r=".45">
+      <stop offset="0%" stop-color="#4f7cff" stop-opacity=".3"/>
       <stop offset="100%" stop-color="#4f7cff" stop-opacity="0"/>
     </radialGradient>
+    <linearGradient id="cloak" x1="0" y1="0" x2=".3" y2="1">
+      <stop offset="0%" stop-color="#4f7cff" stop-opacity=".35"/>
+      <stop offset="100%" stop-color="#1a1a4e" stop-opacity=".15"/>
+    </linearGradient>
   </defs>
   <rect width="512" height="512" rx="112" fill="url(#bg)"/>
 
   <!-- Ground glow -->
-  <ellipse cx="256" cy="400" rx="100" ry="18" fill="url(#gl)"/>
+  <ellipse cx="250" cy="400" rx="120" ry="16" fill="url(#gl)"/>
 
-  <!-- ── Warrior standing, both hands on sword pommel ── -->
+  <!-- ── Cloak / cape — behind the body, flowing to the left ── -->
+  <path d="M218 170 
+           Q185 200 165 260 
+           Q148 310 155 370 
+           Q158 390 170 400 
+           L185 395
+           Q175 360 172 310
+           Q170 260 190 210
+           Q200 185 218 170 Z"
+        fill="url(#cloak)" stroke="#fff" stroke-width="2" stroke-opacity=".2"/>
+  <!-- Cloak flowing lower part (bigger sweep) -->
+  <path d="M218 170 
+           Q170 215 140 290 
+           Q118 350 125 395 
+           Q130 410 148 415 
+           L155 410
+           Q140 370 145 320
+           Q155 260 185 210
+           Q200 185 218 170"
+        fill="none" stroke="#fff" stroke-width="3" stroke-opacity=".15" stroke-linecap="round"/>
+  <!-- Cloak fold detail -->
+  <path d="M195 220 Q180 270 178 330" stroke="#fff" stroke-width="1.5" fill="none" opacity=".1" stroke-linecap="round"/>
+  <path d="M185 240 Q165 300 168 360" stroke="#fff" stroke-width="1.5" fill="none" opacity=".08" stroke-linecap="round"/>
+
+  <!-- ── Warrior — slight 3/4 angle, facing right ── -->
   <g stroke="#fff" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" fill="none">
     <!-- Head -->
-    <circle cx="256" cy="118" r="26" fill="#fff" fill-opacity=".12"/>
+    <circle cx="248" cy="115" r="26" fill="#fff" fill-opacity=".12"/>
+    <!-- Hood/hair hint -->
+    <path d="M228 103 Q248 88 268 103" stroke-width="4" opacity=".15"/>
     <!-- Neck -->
-    <line x1="256" y1="144" x2="256" y2="155"/>
-    <!-- Body / torso -->
-    <line x1="256" y1="155" x2="256" y2="268"/>
-    <!-- Left leg -->
-    <line x1="256" y1="268" x2="224" y2="340"/>
-    <line x1="224" y1="340" x2="218" y2="395"/>
-    <!-- Right leg -->
-    <line x1="256" y1="268" x2="288" y2="340"/>
-    <line x1="288" y1="340" x2="294" y2="395"/>
+    <line x1="248" y1="141" x2="248" y2="155"/>
+    <!-- Body / torso — slight lean right (towards sword) -->
+    <line x1="248" y1="155" x2="252" y2="270"/>
+    <!-- Left leg (back) -->
+    <line x1="252" y1="270" x2="228" y2="338"/>
+    <line x1="228" y1="338" x2="222" y2="396"/>
+    <!-- Right leg (forward, slight step) -->
+    <line x1="252" y1="270" x2="278" y2="340"/>
+    <line x1="278" y1="340" x2="284" y2="396"/>
     <!-- Shoulders -->
-    <line x1="222" y1="178" x2="290" y2="178"/>
-    <!-- Left arm → goes to sword pommel -->
-    <line x1="222" y1="178" x2="202" y2="220"/>
-    <line x1="202" y1="220" x2="215" y2="258"/>
-    <!-- Right arm → goes to sword pommel -->
-    <line x1="290" y1="178" x2="308" y2="218"/>
-    <line x1="308" y1="218" x2="290" y2="255"/>
+    <line x1="218" y1="175" x2="282" y2="175"/>
+    <!-- Left arm — relaxed at side / slightly behind (towards cloak) -->
+    <line x1="218" y1="175" x2="200" y2="220"/>
+    <line x1="200" y1="220" x2="198" y2="265"/>
+    <!-- Right arm — reaching right to sword pommel -->
+    <line x1="282" y1="175" x2="310" y2="215"/>
+    <line x1="310" y1="215" x2="320" y2="255"/>
   </g>
 
-  <!-- ── Sword — thrust into ground, centered ── -->
-  <!-- Blade — vertical, tip into ground -->
-  <line x1="253" y1="290" x2="253" y2="400" stroke="url(#bl)" stroke-width="6" stroke-linecap="round"/>
-  <!-- Blade edge highlight -->
-  <line x1="253" y1="295" x2="253" y2="395" stroke="#fff" stroke-width="2" opacity=".2"/>
-  <!-- Crossguard — horizontal, wider, decorative -->
-  <path d="M220 284 Q225 278 253 278 Q281 278 286 284 L290 290 Q281 294 253 294 Q225 294 216 290 Z"
-        fill="#fff" fill-opacity=".18" stroke="#fff" stroke-width="3" stroke-linejoin="round"/>
+  <!-- ── Sword — to the right side, thrust into ground ── -->
+  <!-- Blade -->
+  <line x1="322" y1="284" x2="322" y2="400" stroke="url(#bl)" stroke-width="7" stroke-linecap="round"/>
+  <!-- Blade center highlight -->
+  <line x1="322" y1="290" x2="322" y2="395" stroke="#fff" stroke-width="2" opacity=".25"/>
+  <!-- Crossguard -->
+  <path d="M298 278 Q305 272 322 272 Q339 272 346 278 L348 284 Q339 288 322 288 Q305 288 296 284 Z"
+        fill="#fff" fill-opacity=".2" stroke="#fff" stroke-width="2.5" stroke-linejoin="round"/>
   <!-- Grip -->
-  <line x1="253" y1="268" x2="253" y2="280" stroke="#fff" stroke-width="8" stroke-linecap="round" opacity=".6"/>
-  <!-- Pommel — diamond shape -->
-  <path d="M253 254 L261 262 L253 270 L245 262 Z" fill="#fff" fill-opacity=".3" stroke="#fff" stroke-width="2.5"/>
+  <line x1="322" y1="260" x2="322" y2="274" stroke="#fff" stroke-width="8" stroke-linecap="round" opacity=".55"/>
+  <!-- Pommel — diamond -->
+  <path d="M322 248 L329 256 L322 264 L315 256 Z" fill="#fff" fill-opacity=".3" stroke="#fff" stroke-width="2"/>
 
-  <!-- Ground crack lines -->
-  <line x1="253" y1="400" x2="240" y2="410" stroke="#fff" stroke-width="2" opacity=".15" stroke-linecap="round"/>
-  <line x1="253" y1="400" x2="268" y2="412" stroke="#fff" stroke-width="2" opacity=".12" stroke-linecap="round"/>
-  <line x1="253" y1="400" x2="250" y2="414" stroke="#fff" stroke-width="1.5" opacity=".1" stroke-linecap="round"/>
+  <!-- Ground crack lines from sword tip -->
+  <line x1="322" y1="400" x2="310" y2="410" stroke="#fff" stroke-width="2" opacity=".15" stroke-linecap="round"/>
+  <line x1="322" y1="400" x2="336" y2="412" stroke="#fff" stroke-width="2" opacity=".12" stroke-linecap="round"/>
+  <line x1="322" y1="400" x2="320" y2="415" stroke="#fff" stroke-width="1.5" opacity=".1" stroke-linecap="round"/>
 
-  <!-- Cape / cloak accent (simple flowing lines from shoulders) -->
-  <path d="M222 178 Q200 220 195 290 Q192 330 200 370" stroke="#fff" stroke-width="3" fill="none" opacity=".12" stroke-linecap="round"/>
-  <path d="M290 178 Q312 220 317 290 Q320 330 312 370" stroke="#fff" stroke-width="3" fill="none" opacity=".12" stroke-linecap="round"/>
+  <!-- Ground line hint -->
+  <line x1="160" y1="400" x2="380" y2="400" stroke="#fff" stroke-width="1.5" opacity=".06" stroke-linecap="round"/>
 </svg>
