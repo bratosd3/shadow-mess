@@ -1,6 +1,6 @@
 /* ═══════════════════════════════════════════════════════════
-   Shadow Message v7 — iOS AURORA GLASS MOBILE
-   Apple HIG · Glassmorphism · Bottom Nav · Swipe
+   Shadow Message v8 — MOBILE LAYOUT FIX
+   Stable layout · No backdrop-filter on mobile · Proper spacing
    ═══════════════════════════════════════════════════════════ */
 
 @media (max-width: 680px) {
@@ -140,8 +140,7 @@
   /* ── Chat header ──────────────────────────────────── */
   .chat-header {
     padding: 0 10px; min-height: var(--header-h);
-    backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
-    background: var(--glass);
+    background: var(--bg-app);
   }
   .chat-header-name { font-size: 14px; font-weight: 600; }
 
@@ -165,8 +164,7 @@
 
   /* ── Input bar — iOS style ────────────────────────── */
   .message-input-wrap {
-    backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
-    background: var(--glass);
+    background: var(--bg-app);
     border-top: 1px solid var(--glass-border);
   }
   .input-tool-btn { width: var(--touch-min, 44px); height: var(--touch-min, 44px); }
@@ -228,8 +226,7 @@
   .context-menu {
     left: 8px !important; right: 8px !important; width: auto !important;
     min-width: unset; border-radius: 14px;
-    background: var(--glass); backdrop-filter: var(--blur-heavy);
-    -webkit-backdrop-filter: var(--blur-heavy);
+    background: var(--bg-app);
     padding: 6px;
   }
   .ctx-item {
@@ -255,7 +252,6 @@
   }
   .toast {
     border-radius: 14px; padding: 14px 18px;
-    backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
   }
 
   /* ── Welcome screen ───────────────────────────────── */
@@ -328,6 +324,12 @@
   :root { --sidebar-w: 300px; }
   .modal { width: 440px; }
   .bottom-nav { display: none !important; }
+  .swipe-shadow { display: none !important; }
+  .settings-layout { flex-direction: row; }
+  .settings-nav { width: 200px; flex-direction: column; border-right: 1px solid var(--border); border-bottom: none; }
+  .theme-options { grid-template-columns: repeat(5, 1fr); }
+  .welcome-cards { grid-template-columns: repeat(2, 1fr); }
+  .message-row { max-width: 70%; }
 }
 
 /* ── Desktop — hide bottom nav ──────────────────────────── */
@@ -341,8 +343,8 @@ body.keyboard-open .fab-new-chat { display: none !important; }
 body.keyboard-open .call-mini-bar { display: none; }
 body.keyboard-open .bottom-nav { display: none !important; }
 
-/* ── MobileSheetUp animation ────────────────────────────── */
+/* ── MobileSheetUp animation (used by modals) ────────────── */
 @keyframes mobileSheetUp {
-  from { transform: translateY(100%); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
 }

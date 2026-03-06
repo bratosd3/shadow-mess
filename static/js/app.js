@@ -27,7 +27,7 @@ const S = {
   favourites: [],
 };
 window.State = S; // expose for calls.js
-const isMobile = window.innerWidth <= 680 || ('ontouchstart' in window);
+const isMobile = () => window.innerWidth <= 680 || ('ontouchstart' in window);
 
 // ── PWA Install prompt ────────────────────────────────────
 let _deferredInstallPrompt = null;
@@ -1366,7 +1366,7 @@ function initInput() {
         switchRecordMode();
       }
       _isHolding = false;
-    });
+    }, { passive: false });
 
     recBtn.addEventListener('touchcancel', () => {
       clearTimeout(_holdTimer);
@@ -1807,7 +1807,7 @@ function showCtxMenu(e, msg) {
   let backdrop = document.querySelector('.ctx-backdrop');
   if (backdrop) backdrop.remove();
 
-  if (isMobile) {
+  if (isMobile()) {
     // Mobile: bottom sheet
     backdrop = document.createElement('div');
     backdrop.className = 'ctx-backdrop';
@@ -3533,7 +3533,10 @@ function initLightbox() {
   on('lightbox-close', 'click', () => $('lightbox').classList.add('hidden'));
   on('lightbox', 'click', e => { if (e.target === $('lightbox')) $('lightbox').classList.add('hidden'); });
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && !$('lightbox').classList.contains('hidden')) $('lightbox').classList.add('hidden');
+    if (e.key === 'Escape' && !$('lightbox').classList.contains('hidden')) {
+      e.stopImmediatePropagation();
+      $('lightbox').classList.add('hidden');
+    }
   });
 }
 
@@ -3579,7 +3582,6 @@ function applyAllSettings(s) {
 // MOBILE KEYBOARD & VIEWPORT FIX
 // ══════════════════════════════════════════════════════════
 function initMobileKeyboardFix() {
-  const isMobile = () => window.innerWidth <= 680;
   if (!isMobile()) return;
 
   // ── Fix iOS 100vh: set --vh from visual viewport ──
@@ -3672,7 +3674,6 @@ function initMobileKeyboardFix() {
 // iOS SWIPE BACK GESTURE
 // ══════════════════════════════════════════════════════════
 function initSwipeBack() {
-  const isMobile = () => window.innerWidth <= 680;
   if (!isMobile()) return;
 
   const chatPanel = $('chat-panel');
