@@ -15,8 +15,8 @@ uploads/*
 logs/*
 !logs/.gitkeep
 
-# Old JSON data
-data/
+# Old JSON data (only root level)
+/data/
 
 # Cloudflare local tools & logs
 cloudflare/
