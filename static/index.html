@@ -134,51 +134,27 @@
 <!-- ═══════════════════ MAIN APP ═══════════════════ -->
 <div id="app" class="app hidden">
 
-  <!-- ═══ NAV RAIL (Discord-style) ═══ -->
-  <div class="nav-rail">
-    <div class="nav-rail-top">
-      <div class="nav-rail-avatar avatar" id="menu-avatar" title="Меню"></div>
-    </div>
-    <div class="nav-rail-mid">
-      <button class="nav-rail-btn active" data-tab="all" title="Все чаты">
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-      </button>
-      <button class="nav-rail-btn" data-tab="personal" title="Личные">
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-      </button>
-      <button class="nav-rail-btn" data-tab="groups" title="Группы">
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-      </button>
-      <button class="nav-rail-btn" data-tab="channels" title="Каналы">
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1"/></svg>
-      </button>
-    </div>
-    <div class="nav-rail-bottom">
-      <button class="nav-rail-btn" id="new-chat-btn" title="Новый чат">
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-      </button>
-      <button class="nav-rail-btn" id="menu-btn" title="Настройки">
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-      </button>
-    </div>
-  </div>
+
 
   <!-- ═══ SIDEBAR (Chat list panel) ═══ -->
   <aside class="sidebar" id="sidebar">
-    <div class="sidebar-header">
-      <h2 class="sidebar-title">Чаты</h2>
-      <button class="icon-btn sidebar-call-indicator hidden" id="sidebar-call-indicator" title="Вернуться к звонку">
-        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.44 2 2 0 0 1 3.6 1.25h3a2 2 0 0 1 2 1.72c.127.96.362 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.81a16 16 0 0 0 6.29 6.29l.91-.92a2 2 0 0 1 2.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+    <div class="sidebar-header-tg">
+      <button class="icon-btn menu-hamburger" id="menu-btn" title="Меню">
+         <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      </button>
+      <div class="search-box-tg">
+        <svg class="search-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input id="search-input" type="text" placeholder="Поиск"/>
+      </div>
+      <button class="icon-btn" id="new-chat-btn" title="Новый чат">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
       </button>
     </div>
-
-    <div class="sidebar-search">
-      <div class="search-box">
-        <svg class="search-icon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-        <input id="search-input" type="text" placeholder="Поиск..."/>
-        <button class="icon-btn search-clear hidden" id="search-clear" style="width:18px;height:18px;font-size:11px">✕</button>
-      </div>
-    </div>
+    
+    <!-- Hidden call indicator for compatibility -->
+    <button class="icon-btn sidebar-call-indicator hidden" id="sidebar-call-indicator" title="Вернуться к звонку" style="position:absolute; right:10px; top:10px; z-index:100;">
+       <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.44 2 2 0 0 1 3.6 1.25h3a2 2 0 0 1 2 1.72c.127.96.362 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.81a16 16 0 0 0 6.29 6.29l.91-.92a2 2 0 0 1 2.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+    </button>
 
     <!-- Hidden sidebar tabs for JS compatibility -->
     <div class="sidebar-tabs" style="display:none">
@@ -306,124 +282,90 @@
       </div>
     </div>
 
-    <!-- Active chat -->
-    <div class="active-chat hidden" id="active-chat">
-
-      <!-- Chat header — minimal toolbar style -->
-      <div class="chat-header">
-        <button class="icon-btn back-btn hidden" id="back-btn">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
-        </button>
-        <div class="chat-header-center" id="chat-header-info-btn">
-          <div class="chat-header-avatar avatar" id="chat-header-avatar" style="cursor:pointer"></div>
-          <div class="chat-header-info">
-            <div class="chat-header-name" id="chat-header-name"></div>
-            <div class="chat-header-status" id="chat-header-status"></div>
-          </div>
+    <!-- Active Chat -->
+    <div class="active-chat hidden" id="active-chat" style="display:flex; flex-direction:column; width:100%; height:100%">
+      
+      <!-- Header -->
+      <div class="chat-header" id="chat-header-info-btn">
+        <div style="display:flex; align-items:center; flex:1; overflow:hidden">
+            <button class="icon-btn btn-back hidden" id="back-btn" title="Назад" style="margin-right:8px">
+               <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><line x1="19" y1="12" x2="5" y2="12"/><polyline points="12 19 5 12 12 5"/></svg>
+            </button>
+            <div class="chat-avatar" id="chat-header-avatar" style="width:40px;height:40px;margin-right:12px;font-size:16px"></div>
+            <div class="chat-header-info" style="min-width:0; display:flex; flex-direction:column; justify-content:center">
+               <h3 id="chat-header-name" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis"></h3>
+               <div class="status" id="chat-header-status"></div>
+            </div>
         </div>
-        <div class="chat-header-actions">
-          <button class="icon-btn chat-header-action-btn" id="chat-search-btn" title="Поиск">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          </button>
-          <button class="icon-btn chat-header-action-btn" id="call-audio-btn" title="Позвонить">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.44 2 2 0 0 1 3.6 1.25h3a2 2 0 0 1 2 1.72c.127.96.362 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.81a16 16 0 0 0 6.29 6.29l.91-.92a2 2 0 0 1 2.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
-          </button>
-          <button class="icon-btn chat-header-action-btn" id="call-video-btn" title="Видеозвонок">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
-          </button>
-          <button class="icon-btn chat-header-action-btn" id="chat-info-btn" title="Инфо">
-            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-          </button>
+        <div class="chat-header-actions" style="display:flex; gap:4px">
+           <button class="icon-btn" id="call-audio-btn"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 1.72c.127.96.362 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.81a16 16 0 0 0 6.29 6.29l.91-.92a2 2 0 0 1 2.11-.45c.907.338 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg></button>
+           <button class="icon-btn" id="chat-search-btn"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></button>
+           <button class="icon-btn" id="chat-info-btn"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/></svg></button>
         </div>
       </div>
 
-      <!-- MAIN CHAT BODY (Center + Members) -->
-      <div class="chat-body-wrapper">
-        
-        <!-- Center Column -->
-        <div class="chat-center">
-          
-          <!-- Pinned message bar -->
-          <div class="pinned-message-bar hidden" id="pinned-bar">
-            <div class="pinned-bar-accent"></div>
-            <div class="pinned-bar-body">
-              <div class="pinned-bar-label">📌 Закреплено</div>
-              <div class="pinned-bar-text" id="pinned-bar-text"></div>
-            </div>
-            <button class="icon-btn" id="unpin-btn" title="Открепить" style="margin-left:auto">✕</button>
+      <!-- Pinned Bar (Hidden by default) -->
+      <div id="pinned-bar" class="pinned-bar hidden" style="background:var(--bg-header); padding:8px 16px; border-bottom:1px solid var(--border); display:flex; align-items:center; font-size:13px">
+          <div style="width:2px; height:24px; background:var(--accent); margin-right:12px"></div>
+          <div style="flex:1">
+             <div style="color:var(--accent); font-weight:600">Закрепленное сообщение</div>
+             <div id="pinned-bar-text" style="color:var(--text-primary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis"></div>
           </div>
+          <button class="icon-btn" id="unpin-btn" style="width:24px;height:24px">✕</button>
+      </div>
 
-          <!-- In-chat search -->
-          <div class="chat-searchbar hidden" id="chat-searchbar">
-            <input id="chat-search-input" type="text" placeholder="Поиск в чате..."/>
-            <div class="chat-search-nav">
-              <button class="icon-btn" id="cs-prev" title="Вверх">▲</button>
-              <span id="cs-counter" class="cs-counter">0/0</span>
-              <button class="icon-btn" id="cs-next" title="Вниз">▼</button>
-              <button class="icon-btn" id="cs-close">✕</button>
-            </div>
-          </div>
+      <!-- Messages -->
+      <div class="messages-area" id="messages-area">
+         <div class="messages-loader hidden" id="messages-loader" style="text-align:center; padding:20px; color:var(--text-secondary)">Загрузка сообщений...</div>
+      </div>
 
-          <!-- Messages -->
-          <div class="messages-area" id="messages-area">
-            <div class="messages-loader hidden" id="messages-loader">Загрузка...</div>
-          </div>
-
-          <!-- Typing -->
-          <div class="typing-indicator hidden" id="typing-indicator">
-            <span class="typing-dots"><span></span><span></span><span></span></span>
-            <span id="typing-text"></span>
-          </div>
-
-          <!-- Reply preview -->
-          <div class="reply-preview hidden" id="reply-preview">
-            <div class="reply-preview-bar"></div>
-            <div class="reply-preview-content">
-              <div class="reply-preview-name" id="reply-preview-name"></div>
-              <div class="reply-preview-text" id="reply-preview-text"></div>
+      <!-- Typing & Reply Preview Wrapper -->
+      <div style="position:relative">
+         <!-- Reply Preview -->
+         <div id="reply-preview" class="hidden" style="position:absolute; bottom:100%; left:0; right:0; background:var(--bg-header); padding:8px 16px; border-top:1px solid var(--border); display:flex; z-index:10; align-items:center">
+            <div style="width:2px; height:24px; background:var(--accent); margin-right:12px"></div>
+            <div style="flex:1; min-width:0">
+               <div id="reply-preview-name" style="color:var(--accent); font-weight:600; font-size:13px"></div>
+               <div id="reply-preview-text" style="font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis"></div>
             </div>
             <button class="icon-btn" id="reply-cancel">✕</button>
-          </div>
-
-          <!-- Scroll to bottom -->
-          <button class="scroll-bottom-btn hidden" id="scroll-bottom-btn">↓</button>
-
-          <!-- Message input — flat toolbar style -->
-          <div class="message-input-wrap">
-            <input type="file" id="file-input" class="hidden" accept="*/*" multiple/>
-            <button class="icon-btn input-tool-btn" id="attach-btn" title="Прикрепить">
-              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-            </button>
-            <div class="message-input-box">
-              <textarea id="msg-input" placeholder="Написать сообщение..." rows="1" maxlength="4096"></textarea>
-            </div>
-            <button class="icon-btn input-tool-btn" id="emoji-btn" title="Эмодзи">😊</button>
-            <button class="voice-record-btn" id="voice-record-btn" title="Голосовое сообщение">
-              <svg class="mic-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
-              <svg class="cam-icon hidden" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
-            </button>
-            <button class="video-msg-btn hidden" id="video-msg-btn" title="Видеосообщение">
-              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
-            </button>
-            <button class="send-btn hidden" id="send-btn" title="Отправить">
-              <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
-            </button>
-          </div>
-
-          <div class="emoji-picker hidden" id="emoji-picker"></div>
-          <div class="sticker-picker hidden" id="sticker-picker"></div>
-        </div>
-
-        <!-- Members Sidebar (Right) -->
-        <aside class="members-sidebar hidden" id="members-sidebar">
-          <div class="members-header">УЧАСТНИКИ — <span id="members-count">0</span></div>
-          <div class="members-list custom-scrollbar" id="members-list"></div>
-        </aside>
-
-        <!-- Overlay for members sidebar (mobile) -->
-        <div class="members-sidebar-overlay"></div>
-
+         </div>
+         
+         <!-- Typing Indicator -->
+         <div id="typing-indicator" class="hidden" style="position:absolute; bottom:100%; left:16px; margin-bottom:8px; font-size:13px; color:var(--text-secondary)">
+             <span id="typing-text">typing...</span>
+         </div>
       </div>
+
+      <!-- Input Area -->
+      <div class="input-area">
+          <input type="file" id="file-input" class="hidden" multiple>
+          
+          <button class="icon-btn attach-btn" id="attach-btn" title="Прикрепить">
+             <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+          </button>
+          
+          <div class="input-wrapper">
+             <textarea id="msg-input" class="message-input" placeholder="Написать сообщение..." rows="1"></textarea>
+             <button class="icon-btn" id="emoji-btn" style="padding:4px"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg></button>
+          </div>
+
+          <button class="btn-send hidden" id="send-btn" title="Отправить">
+             <svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+          </button>
+          
+          <button class="btn-send" id="voice-record-btn" title="Голосовое">
+             <svg class="mic-icon" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+          </button>
+      </div>
+      
+      <!-- Hidden extras -->
+      <div id="emoji-picker" class="hidden"></div>
+      <div id="sticker-picker" class="hidden"></div>
+      <button id="scroll-bottom-btn" class="hidden" style="position:absolute; bottom:80px; right:20px; width:40px; height:40px; border-radius:50%; background:var(--bg-header); box-shadow:0 2px 5px rgba(0,0,0,0.3); border:none; color:var(--text-secondary); cursor:pointer; display:flex; align-items:center; justify-content:center; z-index:20">
+         <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </button>
+
     </div>
   </main>
 
@@ -637,6 +579,66 @@
       </div>
     </div>
   </div>
+</div>
+
+<!-- CALL OVERLAYS (TELEGRAM STYLE) -->
+<div id="incoming-call" class="incoming-call-overlay hidden">
+  <div class="incoming-call-card">
+    <div class="avatar avatar-xxl" id="inc-call-avatar"></div>
+    <h3 id="inc-call-name">Unknown</h3>
+    <div id="inc-call-type" style="font-size:14px;opacity:0.8;margin-bottom:20px">Incoming Call</div>
+    <div class="call-actions">
+       <button class="call-btn btn-reject" id="inc-reject-btn"><svg viewBox="0 0 24 24" width="32" height="32" fill="currentColor"><path d="M12 9c-2.5 0-4.8 1-6.4 2.6l-1.3-1.3C6.3 8.3 9 7.2 12 7.2s5.7 1.1 7.7 3.1l-1.3 1.3C16.8 10 14.5 9 12 9zm0-2c-3 0-5.7 1.2-7.8 3.3l-1.3-1.3C5.3 6.6 8.5 5.2 12 5.2s6.7 1.4 9.1 3.8l-1.3 1.3C17.7 8.2 15 7 12 7zm0 13l-4 4-2-2 6-6 6 6-2 2-4-4z"/></svg></button>
+       <button class="call-btn btn-accept" id="inc-accept-btn"><svg viewBox="0 0 24 24" width="32" height="32" fill="currentColor"><path d="M20 15.5c-1.2 0-2.4-.2-3.6-.6-.3-.1-.6 0-.8.2l-2.2 2.2c-2.8-1.4-5.1-3.8-6.6-6.6l2.2-2.2c.3-.3.4-.6.2-.9-.4-1.1-.6-2.3-.6-3.5 0-.5-.5-1-1-1H4c-.5 0-1 .5-1 1 0 9.4 7.6 17 17 17 .5 0 1-.5 1-1v-3.5c0-.5-.5-1-1-1zM19 12h2a9 9 0 0 0-9-9v2a7 7 0 0 1 7 7z"/></svg></button>
+    </div>
+  </div>
+</div>
+
+<div id="active-call-overlay" class="active-call-overlay hidden">
+  <div class="sidebar-call-indicator hidden" id="sidebar-call-indicator">📞</div>
+  
+  <div class="active-call-content">
+      <div class="call-layer active" id="call-audio-layer">
+         <div class="avatar avatar-xxl" id="active-call-avatar-big"></div>
+         <h3 id="active-call-name-audio">Name</h3>
+         <div id="call-timer-audio" style="font-size:14px;opacity:0.8">00:00</div>
+      </div>
+      <div class="call-layer hidden-layer" id="call-video-layer"></div>
+      
+      <div class="call-controls">
+         <button class="call-control-btn" id="toggle-mute"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></button>
+         <button class="call-control-btn" id="toggle-video"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg></button>
+         <button class="call-control-btn" id="toggle-speaker"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg></button>
+         <button class="call-control-btn btn-danger" id="end-call-btn"><svg viewBox="0 0 24 24" width="32" height="32" fill="currentColor"><path d="M12 9c-2.5 0-4.8 1-6.4 2.6l-1.3-1.3C6.3 8.3 9 7.2 12 7.2s5.7 1.1 7.7 3.1l-1.3 1.3C16.8 10 14.5 9 12 9zm0-2c-3 0-5.7 1.2-7.8 3.3l-1.3-1.3C5.3 6.6 8.5 5.2 12 5.2s6.7 1.4 9.1 3.8l-1.3 1.3C17.7 8.2 15 7 12 7zm0 13l-4 4-2-2 6-6 6 6-2 2-4-4z"/></svg></button>
+      </div>
+      <button class="icon-btn" id="minimize-call-btn" style="position:absolute;top:20px;left:20px;color:white"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg></button>
+  </div>
+</div>
+
+<div id="call-mini-bar" class="call-mini-bar hidden">
+   <div id="call-mini-expand" style="flex:1;display:flex;align-items:center;cursor:pointer">
+      <div class="avatar avatar-sm pulse-ring" id="active-call-avatar" style="margin-right:8px"></div>
+      <div>
+         <div id="call-mini-name" style="font-weight:600;font-size:13px">Call</div>
+         <div id="call-mini-timer" style="font-size:11px;opacity:0.7">00:00</div>
+      </div>
+   </div>
+   <div style="display:flex;gap:4px">
+      <button class="icon-btn" id="call-mini-mute">🎙</button>
+      <button class="icon-btn" id="call-mini-end" style="color:#ff5252">✕</button>
+   </div>
+</div>
+
+<div id="group-call-overlay" class="active-call-overlay hidden" style="background:var(--bg-app)">
+   <div class="group-call-header">
+      <h3 id="group-call-title">Group Call</h3>
+      <div id="group-call-timer">00:00</div>
+   </div>
+   <div id="group-call-participants" class="group-call-grid"></div>
+   <div class="call-controls">
+       <button class="call-control-btn" id="gc-toggle-mute"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg></button>
+       <button class="call-control-btn btn-danger" id="gc-end-call"><svg viewBox="0 0 24 24" width="32" height="32" fill="currentColor"><path d="M12 9c-2.5 0-4.8 1-6.4 2.6l-1.3-1.3C6.3 8.3 9 7.2 12 7.2s5.7 1.1 7.7 3.1l-1.3 1.3C16.8 10 14.5 9 12 9zm0-2c-3 0-5.7 1.2-7.8 3.3l-1.3-1.3C5.3 6.6 8.5 5.2 12 5.2s6.7 1.4 9.1 3.8l-1.3 1.3C17.7 8.2 15 7 12 7zm0 13l-4 4-2-2 6-6 6 6-2 2-4-4z"/></svg></button>
+   </div>
 </div>
 
 <!-- User Profile -->

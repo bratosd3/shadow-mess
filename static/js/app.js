@@ -705,69 +705,105 @@ function buildChatItem(chat) {
   item.className = `chat-item${chat.id === S.activeChat?.id ? ' active' : ''}`;
   item.dataset.chatid = chat.id;
 
+  // Avatar
   const av = document.createElement('div');
+  // Use renderAvatar but force the class to be chat-avatar
   renderAvatar(av, { displayName: chat.displayName, avatar: chat.displayAvatar, avatarColor: chat.displayAvatarColor, online: chat.online });
+  av.className = 'chat-avatar'; 
+  if (chat.online) av.classList.add('online'); // Online indicator if needed, though CSS handles it differently maybe
+  
+  // Custom online marker if not handled by CSS on avatar
+  if (chat.online) {
+    const onlineBadge = document.createElement('div');
+    onlineBadge.style.cssText = 'position:absolute; bottom:2px; right:2px; width:12px; height:12px; background:#4caf50; border:2px solid var(--bg-sidebar); border-radius:50%;';
+    av.style.position = 'relative';
+    av.appendChild(onlineBadge);
+  }
+  
   item.appendChild(av);
 
-  const cnt = document.createElement('div');
-  cnt.className = 'chat-item-content';
+  // Info Container
+  const info = document.createElement('div');
+  info.className = 'chat-info';
 
-  const hdr = document.createElement('div');
-  hdr.className = 'chat-item-header';
+  // Top Row (Name + Time)
+  const top = document.createElement('div');
+  top.className = 'chat-top';
 
   const nm = document.createElement('div');
-  nm.className = 'chat-item-name';
-  if (chat.partnerSuperUser) {
+  nm.className = 'chat-name';
+  if (chat.partnerSuperUser) { // Star badge
     const badge = document.createElement('span');
-    badge.className = 'super-user-badge';
-    badge.textContent = '⭐';
+    badge.textContent = '⭐ ';
+    badge.style.color = '#ffd700';
     nm.appendChild(badge);
   }
   nm.appendChild(document.createTextNode(chat.displayName || ''));
-  if (chat.pinned) nm.appendChild(Object.assign(document.createElement('span'), { className: 'chat-item-pinned', textContent: ' 📌' }));
+  if (chat.pinned) {
+    const pin = document.createElement('span');
+    pin.textContent = ' 📌';
+    pin.style.fontSize = '12px';
+    nm.appendChild(pin);
+  }
+  
+  const meta = document.createElement('div');
+  meta.className = 'chat-meta';
+  if (chat.lastMessage) meta.textContent = formatTime(chat.lastMessage.timestamp);
 
-  const tm = document.createElement('div');
-  tm.className = 'chat-item-time';
-  if (chat.lastMessage) tm.textContent = formatTime(chat.lastMessage.timestamp);
+  top.appendChild(nm);
+  top.appendChild(meta);
 
-  hdr.appendChild(nm); hdr.appendChild(tm);
+  // Bottom Row (Last Message + Counter)
+  const btm = document.createElement('div');
+  btm.className = 'chat-bottom';
 
-  const ftr = document.createElement('div');
-  ftr.className = 'chat-item-footer';
-
-  const pv = document.createElement('div');
-  pv.className = 'chat-item-preview';
-
-  // Draft
+  const lastMsg = document.createElement('div');
+  lastMsg.className = 'chat-last-msg';
+  
+  // Last Message Preview
   const draft = S.drafts[chat.id];
   if (draft) {
     const dl = document.createElement('span');
-    dl.className = 'draft-label';
-    dl.textContent = 'Черновик: ';
-    pv.appendChild(dl);
-    pv.appendChild(document.createTextNode(draft.slice(0, 40)));
+    dl.style.color = '#ff5252';
+    dl.textContent = 'Draft: ';
+    lastMsg.appendChild(dl);
+    lastMsg.appendChild(document.createTextNode(draft));
   } else if (chat.lastMessage) {
     const lm = chat.lastMessage;
     let preview = '';
-    if (lm.type === 'image') preview = 'Фото';
-    else if (lm.type === 'file') preview = lm.fileName || 'Файл';
+    if (lm.type === 'image') preview = '📷 Фото';
+    else if (lm.type === 'file') preview = '📎 ' + (lm.fileName || 'Файл');
     else if (lm.type === 'voice') preview = '🎤 Голосовое';
-    else if (lm.type === 'sticker') preview = lm.text || 'Стикер';
+    else if (lm.type === 'sticker') preview = (lm.text || 'Sticker');
     else preview = lm.text || '';
-    pv.textContent = (lm.senderId === S.user?.id ? 'Вы: ' : '') + preview;
+    
+    // "You: " prefix
+    if (lm.senderId === S.user?.id) {
+        const you = document.createElement('span');
+        you.textContent = 'Вы: ';
+        you.style.color = 'var(--text-primary)';
+        lastMsg.appendChild(you);
+    }
+    lastMsg.appendChild(document.createTextNode(preview));
+  } else {
+    lastMsg.textContent = 'Нет сообщений';
   }
 
-  ftr.appendChild(pv);
+  btm.appendChild(lastMsg);
+
+  // Unread Counter
   if (chat.unreadCount > 0) {
-    const badge = document.createElement('div');
-    badge.className = 'chat-item-badge';
-    badge.textContent = chat.unreadCount > 99 ? '99+' : chat.unreadCount;
-    if (chat.muted) badge.style.opacity = '0.5';
-    ftr.appendChild(badge);
+    const cnt = document.createElement('div');
+    cnt.className = 'chat-counter';
+    if (chat.unreadCount > 0) cnt.classList.add('unread');
+    if (chat.muted) cnt.style.opacity = '0.6';
+    cnt.textContent = chat.unreadCount > 99 ? '99+' : chat.unreadCount;
+    btm.appendChild(cnt);
   }
 
-  cnt.appendChild(hdr); cnt.appendChild(ftr);
-  item.appendChild(cnt);
+  info.appendChild(top);
+  info.appendChild(btm);
+  item.appendChild(info);
 
   item.addEventListener('click', () => openChat(chat.id));
   return item;
@@ -845,7 +881,7 @@ async function openChat(chatId) {
   if (c) { c.unreadCount = 0; updateSingleChatItem(chatId); }
 
   // Populate Members List
-  populateMembers(chat);
+  // populateMembers(chat) removed for Telegram style
 
   // Mobile
   if (window.innerWidth <= 680) {
@@ -1990,10 +2026,10 @@ function showSelectBar() {
     bar.querySelector('.sa-copy').addEventListener('click', copySelectedMsgs);
     bar.querySelector('.sa-forward').addEventListener('click', forwardSelectedMsgs);
     bar.querySelector('.sa-delete').addEventListener('click', deleteSelectedMsgs);
-    const inputWrap = document.querySelector('.message-input-wrap');
+    const inputWrap = document.querySelector('.input-area');
     if (inputWrap) inputWrap.parentNode.insertBefore(bar, inputWrap);
   }
-  const inputWrap = document.querySelector('.message-input-wrap');
+  const inputWrap = document.querySelector('.input-area');
   if (inputWrap) inputWrap.style.display = 'none';
   updateSelectBar();
 }
@@ -2001,7 +2037,7 @@ function showSelectBar() {
 function hideSelectBar() {
   const bar = document.querySelector('.select-action-bar');
   if (bar) bar.remove();
-  const inputWrap = document.querySelector('.message-input-wrap');
+  const inputWrap = document.querySelector('.input-area');
   if (inputWrap) inputWrap.style.display = '';
 }
 
@@ -2363,7 +2399,7 @@ async function createChannel() {
 // CHAT INFO MODAL
 // ══════════════════════════════════════════════════════════
 function initChatInfo() {
-  on('chat-info-btn',        'click', toggleMembersSidebar);
+  on('chat-info-btn',        'click', openChatInfo);
   on('chat-header-info-btn', 'click', openChatInfo);
 
   on('leave-chat-btn', 'click', async () => {
@@ -3008,45 +3044,84 @@ async function loadSessions() {
 // SIDE MENU
 // ══════════════════════════════════════════════════════════
 function initSideMenu() {
-  on('menu-btn', 'click', e => { e.stopPropagation(); $('side-menu').classList.toggle('hidden'); });
-  // Close button for side menu
+  // Create backdrop if not exists
+  let backdrop = document.querySelector('.side-menu-backdrop');
+  if (!backdrop) {
+    backdrop = document.createElement('div');
+    backdrop.className = 'side-menu-backdrop';
+    document.body.appendChild(backdrop);
+  }
+
+  const toggleMenu = () => {
+    $('side-menu').classList.toggle('active');
+    // Backdrop is handled by CSS sibling selector or manual toggle if needed
+    // But since backdrop is appended to body, CSS sibling selector won't work easily if structure differs
+    // Let's toggle visible class on backdrop
+    backdrop.classList.toggle('visible', $('side-menu').classList.contains('active'));
+  };
+
+  const closeMenu = () => {
+    $('side-menu').classList.remove('active');
+    backdrop.classList.remove('visible');
+  };
+
+  on('menu-btn', 'click', e => { e.stopPropagation(); toggleMenu(); });
+  
+  // Close button inside menu
   const closeBtn = document.querySelector('[data-close-menu]');
-  if (closeBtn) closeBtn.addEventListener('click', () => $('side-menu').classList.add('hidden'));
-  on('menu-logout',     'click', logout);
-  on('menu-update',     'click', () => { $('side-menu').classList.add('hidden'); location.reload(); });
-  on('menu-contacts',   'click', () => { $('side-menu').classList.add('hidden'); $('new-chat-btn').click(); });
-  on('menu-favourites', 'click', () => {
-    $('side-menu').classList.add('hidden');
-    const list = $('fav-list');
-    list.innerHTML = '';
-    if (!S.favourites.length) { list.innerHTML = '<p class="hint-center">Нет сохранённых</p>'; }
-    else {
-      S.favourites.forEach(msg => {
-        const el = document.createElement('div');
-        el.className = 'user-result-item';
-        el.innerHTML = `<div><div class="user-result-name">${escHtml(msg.senderName||'')}</div><div style="font-size:12px;color:var(--text-secondary)">${escHtml(msg.text||'')}</div></div>`;
-        list.appendChild(el);
-      });
-    }
-    $('fav-modal').classList.remove('hidden');
-  });
-  on('menu-archive', 'click', () => {
-    $('side-menu').classList.add('hidden');
-    const list = $('archive-list'); list.innerHTML = '';
-    const archived = S.chats.filter(c => c.archived);
-    if (!archived.length) { list.innerHTML = '<p class="hint-center">Архив пуст</p>'; }
-    else archived.forEach(c => {
-      const item = document.createElement('div'); item.className = 'user-result-item'; item.style.cursor='pointer';
-      item.innerHTML = `<div class="user-result-name">${escHtml(c.displayName||'')}</div>`;
-      item.addEventListener('click', () => { $('archive-modal').classList.add('hidden'); openChat(c.id); });
-      list.appendChild(item);
-    });
-    $('archive-modal').classList.remove('hidden');
+  if (closeBtn) closeBtn.addEventListener('click', closeMenu);
+
+  // Close on backdrop click
+  backdrop.addEventListener('click', closeMenu);
+
+  // Close on Escape key
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && $('side-menu').classList.contains('active')) closeMenu();
   });
 
-  document.addEventListener('click', e => {
-    if (!$('side-menu').contains(e.target) && e.target !== $('menu-btn')) $('side-menu').classList.add('hidden');
+  on('menu-logout',     'click', logout);
+  on('menu-update',     'click', () => { closeMenu(); location.reload(); });
+  on('menu-contacts',   'click', () => { closeMenu(); $('new-chat-btn').click(); }); // new-chat-btn might be missing in new HTML? Check index.html
+  
+  // Other menu items...
+  // Note: search-results replaced manual favorites logic in some parts, but let's keep favorites for now
+  on('menu-favourites', 'click', () => {
+    closeMenu();
+    // Implementation of favorites modal (reuse existing logic but adapted)
+    const list = $('fav-list');
+    if(list) {
+        list.innerHTML = '';
+        if (!S.favourites.length) { list.innerHTML = '<p class="hint-center">Нет сохранённых</p>'; }
+        else {
+        S.favourites.forEach(msg => {
+            const el = document.createElement('div');
+            el.className = 'user-result-item';
+            el.innerHTML = `<div><div class="user-result-name">${escHtml(msg.senderName||'')}</div><div style="font-size:12px;color:var(--text-secondary)">${escHtml(msg.text||'')}</div></div>`;
+            list.appendChild(el);
+        });
+        }
+        $('fav-modal').classList.remove('hidden');
+    }
   });
+
+  on('menu-archive', 'click', () => {
+    closeMenu();
+    const list = $('archive-list'); 
+    if(list) {
+        list.innerHTML = '';
+        const archived = S.chats.filter(c => c.archived);
+        if (!archived.length) { list.innerHTML = '<p class="hint-center">Архив пуст</p>'; }
+        else archived.forEach(c => {
+        const item = document.createElement('div'); item.className = 'user-result-item'; item.style.cursor='pointer';
+        item.innerHTML = `<div class="user-result-name">${escHtml(c.displayName||'')}</div>`;
+        item.addEventListener('click', () => { $('archive-modal').classList.add('hidden'); openChat(c.id); });
+        list.appendChild(item);
+        });
+        $('archive-modal').classList.remove('hidden');
+    }
+  });
+
+  // Replaced global click listener with backdrop click
 }
 
 function updateMenuProfile() {
@@ -3635,7 +3710,7 @@ function initMobileKeyboardFix() {
   if (msgInput) {
     msgInput.addEventListener('focus', () => {
       setTimeout(() => {
-        const wrap = msgInput.closest('.message-input-wrap');
+        const wrap = msgInput.closest('.input-area');
         if (wrap) wrap.scrollIntoView({ behavior: 'smooth', block: 'end' });
       }, 350);
     });
@@ -4408,30 +4483,7 @@ function initApp() {
 })();
 
 /*  MEMBERS SIDEBAR v2  */
-function toggleMembersSidebar() {
-  const sb = document.getElementById('members-sidebar');
-  if (!sb) return;
-  const overlay = document.querySelector('.members-sidebar-overlay');
-  
-  if (window.innerWidth <= 920) {
-    if (sb.classList.contains('active')) {
-        sb.classList.remove('active');
-        if (overlay) { overlay.style.opacity = '0'; overlay.style.pointerEvents = 'none'; }
-    } else {
-        sb.classList.add('active');
-        if (typeof S !== 'undefined' && S.activeChat) populateMembers(S.activeChat);
-        if (overlay) { overlay.style.opacity = '1'; overlay.style.pointerEvents = 'auto'; }
-    }
-  } else {
-    // Desktop toggle
-    if (sb.classList.contains('hidden')) {
-        sb.classList.remove('hidden');
-        if (typeof S !== 'undefined' && S.activeChat) populateMembers(S.activeChat);
-    } else {
-        sb.classList.add('hidden');
-    }
-  }
-}
+function toggleMembersSidebar() {}
 
 function populateMembers(chat) {
   if (!chat) return;
@@ -4481,14 +4533,14 @@ function populateMembers(chat) {
     if (chat.ownerId === m.id) {
         const crown = document.createElement('span');
         crown.textContent = ' ';
-        crown.title = '��������';
+        crown.title = '��������';
         crown.style.fontSize = '12px';
         nameLine.appendChild(crown);
     }
     
     const roleLine = document.createElement('div');
     roleLine.className = 'member-role';
-    roleLine.textContent = m.online ? '� ����' : (m.lastSeen ? '���(�) �������' : '�� � ����');
+    roleLine.textContent = m.online ? '� ����' : (m.lastSeen ? '���(�) �������' : '�� � ����');
 
     info.appendChild(nameLine);
     info.appendChild(roleLine);
