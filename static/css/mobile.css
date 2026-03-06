@@ -15,7 +15,7 @@
   .auth-screen { grid-template-columns: 1fr; }
   .auth-brand-panel { display: none; }
   .auth-form-panel { padding: 24px 16px; }
-  .auth-form-inner { max-width: 100%; padding: 28px 20px; border-radius: var(--radius-lg); }
+  .auth-form-inner { max-width: 100%; padding: 24px 16px; border-radius: 5px; }
   .auth-brand-title { font-size: 26px; }
   .auth-btn {
     min-height: var(--touch-comfortable, 48px);
@@ -68,13 +68,12 @@
     display: flex !important;
     position: fixed; bottom: 0; left: 0; right: 0;
     height: var(--bottom-nav-h);
-    background: var(--glass, rgba(24,24,27,.82));
-    backdrop-filter: var(--blur, blur(24px)); -webkit-backdrop-filter: var(--blur, blur(24px));
-    border-top: 1px solid var(--glass-border, rgba(255,255,255,.08));
+    background: #1e1f22;
+    border-top: none;
     z-index: 1000;
     justify-content: space-around; align-items: center;
     padding-bottom: env(safe-area-inset-bottom, 0px);
-    box-shadow: 0 -1px 8px rgba(0,0,0,.08);
+    box-shadow: 0 -1px 0 rgba(0,0,0,.3);
     -webkit-tap-highlight-color: transparent;
   }
   .bottom-nav-item {
@@ -103,14 +102,14 @@
     display: flex; position: fixed;
     bottom: calc(var(--bottom-nav-h) + 16px + env(safe-area-inset-bottom, 0px));
     right: 16px;
-    width: 56px; height: 56px; border-radius: var(--radius-full);
-    background: var(--gradient-btn); color: var(--text-on-accent);
+    width: 56px; height: 56px; border-radius: 50%;
+    background: var(--accent); color: var(--text-on-accent);
     align-items: center; justify-content: center; z-index: 999;
     font-size: 22px; border: none;
-    box-shadow: 0 4px 20px var(--accent-glow), 0 2px 8px rgba(0,0,0,.15);
-    transition: transform .25s cubic-bezier(.34,1.56,.64,1), box-shadow .25s ease;
+    box-shadow: 0 4px 12px rgba(0,0,0,.3);
+    transition: transform .15s ease;
   }
-  .fab-new-chat:active { transform: scale(.85); box-shadow: 0 2px 8px var(--accent-glow); }
+  .fab-new-chat:active { transform: scale(.9); }
 
   /* ── Side menu ────────────────────────────────────── */
   .side-menu { width: 85%; max-width: 320px; }
@@ -140,7 +139,7 @@
   /* ── Chat header ──────────────────────────────────── */
   .chat-header {
     padding: 0 10px; min-height: var(--header-h);
-    background: var(--bg-app);
+    background: var(--bg-chat);
   }
   .chat-header-name { font-size: 14px; font-weight: 600; }
 
@@ -151,12 +150,10 @@
     overscroll-behavior-y: contain;
   }
   .message-row { max-width: 82%; }
-  .msg-bubble {
-    border-radius: 18px;
-    padding: 10px 14px;
+  .bubble {
+    border-radius: 4px;
+    padding: 8px 12px;
   }
-  .message-row.out .msg-bubble { border-bottom-right-radius: 6px; }
-  .message-row.in .msg-bubble { border-bottom-left-radius: 6px; }
 
   .msg-image-wrap { max-width: 260px; border-radius: 16px; }
   .msg-video-wrap { max-width: 260px; border-radius: 16px; }
@@ -164,8 +161,8 @@
 
   /* ── Input bar — iOS style ────────────────────────── */
   .message-input-wrap {
-    background: var(--bg-app);
-    border-top: 1px solid var(--glass-border);
+    background: var(--bg-chat);
+    padding: 0 8px 12px;
   }
   .input-tool-btn { width: var(--touch-min, 44px); height: var(--touch-min, 44px); }
   #msg-input {
@@ -183,8 +180,8 @@
   }
   .modal {
     width: 100vw; max-width: 100vw; max-height: 92vh;
-    border-radius: 16px 16px 0 0;
-    animation: mobileSheetUp .4s cubic-bezier(.25,.46,.45,.94) both;
+    border-radius: 8px 8px 0 0;
+    animation: mobileSheetUp .2s ease both;
   }
   /* Drag handle on mobile modals */
   .modal::before {
@@ -194,7 +191,7 @@
     flex-shrink: 0;
   }
   .modal-large { width: 100vw; }
-  .modal-header { border-radius: 16px 16px 0 0; padding: 12px 18px; }
+  .modal-header { border-radius: 8px 8px 0 0; padding: 12px 16px; }
 
   /* ── Settings — stacked layout ────────────────────── */
   .settings-layout { flex-direction: column; }
@@ -225,13 +222,13 @@
   /* ── Context menu — iOS action sheet style ────────── */
   .context-menu {
     left: 8px !important; right: 8px !important; width: auto !important;
-    min-width: unset; border-radius: 14px;
-    background: var(--bg-app);
-    padding: 6px;
+    min-width: unset; border-radius: 4px;
+    background: #111214;
+    padding: 6px 8px;
   }
   .ctx-item {
-    border-radius: 10px; padding: 14px 16px;
-    min-height: var(--touch-min, 44px);
+    border-radius: 2px; padding: 10px 12px;
+    min-height: 36px;
   }
 
   /* ── Scroll bottom button ─────────────────────────── */
@@ -258,8 +255,8 @@
   .welcome-shortcuts { flex-direction: column; gap: 10px; align-items: center; }
   .welcome-cards { grid-template-columns: 1fr; gap: 14px; max-width: 320px; }
   .welcome-content { padding: 32px 20px; border-radius: var(--radius-lg); }
-  .feature-card { padding: 22px 18px; border-radius: 16px; }
-  .feature-modal-card { width: 100vw; border-radius: 16px 16px 0 0; }
+  .feature-card { padding: 20px 16px; border-radius: 8px; }
+  .feature-modal-card { width: 100vw; border-radius: 8px 8px 0 0; }
 
   /* ── Forward modal ────────────────────────────────── */
   .forward-chat-list { max-height: 60vh; }
