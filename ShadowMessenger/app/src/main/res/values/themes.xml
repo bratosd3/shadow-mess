@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.ShadowMessenger" parent="android:Theme.Material.NoActionBar">
+        <item name="android:statusBarColor">@color/shadow_background</item>
+        <item name="android:navigationBarColor">@color/shadow_background</item>
+    </style>
+
+    <style name="Theme.ShadowMessenger.Splash" parent="Theme.ShadowMessenger">
+        <item name="android:windowBackground">@color/splash_bg</item>
+    </style>
+</resources>

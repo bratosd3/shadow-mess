@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="shadow_primary">#7C3AED</color>
+    <color name="shadow_background">#1A1A2E</color>
+    <color name="shadow_surface">#16213E</color>
+    <color name="shadow_white">#FFFFFF</color>
+    <color name="shadow_black">#000000</color>
+    <color name="splash_bg">#1A1A2E</color>
+</resources>

@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="theme-color" content="#1a1a2e"/>
+  <title>Shadow Message — Discord Style</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin/>
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&family=Nunito:wght@400;600;700;800&display=swap"/>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons+Round"/>
+  <link rel="stylesheet" href="discord-style.css"/>
+  <link rel="stylesheet" href="discord-mobile.css" media="(max-width: 768px)"/>
+</head>
+<body data-theme="dark" data-font="inter">
+
+<!-- ═══════════════════ MAIN APP LAYOUT ═══════════════════ -->
+<div class="app-container">
+
+  <!-- ══════ 1. SERVER LIST (левая узкая панель) ══════ -->
+  <nav class="server-list" id="server-list">
+    <div class="server-item home active" id="home-server" title="Главная">
+      <div class="server-icon home-icon">
+        <span class="material-icons-round">chat</span>
+      </div>
+      <div class="server-pill"></div>
+    </div>
+    <div class="server-separator"></div>
+
+    <div class="server-item" data-server="gaming" title="Gaming Hub">
+      <div class="server-icon" style="background: linear-gradient(135deg, #7c3aed, #a78bfa);">G</div>
+      <div class="server-pill"></div>
+      <span class="server-badge">3</span>
+    </div>
+    <div class="server-item" data-server="dev" title="Dev Team">
+      <div class="server-icon" style="background: linear-gradient(135deg, #059669, #34d399);">D</div>
+      <div class="server-pill"></div>
+    </div>
+    <div class="server-item" data-server="music" title="Music Lounge">
+      <div class="server-icon" style="background: linear-gradient(135deg, #dc2626, #f87171);">M</div>
+      <div class="server-pill"></div>
+      <span class="server-badge">12</span>
+    </div>
+    <div class="server-item" data-server="design" title="Design Studio">
+      <div class="server-icon" style="background: linear-gradient(135deg, #0ea5e9, #38bdf8);">
+        <span class="material-icons-round" style="font-size:20px">palette</span>
+      </div>
+      <div class="server-pill"></div>
+    </div>
+    <div class="server-item" data-server="study" title="Study Group">
+      <div class="server-icon" style="background: linear-gradient(135deg, #f59e0b, #fbbf24);">S</div>
+      <div class="server-pill"></div>
+    </div>
+
+    <div class="server-separator"></div>
+    <div class="server-item add-server" id="add-server-btn" title="Добавить сервер">
+      <div class="server-icon add-icon">
+        <span class="material-icons-round">add</span>
+      </div>
+    </div>
+    <div class="server-item" id="explore-btn" title="Обзор серверов">
+      <div class="server-icon explore-icon">
+        <span class="material-icons-round">explore</span>
+      </div>
+    </div>
+
+    <!-- Нижняя часть: кастомизация + профиль -->
+    <div class="server-list-bottom">
+      <div class="server-separator"></div>
+      <div class="server-item" id="customize-btn" title="Кастомизация">
+        <div class="server-icon customize-icon">
+          <span class="material-icons-round">tune</span>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <!-- ══════ 2. CHANNEL LIST (панель каналов) ══════ -->
+  <aside class="channel-panel" id="channel-panel">
+    <div class="channel-header">
+      <h2 class="channel-server-name" id="server-name">Shadow Message</h2>
+      <button class="channel-header-btn" id="server-dropdown-btn">
+        <span class="material-icons-round">expand_more</span>
+      </button>
+    </div>
+
+    <!-- Поиск -->
+    <div class="channel-search">
+      <div class="channel-search-box">
+        <span class="material-icons-round">search</span>
+        <input type="text" placeholder="Поиск..." id="channel-search-input"/>
+      </div>
+    </div>
+
+    <!-- Список каналов -->
+    <div class="channel-list" id="channel-list">
+      <!-- Текстовые каналы -->
+      <div class="channel-category">
+        <div class="category-header" data-collapsed="false">
+          <span class="material-icons-round category-arrow">expand_more</span>
+          <span class="category-name">ТЕКСТОВЫЕ КАНАЛЫ</span>
+          <button class="category-add-btn" title="Создать канал">
+            <span class="material-icons-round">add</span>
+          </button>
+        </div>
+        <div class="category-channels">
+          <div class="channel-item active" data-channel="general">
+            <span class="material-icons-round channel-icon">tag</span>
+            <span class="channel-name">общий</span>
+          </div>
+          <div class="channel-item" data-channel="announcements">
+            <span class="material-icons-round channel-icon">campaign</span>
+            <span class="channel-name">объявления</span>
+            <span class="channel-badge">5</span>
+          </div>
+          <div class="channel-item" data-channel="offtopic">
+            <span class="material-icons-round channel-icon">tag</span>
+            <span class="channel-name">оффтоп</span>
+          </div>
+          <div class="channel-item" data-channel="media">
+            <span class="material-icons-round channel-icon">tag</span>
+            <span class="channel-name">медиа</span>
+            <span class="channel-badge">2</span>
+          </div>
+          <div class="channel-item" data-channel="links">
+            <span class="material-icons-round channel-icon">tag</span>
+            <span class="channel-name">ссылки</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Голосовые каналы -->
+      <div class="channel-category">
+        <div class="category-header" data-collapsed="false">
+          <span class="material-icons-round category-arrow">expand_more</span>
+          <span class="category-name">ГОЛОСОВЫЕ КАНАЛЫ</span>
+          <button class="category-add-btn" title="Создать канал">
+            <span class="material-icons-round">add</span>
+          </button>
+        </div>
+        <div class="category-channels">
+          <div class="channel-item voice" data-channel="voice-general">
+            <span class="material-icons-round channel-icon">volume_up</span>
+            <span class="channel-name">Общий</span>
+            <span class="voice-users-count">2</span>
+          </div>
+          <div class="voice-users">
+            <div class="voice-user">
+              <div class="voice-user-avatar" style="background:#7c3aed">А</div>
+              <span>Алексей</span>
+              <span class="material-icons-round voice-user-icon">mic</span>
+            </div>
+            <div class="voice-user">
+              <div class="voice-user-avatar" style="background:#059669">М</div>
+              <span>Мария</span>
+              <span class="material-icons-round voice-user-icon">mic_off</span>
+            </div>
+          </div>
+          <div class="channel-item voice" data-channel="voice-gaming">
+            <span class="material-icons-round channel-icon">volume_up</span>
+            <span class="channel-name">Игровой</span>
+          </div>
+          <div class="channel-item voice" data-channel="voice-music">
+            <span class="material-icons-round channel-icon">volume_up</span>
+            <span class="channel-name">Музыка</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Пользовательская панель внизу -->
+    <div class="user-panel">
+      <div class="user-panel-avatar">
+        <div class="avatar-circle" style="background: linear-gradient(135deg, #6c5ce7, #a29bfe);">SM</div>
+        <div class="avatar-status online"></div>
+      </div>
+      <div class="user-panel-info">
+        <div class="user-panel-name">Shadow User</div>
+        <div class="user-panel-tag">#1337</div>
+      </div>
+      <div class="user-panel-actions">
+        <button class="user-action-btn" title="Микрофон" id="user-mic-btn">
+          <span class="material-icons-round">mic</span>
+        </button>
+        <button class="user-action-btn" title="Наушники" id="user-headset-btn">
+          <span class="material-icons-round">headset</span>
+        </button>
+        <button class="user-action-btn" title="Настройки" id="user-settings-btn">
+          <span class="material-icons-round">settings</span>
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ══════ 3. CHAT AREA (центральная панель) ══════ -->
+  <main class="chat-area" id="chat-area">
+    <!-- Chat header -->
+    <div class="chat-header">
+      <button class="mobile-menu-btn" id="mobile-menu-btn">
+        <span class="material-icons-round">menu</span>
+      </button>
+      <span class="material-icons-round chat-header-icon">tag</span>
+      <h3 class="chat-header-name">общий</h3>
+      <div class="chat-header-divider"></div>
+      <span class="chat-header-topic">Общий чат для всех участников сервера</span>
+      <div class="chat-header-actions">
+        <button class="header-action-btn" title="Закреплённые">
+          <span class="material-icons-round">push_pin</span>
+        </button>
+        <button class="header-action-btn" title="Участники" id="toggle-members-btn">
+          <span class="material-icons-round">people</span>
+        </button>
+        <div class="header-search-wrap">
+          <span class="material-icons-round">search</span>
+          <input type="text" placeholder="Поиск" class="header-search-input"/>
+        </div>
+        <button class="header-action-btn" title="Уведомления">
+          <span class="material-icons-round">notifications</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Messages -->
+    <div class="messages-container" id="messages-container">
+      <!-- Welcome -->
+      <div class="channel-welcome">
+        <div class="channel-welcome-icon">
+          <span class="material-icons-round">tag</span>
+        </div>
+        <h2>Добро пожаловать в #общий!</h2>
+        <p>Это начало канала <strong>#общий</strong>. Здесь начинается история.</p>
+      </div>
+
+      <!-- Date separator -->
+      <div class="date-separator"><span>28 февраля 2026</span></div>
+
+      <!-- Messages -->
+      <div class="message-group">
+        <div class="message-avatar" style="background: linear-gradient(135deg, #059669, #34d399);">А</div>
+        <div class="message-content">
+          <div class="message-header">
+            <span class="message-author" style="color: #34d399;">Алексей</span>
+            <span class="message-badge admin">Админ</span>
+            <span class="message-time">14:23</span>
+          </div>
+          <div class="message-text">Привет всем! Добро пожаловать на сервер Shadow Message 👋</div>
+          <div class="message-text">Здесь мы обсуждаем разработку и делимся идеями</div>
+          <div class="message-reactions">
+            <button class="reaction active"><span>👋</span><span class="reaction-count">5</span></button>
+            <button class="reaction"><span>🎉</span><span class="reaction-count">3</span></button>
+            <button class="reaction-add"><span class="material-icons-round">add_reaction</span></button>
+          </div>
+        </div>
+      </div>
+
+      <div class="message-group">
+        <div class="message-avatar" style="background: linear-gradient(135deg, #ec4899, #f472b6);">М</div>
+        <div class="message-content">
+          <div class="message-header">
+            <span class="message-author" style="color: #f472b6;">Мария</span>
+            <span class="message-badge mod">Модератор</span>
+            <span class="message-time">14:25</span>
+          </div>
+          <div class="message-text">Отлично! Я уже настроила каналы. Посмотрите категории слева 🎨</div>
+        </div>
+      </div>
+
+      <!-- Reply message -->
+      <div class="message-group">
+        <div class="message-avatar" style="background: linear-gradient(135deg, #0ea5e9, #38bdf8);">Д</div>
+        <div class="message-content">
+          <div class="message-reply-ref">
+            <span class="material-icons-round">reply</span>
+            <span class="reply-ref-author" style="color: #34d399;">Алексей</span>
+            <span class="reply-ref-text">Привет всем! Добро пожаловать на сервер...</span>
+          </div>
+          <div class="message-header">
+            <span class="message-author" style="color: #38bdf8;">Дмитрий</span>
+            <span class="message-time">14:28</span>
+          </div>
+          <div class="message-text">Круто! А есть документация по API? Хочу попробовать сделать бота 🤖</div>
+        </div>
+      </div>
+
+      <div class="date-separator"><span>Сегодня</span></div>
+
+      <!-- Embed message -->
+      <div class="message-group">
+        <div class="message-avatar" style="background: linear-gradient(135deg, #f59e0b, #fbbf24);">И</div>
+        <div class="message-content">
+          <div class="message-header">
+            <span class="message-author" style="color: #fbbf24;">Игорь</span>
+            <span class="message-time">09:15</span>
+          </div>
+          <div class="message-text">Вот интересная статья по Material Design 3:</div>
+          <div class="message-embed">
+            <div class="embed-accent" style="background: #0ea5e9;"></div>
+            <div class="embed-body">
+              <div class="embed-title">Material Design 3 — Guidelines</div>
+              <div class="embed-description">Полное руководство по Material You. Динамические цвета, обновлённые компоненты и адаптивный дизайн.</div>
+              <div class="embed-footer">material.io</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Image message -->
+      <div class="message-group">
+        <div class="message-avatar" style="background: linear-gradient(135deg, #7c3aed, #a78bfa);">С</div>
+        <div class="message-content">
+          <div class="message-header">
+            <span class="message-author" style="color: #a78bfa;">Сергей</span>
+            <span class="message-badge bot">БОТ</span>
+            <span class="message-time">10:42</span>
+          </div>
+          <div class="message-text">Новый дизайн готов! Вот превью:</div>
+          <div class="message-image-grid">
+            <div class="message-image-placeholder">
+              <span class="material-icons-round">image</span>
+              <span>screenshot_v2.png</span>
+            </div>
+          </div>
+          <div class="message-reactions">
+            <button class="reaction active"><span>🔥</span><span class="reaction-count">8</span></button>
+            <button class="reaction"><span>❤️</span><span class="reaction-count">4</span></button>
+            <button class="reaction"><span>👀</span><span class="reaction-count">2</span></button>
+            <button class="reaction-add"><span class="material-icons-round">add_reaction</span></button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Code block message -->
+      <div class="message-group">
+        <div class="message-avatar" style="background: linear-gradient(135deg, #059669, #34d399);">А</div>
+        <div class="message-content">
+          <div class="message-header">
+            <span class="message-author" style="color: #34d399;">Алексей</span>
+            <span class="message-badge admin">Админ</span>
+            <span class="message-time">11:30</span>
+          </div>
+          <div class="message-text">Пример настройки темы:</div>
+          <pre class="message-code"><code>const theme = {
+  primary: '#6c5ce7',
+  background: '#1a1a2e',
+  surface: '#16213e',
+  text: '#ecedf0',
+  accent: '#a29bfe'
+};</code></pre>
+        </div>
+      </div>
+
+      <!-- Typing indicator -->
+      <div class="typing-area">
+        <div class="typing-indicator">
+          <div class="typing-dots"><span></span><span></span><span></span></div>
+          <span class="typing-text"><strong>Мария</strong> печатает...</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Message input -->
+    <div class="message-input-area">
+      <div class="input-toolbar">
+        <button class="input-action-btn" title="Прикрепить файл">
+          <span class="material-icons-round">add_circle</span>
+        </button>
+      </div>
+      <div class="input-box">
+        <textarea id="msg-input" placeholder="Написать в #общий" rows="1"></textarea>
+        <div class="input-box-actions">
+          <button class="input-inline-btn" title="GIF">
+            <span class="material-icons-round">gif_box</span>
+          </button>
+          <button class="input-inline-btn" title="Стикеры">
+            <span class="material-icons-round">sticky_note_2</span>
+          </button>
+          <button class="input-inline-btn" title="Эмодзи">
+            <span class="material-icons-round">mood</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- ══════ 4. MEMBERS LIST (правая панель) ══════ -->
+  <aside class="members-panel" id="members-panel">
+    <div class="members-section">
+      <div class="members-category">АДМИНЫ — 1</div>
+      <div class="member-item">
+        <div class="member-avatar" style="background: linear-gradient(135deg, #059669, #34d399);">А</div>
+        <div class="member-status online"></div>
+        <div class="member-info">
+          <span class="member-name" style="color: #34d399;">Алексей</span>
+          <span class="member-activity">Играет в VS Code</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="members-section">
+      <div class="members-category">МОДЕРАТОРЫ — 1</div>
+      <div class="member-item">
+        <div class="member-avatar" style="background: linear-gradient(135deg, #ec4899, #f472b6);">М</div>
+        <div class="member-status online"></div>
+        <div class="member-info">
+          <span class="member-name" style="color: #f472b6;">Мария</span>
+          <span class="member-activity">🎵 Слушает Spotify</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="members-section">
+      <div class="members-category">В СЕТИ — 3</div>
+      <div class="member-item">
+        <div class="member-avatar" style="background: linear-gradient(135deg, #0ea5e9, #38bdf8);">Д</div>
+        <div class="member-status online"></div>
+        <div class="member-info">
+          <span class="member-name" style="color: #38bdf8;">Дмитрий</span>
+        </div>
+      </div>
+      <div class="member-item">
+        <div class="member-avatar" style="background: linear-gradient(135deg, #f59e0b, #fbbf24);">И</div>
+        <div class="member-status idle"></div>
+        <div class="member-info">
+          <span class="member-name" style="color: #fbbf24;">Игорь</span>
+          <span class="member-activity">Не активен</span>
+        </div>
+      </div>
+      <div class="member-item">
+        <div class="member-avatar" style="background: linear-gradient(135deg, #7c3aed, #a78bfa);">С</div>
+        <div class="member-status dnd"></div>
+        <div class="member-info">
+          <span class="member-name" style="color: #a78bfa;">Сергей</span>
+          <span class="member-activity">🤖 Не беспокоить</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="members-section">
+      <div class="members-category">НЕ В СЕТИ — 2</div>
+      <div class="member-item offline">
+        <div class="member-avatar" style="background: #555;">Е</div>
+        <div class="member-status offline-dot"></div>
+        <div class="member-info">
+          <span class="member-name">Елена</span>
+        </div>
+      </div>
+      <div class="member-item offline">
+        <div class="member-avatar" style="background: #555;">П</div>
+        <div class="member-status offline-dot"></div>
+        <div class="member-info">
+          <span class="member-name">Павел</span>
+        </div>
+      </div>
+    </div>
+  </aside>
+</div>
+
+<!-- ═══════════ CUSTOMIZATION PANEL (выезжает справа) ═══════════ -->
+<div class="customize-overlay hidden" id="customize-overlay"></div>
+<div class="customize-panel" id="customize-panel">
+  <div class="customize-header">
+    <h3><span class="material-icons-round">tune</span> Кастомизация</h3>
+    <button class="customize-close" id="customize-close">
+      <span class="material-icons-round">close</span>
+    </button>
+  </div>
+
+  <div class="customize-content">
+    <!-- Темы -->
+    <div class="customize-section">
+      <h4><span class="material-icons-round">palette</span> Тема оформления</h4>
+      <div class="theme-grid" id="theme-grid">
+        <button class="theme-card active" data-theme="dark">
+          <div class="theme-preview" style="background: #1a1a2e;"><div class="tp-sidebar" style="background:#16213e"></div><div class="tp-chat" style="background:#1a1a2e"></div><div class="tp-accent" style="background:#6c5ce7"></div></div>
+          <span>Тёмная</span>
+        </button>
+        <button class="theme-card" data-theme="light">
+          <div class="theme-preview" style="background: #f0f2f5;"><div class="tp-sidebar" style="background:#e8eaed"></div><div class="tp-chat" style="background:#fff"></div><div class="tp-accent" style="background:#6c5ce7"></div></div>
+          <span>Светлая</span>
+        </button>
+        <button class="theme-card" data-theme="midnight">
+          <div class="theme-preview" style="background: #08070e;"><div class="tp-sidebar" style="background:#0e0d18"></div><div class="tp-chat" style="background:#08070e"></div><div class="tp-accent" style="background:#8b5cf6"></div></div>
+          <span>Полночь</span>
+        </button>
+        <button class="theme-card" data-theme="ocean">
+          <div class="theme-preview" style="background: #0a1520;"><div class="tp-sidebar" style="background:#0e1c2d"></div><div class="tp-chat" style="background:#0a1520"></div><div class="tp-accent" style="background:#0ea5e9"></div></div>
+          <span>Океан</span>
+        </button>
+        <button class="theme-card" data-theme="forest">
+          <div class="theme-preview" style="background: #0a150e;"><div class="tp-sidebar" style="background:#0e1f14"></div><div class="tp-chat" style="background:#0a150e"></div><div class="tp-accent" style="background:#22c55e"></div></div>
+          <span>Лес</span>
+        </button>
+        <button class="theme-card" data-theme="sunset">
+          <div class="theme-preview" style="background: #18120a;"><div class="tp-sidebar" style="background:#211a0f"></div><div class="tp-chat" style="background:#18120a"></div><div class="tp-accent" style="background:#f97316"></div></div>
+          <span>Закат</span>
+        </button>
+        <button class="theme-card" data-theme="rose">
+          <div class="theme-preview" style="background: #150a10;"><div class="tp-sidebar" style="background:#1e0e16"></div><div class="tp-chat" style="background:#150a10"></div><div class="tp-accent" style="background:#ec4899"></div></div>
+          <span>Роза</span>
+        </button>
+        <button class="theme-card" data-theme="amoled">
+          <div class="theme-preview" style="background: #000;"><div class="tp-sidebar" style="background:#0a0a0a"></div><div class="tp-chat" style="background:#000"></div><div class="tp-accent" style="background:#a29bfe"></div></div>
+          <span>AMOLED</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Акцентные цвета -->
+    <div class="customize-section">
+      <h4><span class="material-icons-round">colorize</span> Акцентный цвет</h4>
+      <div class="accent-grid" id="accent-grid">
+        <button class="accent-dot active" data-accent="#6c5ce7" style="background:#6c5ce7" title="Фиолетовый"></button>
+        <button class="accent-dot" data-accent="#0ea5e9" style="background:#0ea5e9" title="Голубой"></button>
+        <button class="accent-dot" data-accent="#22c55e" style="background:#22c55e" title="Зелёный"></button>
+        <button class="accent-dot" data-accent="#f59e0b" style="background:#f59e0b" title="Жёлтый"></button>
+        <button class="accent-dot" data-accent="#ef4444" style="background:#ef4444" title="Красный"></button>
+        <button class="accent-dot" data-accent="#ec4899" style="background:#ec4899" title="Розовый"></button>
+        <button class="accent-dot" data-accent="#14b8a6" style="background:#14b8a6" title="Бирюзовый"></button>
+        <button class="accent-dot" data-accent="#8b5cf6" style="background:#8b5cf6" title="Индиго"></button>
+        <button class="accent-dot" data-accent="#f97316" style="background:#f97316" title="Оранжевый"></button>
+        <button class="accent-dot" data-accent="#64748b" style="background:#64748b" title="Серый"></button>
+      </div>
+      <div class="custom-color-row">
+        <label>Свой цвет:</label>
+        <input type="color" id="custom-accent-color" value="#6c5ce7"/>
+      </div>
+    </div>
+
+    <!-- Шрифты -->
+    <div class="customize-section">
+      <h4><span class="material-icons-round">text_fields</span> Шрифт</h4>
+      <div class="font-options" id="font-options">
+        <button class="font-option active" data-font="inter">
+          <span style="font-family: 'Inter', sans-serif;">Inter</span>
+        </button>
+        <button class="font-option" data-font="nunito">
+          <span style="font-family: 'Nunito', sans-serif;">Nunito</span>
+        </button>
+        <button class="font-option" data-font="system">
+          <span style="font-family: system-ui, sans-serif;">System</span>
+        </button>
+        <button class="font-option" data-font="mono">
+          <span style="font-family: 'JetBrains Mono', monospace;">Mono</span>
+        </button>
+      </div>
+      <div class="font-size-row">
+        <label>Размер: <span id="font-size-val">14px</span></label>
+        <input type="range" id="font-size-slider" min="12" max="20" value="14"/>
+      </div>
+    </div>
+
+    <!-- Анимации -->
+    <div class="customize-section">
+      <h4><span class="material-icons-round">animation</span> Анимации</h4>
+      <div class="toggle-row">
+        <span>Анимации интерфейса</span>
+        <label class="toggle-switch"><input type="checkbox" id="anim-ui" checked/><span class="toggle-slider"></span></label>
+      </div>
+      <div class="toggle-row">
+        <span>Анимации сообщений</span>
+        <label class="toggle-switch"><input type="checkbox" id="anim-messages" checked/><span class="toggle-slider"></span></label>
+      </div>
+      <div class="toggle-row">
+        <span>Плавные переходы</span>
+        <label class="toggle-switch"><input type="checkbox" id="anim-transitions" checked/><span class="toggle-slider"></span></label>
+      </div>
+      <div class="toggle-row">
+        <span>Размытие (Glass)</span>
+        <label class="toggle-switch"><input type="checkbox" id="anim-blur" checked/><span class="toggle-slider"></span></label>
+      </div>
+      <div class="anim-speed-row">
+        <label>Скорость: <span id="anim-speed-val">Normal</span></label>
+        <input type="range" id="anim-speed" min="0" max="3" value="1" step="1"/>
+      </div>
+    </div>
+
+    <!-- Другие настройки -->
+    <div class="customize-section">
+      <h4><span class="material-icons-round">display_settings</span> Дисплей</h4>
+      <div class="toggle-row">
+        <span>Компактный режим</span>
+        <label class="toggle-switch"><input type="checkbox" id="compact-mode"/><span class="toggle-slider"></span></label>
+      </div>
+      <div class="toggle-row">
+        <span>Крупные эмодзи</span>
+        <label class="toggle-switch"><input type="checkbox" id="large-emoji" checked/><span class="toggle-slider"></span></label>
+      </div>
+      <div class="toggle-row">
+        <span>Группировать сообщения</span>
+        <label class="toggle-switch"><input type="checkbox" id="group-messages" checked/><span class="toggle-slider"></span></label>
+      </div>
+      <div class="toggle-row">
+        <span>Показывать аватары</span>
+        <label class="toggle-switch"><input type="checkbox" id="show-avatars" checked/><span class="toggle-slider"></span></label>
+      </div>
+    </div>
+
+    <!-- Фон чата -->
+    <div class="customize-section">
+      <h4><span class="material-icons-round">wallpaper</span> Фон чата</h4>
+      <div class="wallpaper-grid" id="wallpaper-grid">
+        <button class="wallpaper-opt active" data-wp="none"><div class="wp-preview wp-none"></div><span>Нет</span></button>
+        <button class="wallpaper-opt" data-wp="dots"><div class="wp-preview wp-dots"></div><span>Точки</span></button>
+        <button class="wallpaper-opt" data-wp="grid"><div class="wp-preview wp-grid"></div><span>Сетка</span></button>
+        <button class="wallpaper-opt" data-wp="gradient"><div class="wp-preview wp-gradient"></div><span>Градиент</span></button>
+      </div>
+    </div>
+
+    <button class="customize-reset" id="reset-customization">
+      <span class="material-icons-round">restart_alt</span>
+      Сбросить настройки
+    </button>
+  </div>
+</div>
+
+<!-- ═══════ MOBILE BOTTOM NAVIGATION ═══════ -->
+<nav class="mobile-bottom-nav" id="mobile-bottom-nav">
+  <button class="mobile-nav-item active" data-view="servers">
+    <span class="material-icons-round">dns</span>
+    <span>Серверы</span>
+  </button>
+  <button class="mobile-nav-item" data-view="channels">
+    <span class="material-icons-round">forum</span>
+    <span>Каналы</span>
+  </button>
+  <button class="mobile-nav-item" data-view="chat">
+    <span class="material-icons-round">chat_bubble</span>
+    <span>Чат</span>
+    <span class="mobile-nav-badge">7</span>
+  </button>
+  <button class="mobile-nav-item" data-view="members">
+    <span class="material-icons-round">people</span>
+    <span>Участники</span>
+  </button>
+  <button class="mobile-nav-item" data-view="profile">
+    <span class="material-icons-round">person</span>
+    <span>Профиль</span>
+  </button>
+</nav>
+
+<!-- Toast -->
+<div class="toast-container" id="toast-container"></div>
+
+<script src="discord-app.js"></script>
+</body>
+</html>
