@@ -1603,3 +1603,210 @@ body:not(.large-emoji) .msg-sticker { font-size: 40px; }
 }
 @keyframes fadeOut { to { opacity: 0; } }
 @keyframes modalClose { to { opacity: 0; transform: scale(.88); } }
+
+/*  NEW LAYOUT STYLES  */
+
+/* Wrapper for Chat + Members */
+.chat-body-wrapper {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+  /* Ensure it takes remaining height in chat-panel flex col */
+  min-height: 0; 
+}
+
+/* Center Chat Area */
+.chat-center {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  position: relative;
+}
+
+/* Members Sidebar (Desktop) */
+.members-sidebar {
+  width: 240px;
+  background-color: var(--bg-secondary);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  transition: width 0.2s ease, margin-right 0.2s ease;
+}
+
+.members-sidebar.hidden {
+  display: none !important;
+}
+
+.members-header {
+  height: 48px;
+  padding: 0 16px;
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid var(--bg-modifier-accent);
+}
+
+.members-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 8px 20px;
+}
+
+.member-item {
+  display: flex;
+  align-items: center;
+  padding: 6px 8px;
+  margin-bottom: 2px;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: background-color 0.1s;
+  user-select: none;
+}
+
+.member-item:hover {
+  background-color: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.member-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  margin-right: 10px;
+  background-color: var(--bg-rail);
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: cover;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.member-status-dot {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--bg-secondary); /* Border color */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.member-status-dot::after {
+  content: '';
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--gray-500); /* Offline default */
+}
+.member-item.online .member-status-dot::after { background: var(--success); }
+.member-item.idle .member-status-dot::after { background: var(--warn); }
+.member-item.dnd .member-status-dot::after { background: var(--danger); }
+
+.member-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.member-name {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+.member-role {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 1px;
+}
+
+/*  NAV RAIL UPDATE  */
+/* Make it Discord-like */
+.nav-rail {
+    background-color: var(--bg-rail);
+    padding-top: 12px;
+    width: 72px; /* Ensure specific width */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.nav-rail-btn {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    margin-bottom: 8px;
+    background-color: var(--bg-secondary);
+    color: var(--success);
+    transition: border-radius .2s ease, background-color .2s ease, color .2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    border: none; /* Reset if needed */
+}
+
+/* Pill indicator */
+.nav-rail-btn::before {
+    content: '';
+    position: absolute;
+    left: -12px; /* Outside parent padding? No, fixed relative to btn */
+    top: 50%;
+    transform: translateY(-50%);
+    width: 4px;
+    height: 0px; /* Hidden by default */
+    background-color: var(--white);
+    border-radius: 0 4px 4px 0;
+    transition: height .2s ease;
+}
+/* Move pill relative to btn so it sticks out */
+.nav-rail-btn::before { left: -16px; }
+
+.nav-rail-btn:hover {
+    border-radius: 16px; /* Discord rounded square */
+    background-color: var(--success);
+    color: var(--white);
+}
+
+.nav-rail-btn.active {
+    border-radius: 16px;
+    background-color: var(--accent); /* Selected server color */
+    color: var(--white);
+}
+
+.nav-rail-btn:hover::before { height: 20px; }
+.nav-rail-btn.active::before { height: 40px; }
+
+/* Separator line */
+.nav-rail-separator {
+    width: 32px;
+    height: 2px;
+    background-color: var(--bg-modifier-accent);
+    margin: 8px 0;
+}
+/* Override existing nav-rail layout if needed */
+.nav-rail-top, .nav-rail-mid, .nav-rail-bottom {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+

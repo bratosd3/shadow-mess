@@ -345,3 +345,62 @@ body.keyboard-open .bottom-nav { display: none !important; }
   from { transform: translateY(100%); }
   to { transform: translateY(0); }
 }
+
+/*  NEW MOBILE STYLES  */
+
+/* Members Sidebar Overlay */
+.members-sidebar-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 99;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+.members-sidebar.active ~ .members-sidebar-overlay {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Make members sidebar appear as a drawer from the right */
+.members-sidebar {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    width: 85%;
+    max-width: 300px;
+    z-index: 100;
+    transform: translateX(100%);
+    transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    box-shadow: -5px 0 20px rgba(0,0,0,0.5);
+    background-color: var(--bg-sidebar);
+    border-left: none; /* remove desktop border */
+    display: flex !important; /* Override hidden class if it's there but keep off-screen */
+}
+
+/* When not active, use hidden to remove from accessibility tree or just transform */
+/* Actually, the JS toggle class 'hidden' might conflict. 
+   We should toggle 'mobile-active' class on mobile instead of relying on 'hidden'. 
+   But the JS likely uses 'hidden'. 
+   We'll need to override 'hidden' with 'display: flex' if 'mobile-active' is present. */
+
+.members-sidebar.hidden {
+    display: flex !important; /* Keep it in DOM for simple transition from off-screen */
+    transform: translateX(100%); /* Force hidden state visually */
+    pointer-events: none;
+}
+
+.members-sidebar:not(.hidden) {
+    transform: translateX(0);
+    pointer-events: auto;
+}
+
+/* Ensure overlay shows when sidebar is not hidden */
+.members-sidebar:not(.hidden) ~ .members-sidebar-overlay {
+    opacity: 1;
+    pointer-events: auto;
+}
+

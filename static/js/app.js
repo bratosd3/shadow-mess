@@ -844,6 +844,9 @@ async function openChat(chatId) {
   const c = S.chats.find(x => x.id === chatId);
   if (c) { c.unreadCount = 0; updateSingleChatItem(chatId); }
 
+  // Populate Members List
+  populateMembers(chat);
+
   // Mobile
   if (window.innerWidth <= 680) {
     $('chat-panel').classList.add('mobile-active');
@@ -2360,7 +2363,7 @@ async function createChannel() {
 // CHAT INFO MODAL
 // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 function initChatInfo() {
-  on('chat-info-btn',        'click', openChatManagement);
+  on('chat-info-btn',        'click', toggleMembersSidebar);
   on('chat-header-info-btn', 'click', openChatInfo);
 
   on('leave-chat-btn', 'click', async () => {
@@ -4403,3 +4406,107 @@ function initApp() {
     }
   }
 })();
+
+/*  MEMBERS SIDEBAR v2  */
+function toggleMembersSidebar() {
+  const sb = document.getElementById('members-sidebar');
+  if (!sb) return;
+  const overlay = document.querySelector('.members-sidebar-overlay');
+  
+  if (window.innerWidth <= 920) {
+    if (sb.classList.contains('active')) {
+        sb.classList.remove('active');
+        if (overlay) { overlay.style.opacity = '0'; overlay.style.pointerEvents = 'none'; }
+    } else {
+        sb.classList.add('active');
+        if (typeof S !== 'undefined' && S.activeChat) populateMembers(S.activeChat);
+        if (overlay) { overlay.style.opacity = '1'; overlay.style.pointerEvents = 'auto'; }
+    }
+  } else {
+    // Desktop toggle
+    if (sb.classList.contains('hidden')) {
+        sb.classList.remove('hidden');
+        if (typeof S !== 'undefined' && S.activeChat) populateMembers(S.activeChat);
+    } else {
+        sb.classList.add('hidden');
+    }
+  }
+}
+
+function populateMembers(chat) {
+  if (!chat) return;
+  const el = document.getElementById('members-list');
+  const countEl = document.getElementById('members-count');
+  if (!el || !countEl) return;
+  
+  let members = chat.membersInfo || [];
+  
+  countEl.textContent = members.length;
+  el.innerHTML = '';
+
+  const sorted = [...members].sort((a, b) => {
+    if (a.online && !b.online) return -1;
+    if (!a.online && b.online) return 1;
+    return (a.displayName || a.username || '').localeCompare(b.displayName || b.username || '');
+  });
+
+  sorted.forEach(m => {
+    const item = document.createElement('div');
+    item.className = 'member-item';
+    item.onclick = () => { if (typeof openUserProfile === 'function') openUserProfile(m.id); };
+    
+    if (m.online) item.classList.add('online');
+    else item.classList.add('offline');
+
+    const av = document.createElement('div');
+    av.className = 'member-avatar';
+    if (m.avatar) {
+      av.style.backgroundImage = 'url(' + m.avatar + ')';
+    } else {
+      av.style.backgroundColor = m.avatarColor || '#5865f2';
+      av.innerHTML = '<span style="color:#fff;font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:center;width:100%;height:100%">' + (m.displayName?.[0] || m.username?.[0] || '?').toUpperCase() + '</span>';
+    }
+
+    const dot = document.createElement('div');
+    dot.className = 'member-status-dot';
+    av.appendChild(dot);
+
+    const info = document.createElement('div');
+    info.className = 'member-info';
+
+    const nameLine = document.createElement('div');
+    nameLine.className = 'member-name';
+    nameLine.textContent = m.displayName || m.username;
+    
+    if (chat.ownerId === m.id) {
+        const crown = document.createElement('span');
+        crown.textContent = ' ';
+        crown.title = 'Âëàäåëåö';
+        crown.style.fontSize = '12px';
+        nameLine.appendChild(crown);
+    }
+    
+    const roleLine = document.createElement('div');
+    roleLine.className = 'member-role';
+    roleLine.textContent = m.online ? 'Â ñåòè' : (m.lastSeen ? 'Áûë(à) íåäàâíî' : 'Íå â ñåòè');
+
+    info.appendChild(nameLine);
+    info.appendChild(roleLine);
+
+    item.appendChild(av);
+    item.appendChild(info);
+    el.appendChild(item);
+  });
+}
+
+// Global click to close sidebar overlay
+document.addEventListener('click', (e) => {
+    if (e.target.closest('.members-sidebar-overlay')) {
+        const sb = document.getElementById('members-sidebar');
+        if (sb && sb.classList.contains('active')) {
+            sb.classList.remove('active');
+            e.target.style.opacity = '0';
+            e.target.style.pointerEvents = 'none';
+        }
+    }
+});

@@ -337,75 +337,93 @@
         </div>
       </div>
 
-      <!-- Pinned message bar -->
-      <div class="pinned-message-bar hidden" id="pinned-bar">
-        <div class="pinned-bar-accent"></div>
-        <div class="pinned-bar-body">
-          <div class="pinned-bar-label">📌 Закреплено</div>
-          <div class="pinned-bar-text" id="pinned-bar-text"></div>
+      <!-- MAIN CHAT BODY (Center + Members) -->
+      <div class="chat-body-wrapper">
+        
+        <!-- Center Column -->
+        <div class="chat-center">
+          
+          <!-- Pinned message bar -->
+          <div class="pinned-message-bar hidden" id="pinned-bar">
+            <div class="pinned-bar-accent"></div>
+            <div class="pinned-bar-body">
+              <div class="pinned-bar-label">📌 Закреплено</div>
+              <div class="pinned-bar-text" id="pinned-bar-text"></div>
+            </div>
+            <button class="icon-btn" id="unpin-btn" title="Открепить" style="margin-left:auto">✕</button>
+          </div>
+
+          <!-- In-chat search -->
+          <div class="chat-searchbar hidden" id="chat-searchbar">
+            <input id="chat-search-input" type="text" placeholder="Поиск в чате..."/>
+            <div class="chat-search-nav">
+              <button class="icon-btn" id="cs-prev" title="Вверх">▲</button>
+              <span id="cs-counter" class="cs-counter">0/0</span>
+              <button class="icon-btn" id="cs-next" title="Вниз">▼</button>
+              <button class="icon-btn" id="cs-close">✕</button>
+            </div>
+          </div>
+
+          <!-- Messages -->
+          <div class="messages-area" id="messages-area">
+            <div class="messages-loader hidden" id="messages-loader">Загрузка...</div>
+          </div>
+
+          <!-- Typing -->
+          <div class="typing-indicator hidden" id="typing-indicator">
+            <span class="typing-dots"><span></span><span></span><span></span></span>
+            <span id="typing-text"></span>
+          </div>
+
+          <!-- Reply preview -->
+          <div class="reply-preview hidden" id="reply-preview">
+            <div class="reply-preview-bar"></div>
+            <div class="reply-preview-content">
+              <div class="reply-preview-name" id="reply-preview-name"></div>
+              <div class="reply-preview-text" id="reply-preview-text"></div>
+            </div>
+            <button class="icon-btn" id="reply-cancel">✕</button>
+          </div>
+
+          <!-- Scroll to bottom -->
+          <button class="scroll-bottom-btn hidden" id="scroll-bottom-btn">↓</button>
+
+          <!-- Message input — flat toolbar style -->
+          <div class="message-input-wrap">
+            <input type="file" id="file-input" class="hidden" accept="*/*" multiple/>
+            <button class="icon-btn input-tool-btn" id="attach-btn" title="Прикрепить">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+            </button>
+            <div class="message-input-box">
+              <textarea id="msg-input" placeholder="Написать сообщение..." rows="1" maxlength="4096"></textarea>
+            </div>
+            <button class="icon-btn input-tool-btn" id="emoji-btn" title="Эмодзи">😊</button>
+            <button class="voice-record-btn" id="voice-record-btn" title="Голосовое сообщение">
+              <svg class="mic-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+              <svg class="cam-icon hidden" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+            </button>
+            <button class="video-msg-btn hidden" id="video-msg-btn" title="Видеосообщение">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+            </button>
+            <button class="send-btn hidden" id="send-btn" title="Отправить">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+            </button>
+          </div>
+
+          <div class="emoji-picker hidden" id="emoji-picker"></div>
+          <div class="sticker-picker hidden" id="sticker-picker"></div>
         </div>
-        <button class="icon-btn" id="unpin-btn" title="Открепить" style="margin-left:auto">✕</button>
+
+        <!-- Members Sidebar (Right) -->
+        <aside class="members-sidebar hidden" id="members-sidebar">
+          <div class="members-header">УЧАСТНИКИ — <span id="members-count">0</span></div>
+          <div class="members-list custom-scrollbar" id="members-list"></div>
+        </aside>
+
+        <!-- Overlay for members sidebar (mobile) -->
+        <div class="members-sidebar-overlay"></div>
+
       </div>
-
-      <!-- In-chat search -->
-      <div class="chat-searchbar hidden" id="chat-searchbar">
-        <input id="chat-search-input" type="text" placeholder="Поиск в чате..."/>
-        <div class="chat-search-nav">
-          <button class="icon-btn" id="cs-prev" title="Вверх">▲</button>
-          <span id="cs-counter" class="cs-counter">0/0</span>
-          <button class="icon-btn" id="cs-next" title="Вниз">▼</button>
-          <button class="icon-btn" id="cs-close">✕</button>
-        </div>
-      </div>
-
-      <!-- Messages -->
-      <div class="messages-area" id="messages-area">
-        <div class="messages-loader hidden" id="messages-loader">Загрузка...</div>
-      </div>
-
-      <!-- Typing -->
-      <div class="typing-indicator hidden" id="typing-indicator">
-        <span class="typing-dots"><span></span><span></span><span></span></span>
-        <span id="typing-text"></span>
-      </div>
-
-      <!-- Reply preview -->
-      <div class="reply-preview hidden" id="reply-preview">
-        <div class="reply-preview-bar"></div>
-        <div class="reply-preview-content">
-          <div class="reply-preview-name" id="reply-preview-name"></div>
-          <div class="reply-preview-text" id="reply-preview-text"></div>
-        </div>
-        <button class="icon-btn" id="reply-cancel">✕</button>
-      </div>
-
-      <!-- Scroll to bottom -->
-      <button class="scroll-bottom-btn hidden" id="scroll-bottom-btn">↓</button>
-
-      <!-- Message input — flat toolbar style -->
-      <div class="message-input-wrap">
-        <input type="file" id="file-input" class="hidden" accept="*/*" multiple/>
-        <button class="icon-btn input-tool-btn" id="attach-btn" title="Прикрепить">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-        </button>
-        <div class="message-input-box">
-          <textarea id="msg-input" placeholder="Написать сообщение..." rows="1" maxlength="4096"></textarea>
-        </div>
-        <button class="icon-btn input-tool-btn" id="emoji-btn" title="Эмодзи">😊</button>
-        <button class="voice-record-btn" id="voice-record-btn" title="Голосовое сообщение">
-          <svg class="mic-icon" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
-          <svg class="cam-icon hidden" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
-        </button>
-        <button class="video-msg-btn hidden" id="video-msg-btn" title="Видеосообщение">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
-        </button>
-        <button class="send-btn hidden" id="send-btn" title="Отправить">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
-        </button>
-      </div>
-
-      <div class="emoji-picker hidden" id="emoji-picker"></div>
-      <div class="sticker-picker hidden" id="sticker-picker"></div>
     </div>
   </main>
 
