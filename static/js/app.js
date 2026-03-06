@@ -2232,6 +2232,8 @@ function initSidebarTabs() {
     btn.addEventListener('click', () => {
       qsa('.sidebar-tab').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
+      // Sync nav-rail buttons
+      qsa('.nav-rail-btn[data-tab]').forEach(rb => rb.classList.toggle('active', rb.dataset.tab === btn.dataset.tab));
       S.activeTab = btn.dataset.tab;
       // Animate chat list transition
       const list = $('chat-list');
@@ -2242,6 +2244,15 @@ function initSidebarTabs() {
         list.classList.add('tab-fade-in');
         setTimeout(() => list.classList.remove('tab-fade-in'), 400);
       }, 200);
+    });
+  });
+
+  // Nav-rail buttons -> trigger sidebar tabs
+  qsa('.nav-rail-btn[data-tab]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tab = btn.dataset.tab;
+      const sidebarTab = document.querySelector(`.sidebar-tab[data-tab="${tab}"]`);
+      if (sidebarTab) sidebarTab.click();
     });
   });
 }
@@ -2731,18 +2742,22 @@ function initSettings() {
     const chatWallpaper = document.querySelector('.wallpaper-option.active')?.dataset.wp || 'dots';
     const sendByEnter = !!$('set-send-enter')?.checked;
     const uiAnimations = $('set-animations')?.checked !== false;
+    const glassBlur = $('set-glass-blur')?.checked !== false;
     const autoMedia = $('set-auto-media')?.checked !== false;
     const time24 = $('set-time24')?.checked !== false;
     const groupMessages = $('set-group-msgs')?.checked !== false;
+    const largeEmoji = $('set-large-emoji')?.checked !== false;
     const language = $('set-language')?.value || 'ru';
     // Подсказки (hints)
     const hintsEnabled = !!$('set-hints')?.checked;
     toggleHints(hintsEnabled);
     try {
-      const user = await API.put('/api/me', { settings: { theme, fontSize, accentColor, bubbleStyle, compactMode, chatWallpaper, sendByEnter, uiAnimations, autoMedia, time24, groupMessages, language } });
+      const user = await API.put('/api/me', { settings: { theme, fontSize, accentColor, bubbleStyle, compactMode, chatWallpaper, sendByEnter, uiAnimations, glassBlur, autoMedia, time24, groupMessages, largeEmoji, language } });
       S.user = user;
       // Apply animation toggle
       document.body.classList.toggle('no-animations', !uiAnimations);
+      document.body.classList.toggle('no-glass', !glassBlur);
+      document.body.classList.toggle('large-emoji', largeEmoji);
       applyLanguage(language);
       showToast(language === 'en' ? 'Appearance saved' : 'Оформление сохранено', 'success');
     } catch (e) { showToast(e.message, 'error'); }
@@ -2978,6 +2993,9 @@ async function loadSessions() {
 // ══════════════════════════════════════════════════════════
 function initSideMenu() {
   on('menu-btn', 'click', e => { e.stopPropagation(); $('side-menu').classList.toggle('hidden'); });
+  // Close button for side menu
+  const closeBtn = document.querySelector('[data-close-menu]');
+  if (closeBtn) closeBtn.addEventListener('click', () => $('side-menu').classList.add('hidden'));
   on('menu-logout',     'click', logout);
   on('menu-update',     'click', () => { $('side-menu').classList.add('hidden'); location.reload(); });
   on('menu-contacts',   'click', () => { $('side-menu').classList.add('hidden'); $('new-chat-btn').click(); });
@@ -3020,6 +3038,8 @@ function updateMenuProfile() {
   $('menu-display-name').textContent = u.displayName || '';
   $('menu-username').textContent = '@' + (u.username || '');
   renderAvatar($('menu-avatar'), u);
+  const avatarDisplay = $('menu-avatar-display');
+  if (avatarDisplay) renderAvatar(avatarDisplay, u, 'avatar-lg');
 }
 
 // ══════════════════════════════════════════════════════════
@@ -3535,6 +3555,11 @@ function applyAllSettings(s) {
   applyWallpaper(s?.chatWallpaper || 'dots');
   applyLanguage(s?.language || 'ru');
   document.body.classList.toggle('no-animations', s?.uiAnimations === false);
+  document.body.classList.toggle('no-glass', s?.glassBlur === false);
+  document.body.classList.toggle('large-emoji', s?.largeEmoji !== false);
+  // Restore UI checkboxes
+  if ($('set-glass-blur')) $('set-glass-blur').checked = s?.glassBlur !== false;
+  if ($('set-large-emoji')) $('set-large-emoji').checked = s?.largeEmoji !== false;
 }
 
 // ══════════════════════════════════════════════════════════
