@@ -210,9 +210,21 @@ function throttle(fn, ms) {
 
 // ── Theme & Font ─────────────────────────────────────────
 function applyTheme(t) {
-  document.body.setAttribute('data-theme', t || 'light');
-  const r = document.querySelector(`input[name="theme"][value="${t || 'light'}"]`);
+  t = t || 'light';
+  // Handle system theme
+  if (t === 'system') {
+    document.body.setAttribute('data-theme', 'system');
+  } else {
+    document.body.setAttribute('data-theme', t);
+  }
+  const r = document.querySelector(`input[name="theme"][value="${t}"]`);
   if (r) r.checked = true;
+  // Instantly persist theme in localStorage
+  try {
+    const u = JSON.parse(localStorage.getItem('sm_user') || '{}');
+    if (u && u.settings) { u.settings.theme = t; localStorage.setItem('sm_user', JSON.stringify(u)); }
+    else if (u) { u.settings = { theme: t }; localStorage.setItem('sm_user', JSON.stringify(u)); }
+  } catch {}
 }
 
 // ── Language / i18n ──────────────────────────────────────
@@ -665,6 +677,7 @@ function renderChatList(filter = '') {
 
   // Update browser tab title with unread count
   updateTabTitle();
+  if (typeof updateBottomNavBadge === 'function') updateBottomNavBadge();
 }
 
 /* ── Fast single-chat-item update (avoids full DOM rebuild) ── */
@@ -3656,6 +3669,154 @@ function initMobileKeyboardFix() {
 }
 
 // ══════════════════════════════════════════════════════════
+// iOS SWIPE BACK GESTURE
+// ══════════════════════════════════════════════════════════
+function initSwipeBack() {
+  const isMobile = () => window.innerWidth <= 680;
+  if (!isMobile()) return;
+
+  const chatPanel = $('chat-panel');
+  const swipeShadow = document.querySelector('.swipe-shadow');
+  if (!chatPanel) return;
+
+  let startX = 0, startY = 0, swiping = false, moved = false;
+  const EDGE = 28; // edge zone width
+  const THRESHOLD = 80; // min distance to trigger
+
+  chatPanel.addEventListener('touchstart', (e) => {
+    if (!chatPanel.classList.contains('mobile-active')) return;
+    const t = e.touches[0];
+    if (t.clientX > EDGE) return; // only from left edge
+    startX = t.clientX; startY = t.clientY;
+    swiping = true; moved = false;
+    chatPanel.style.transition = 'none';
+  }, { passive: true });
+
+  chatPanel.addEventListener('touchmove', (e) => {
+    if (!swiping) return;
+    const t = e.touches[0];
+    const dx = t.clientX - startX;
+    const dy = Math.abs(t.clientY - startY);
+    if (dy > 40 && !moved) { swiping = false; return; } // vertical scroll
+    if (dx < 0) return; // only drag right
+    moved = true;
+    chatPanel.style.transform = `translateX(${dx}px)`;
+    if (swipeShadow) {
+      swipeShadow.style.opacity = Math.max(0, 1 - dx / window.innerWidth) * 0.4;
+      swipeShadow.classList.add('visible');
+    }
+  }, { passive: true });
+
+  chatPanel.addEventListener('touchend', (e) => {
+    if (!swiping) return;
+    swiping = false;
+    chatPanel.style.transition = '';
+    const endX = e.changedTouches[0].clientX;
+    const dx = endX - startX;
+    if (moved && dx > THRESHOLD) {
+      // Go back
+      chatPanel.classList.remove('mobile-active');
+      chatPanel.style.transform = '';
+      $('back-btn')?.classList.add('hidden');
+      S.activeChat = null;
+      $('active-chat')?.classList.add('hidden');
+      $('welcome-screen')?.classList.remove('hidden');
+      updateBottomNav('chats');
+    } else {
+      chatPanel.style.transform = '';
+    }
+    if (swipeShadow) {
+      swipeShadow.classList.remove('visible');
+      swipeShadow.style.opacity = '';
+    }
+  }, { passive: true });
+}
+
+// ══════════════════════════════════════════════════════════
+// RIPPLE EFFECT
+// ══════════════════════════════════════════════════════════
+function initRippleEffect() {
+  document.addEventListener('pointerdown', (e) => {
+    const el = e.target.closest('.ripple-wrap, .icon-btn, .chat-item, .bottom-nav-item');
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width * 100).toFixed(1);
+    const y = ((e.clientY - rect.top) / rect.height * 100).toFixed(1);
+    el.style.setProperty('--ripple-x', x + '%');
+    el.style.setProperty('--ripple-y', y + '%');
+  });
+}
+
+// ══════════════════════════════════════════════════════════
+// BOTTOM NAVIGATION (mobile)
+// ══════════════════════════════════════════════════════════
+function initBottomNav() {
+  const nav = document.querySelector('.bottom-nav');
+  if (!nav) return;
+  const items = nav.querySelectorAll('.bottom-nav-item');
+
+  items.forEach(item => {
+    item.addEventListener('click', () => {
+      const target = item.dataset.tab;
+      updateBottomNav(target);
+
+      if (target === 'chats') {
+        // Show sidebar, hide chat
+        const cp = $('chat-panel');
+        if (cp) { cp.classList.remove('mobile-active'); cp.style.transform = ''; }
+        const sb = document.querySelector('.sidebar');
+        if (sb) sb.classList.remove('mobile-hidden');
+      } else if (target === 'settings') {
+        // Open settings modal
+        if (typeof openSettings === 'function') openSettings();
+      } else if (target === 'contacts') {
+        // Open new chat modal (contacts)
+        const btn = $('new-chat-btn');
+        if (btn) btn.click();
+      } else if (target === 'profile') {
+        // Open side menu
+        const menu = document.querySelector('.side-menu');
+        const overlay = document.querySelector('.side-menu-overlay');
+        if (menu) menu.classList.add('open');
+        if (overlay) overlay.classList.add('open');
+      }
+    });
+  });
+}
+
+function updateBottomNav(active) {
+  const nav = document.querySelector('.bottom-nav');
+  if (!nav) return;
+  nav.querySelectorAll('.bottom-nav-item').forEach(item => {
+    item.classList.toggle('active', item.dataset.tab === active);
+  });
+}
+
+// Update bottom nav badge with unread count
+function updateBottomNavBadge() {
+  const badge = document.querySelector('.bottom-nav-badge');
+  if (!badge) return;
+  const total = S.chats ? S.chats.reduce((sum, c) => sum + (c.unread || 0), 0) : 0;
+  badge.textContent = total > 0 ? (total > 99 ? '99+' : total) : '';
+}
+
+// ══════════════════════════════════════════════════════════
+// SYSTEM THEME DETECTION
+// ══════════════════════════════════════════════════════════
+function initSystemTheme() {
+  if (!window.matchMedia) return;
+  const mq = window.matchMedia('(prefers-color-scheme: dark)');
+  mq.addEventListener('change', () => {
+    const current = document.body.getAttribute('data-theme');
+    if (current === 'system') {
+      // Force re-apply to trigger CSS media query update
+      document.body.removeAttribute('data-theme');
+      requestAnimationFrame(() => document.body.setAttribute('data-theme', 'system'));
+    }
+  });
+}
+
+// ══════════════════════════════════════════════════════════
 // PUSH NOTIFICATIONS SUBSCRIPTION
 // ══════════════════════════════════════════════════════════
 function updatePushStatusUI() {
@@ -4138,6 +4299,10 @@ function initApp() {
   updateMenuProfile();
   initMobileKeyboardFix();
   initHints();
+  initSwipeBack();
+  initRippleEffect();
+  initBottomNav();
+  initSystemTheme();
 
   // Listen for Service Worker messages (call answer / reject from notification)
   if ('serviceWorker' in navigator) {
