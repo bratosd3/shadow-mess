@@ -1,0 +1,27 @@
+﻿<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1a1a2e"/>
+      <stop offset="100%" stop-color="#0a0a15"/>
+    </linearGradient>
+    <radialGradient id="gl" cx=".5" cy=".88" r=".3">
+      <stop offset="0%" stop-color="#4f7cff" stop-opacity=".2"/>
+      <stop offset="100%" stop-color="#4f7cff" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <text x="256" y="108" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="62" font-weight="700" fill="#fff" opacity=".9" letter-spacing="6">Shadow</text>
+  <ellipse cx="256" cy="420" rx="70" ry="10" fill="url(#gl)"/>
+  <g stroke="#fff" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <circle cx="256" cy="168" r="30" stroke-width="8" opacity=".9"/>
+    <line x1="256" y1="198" x2="256" y2="212" stroke-width="8" opacity=".75"/>
+    <line x1="256" y1="212" x2="256" y2="310" stroke-width="9" opacity=".75"/>
+    <line x1="210" y1="235" x2="302" y2="235" stroke-width="9" opacity=".7"/>
+    <line x1="210" y1="235" x2="190" y2="300" stroke-width="8" opacity=".65"/>
+    <line x1="302" y1="235" x2="322" y2="300" stroke-width="8" opacity=".65"/>
+    <line x1="256" y1="310" x2="224" y2="380" stroke-width="9" opacity=".6"/>
+    <line x1="224" y1="380" x2="216" y2="420" stroke-width="8" opacity=".55"/>
+    <line x1="256" y1="310" x2="288" y2="380" stroke-width="9" opacity=".6"/>
+    <line x1="288" y1="380" x2="296" y2="420" stroke-width="8" opacity=".55"/>
+  </g>
+</svg>
