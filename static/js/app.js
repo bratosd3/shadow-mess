@@ -36,10 +36,23 @@ const hide = el => el?.classList.add('hidden');
 const show = el => el?.classList.remove('hidden');
 
 const THEMES = {
-  default:'#313338',midnight:'#0d1117',forest:'#1a1e1a',crimson:'#1a1013',
-  purple:'#16101e',ocean:'#0a1628',sunset:'#1a1210',nord:'#2e3440',
-  monokai:'#1e1f1c',dracula:'#21222c',solarized:'#002b36',onedark:'#21252b',
-  gruvbox:'#1d2021',tokyo:'#16161e',material:'#1a1a1a',catppuccin:'#1e1e2e',light:'#ffffff'
+  default:  {bg:'#313338',dark:'#1e1f22',sec:'#2b2d31',brand:'#5865f2'},
+  midnight: {bg:'#1c2128',dark:'#0d1117',sec:'#161b22',brand:'#58a6ff'},
+  forest:   {bg:'#2a3328',dark:'#1a1e1a',sec:'#22291f',brand:'#4caf50'},
+  crimson:  {bg:'#30181e',dark:'#1a1013',sec:'#261418',brand:'#e53935'},
+  purple:   {bg:'#261a34',dark:'#16101e',sec:'#1e1529',brand:'#9c27b0'},
+  ocean:    {bg:'#142844',dark:'#0a1628',sec:'#0f1f36',brand:'#0288d1'},
+  sunset:   {bg:'#33201a',dark:'#1a1210',sec:'#261915',brand:'#ff7043'},
+  nord:     {bg:'#434c5e',dark:'#2e3440',sec:'#3b4252',brand:'#88c0d0'},
+  monokai:  {bg:'#2f302b',dark:'#1e1f1c',sec:'#272822',brand:'#a6e22e'},
+  dracula:  {bg:'#2d2f3d',dark:'#21222c',sec:'#282a36',brand:'#bd93f9'},
+  solarized:{bg:'#0a3d4a',dark:'#002b36',sec:'#073642',brand:'#2aa198'},
+  onedark:  {bg:'#2c313c',dark:'#21252b',sec:'#282c34',brand:'#61afef'},
+  gruvbox:  {bg:'#3c3836',dark:'#1d2021',sec:'#282828',brand:'#fabd2f'},
+  tokyo:    {bg:'#1e202e',dark:'#16161e',sec:'#1a1b26',brand:'#7aa2f7'},
+  material: {bg:'#2c2c2c',dark:'#1a1a1a',sec:'#212121',brand:'#82aaff'},
+  catppuccin:{bg:'#302d41',dark:'#1e1e2e',sec:'#24243e',brand:'#cba6f7'},
+  light:    {bg:'#ffffff',dark:'#e3e5e8',sec:'#f2f3f5',brand:'#5865f2'}
 };
 
 const AVATARS = ['#5865f2','#57f287','#fee75c','#eb459e','#ed4245','#3ba55c','#faa61a','#e67e22','#9b59b6','#1abc9c'];
@@ -49,7 +62,7 @@ function avatarHTML(u, cls = '') {
   const style = `background:${u.avatarColor || u.displayAvatarColor || AVATARS[0]}`;
   const letter = (u.displayName || u.username || '?')[0].toUpperCase();
   if (u.avatar || u.displayAvatar) {
-    return `<div class="${cls}" style="${style}"><img src="${escHTML(u.avatar || u.displayAvatar)}" alt="" onerror="this.parentElement.textContent='${letter}'"></div>`;
+    return `<div class="${cls}" style="${style}">${letter}<img src="${escHTML(u.avatar || u.displayAvatar)}" alt=""></div>`;
   }
   return `<div class="${cls}" style="${style}">${letter}</div>`;
 }
@@ -93,6 +106,15 @@ function showToast(msg, type = 'info') {
   setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 300); }, 3000);
 }
 window.showToast = showToast;
+
+/* ── Broken avatar image fallback ──────────────────────────────────── */
+document.addEventListener('error', e => {
+  if (e.target.tagName !== 'IMG') return;
+  const p = e.target.parentElement;
+  if (p && p.matches('.ci-avatar,.msg-av,.avatar-sm,.avatar-lg,.avatar-xl,.m-avatar,.ct-avatar,.sb-user,.s-profile-av,.vk-call-avatar,.incoming-avatar,.call-mini-avatar')) {
+    e.target.style.display = 'none';
+  }
+}, true);
 
 /* ── API ────────────────────────────────────────────────────────────── */
 async function api(url, opts = {}) {
@@ -187,6 +209,7 @@ async function boot() {
   hide($('auth-screen'));
   show($('app'));
   applyTheme(S.user.settings?.theme || 'default');
+  applyDesignPrefs();
   initSocket();
   initUI();
   loadChats();
@@ -302,7 +325,7 @@ function initSocket() {
    ══════════════════════════════════════════════════════════════════════ */
 function initUI() {
   // Sidebar
-  $('sb-user-pill').innerHTML = (S.user.avatar ? `<img src="${escHTML(S.user.avatar)}">` : (S.user.displayName || '?')[0].toUpperCase());
+  $('sb-user-pill').innerHTML = (S.user.displayName || '?')[0].toUpperCase() + (S.user.avatar ? `<img src="${escHTML(S.user.avatar)}">` : '');
   $('nav-dms').onclick = () => switchTab('chats');
   $('btn-add-hub').onclick = () => show($('modal-group'));
   $('nav-settings').onclick = () => openSettings();
@@ -434,6 +457,9 @@ function initUI() {
   // Theme
   buildThemeGrid('theme-grid');
 
+  // Design options
+  initDesignOptions();
+
   // Fill settings
   fillSettings();
 
@@ -516,7 +542,7 @@ function renderChatList() {
     const onlineDot = c.online ? '<div class="ci-online"></div>' : '';
     const name = escHTML(c.displayName || c.name || 'Чат');
     return `<div class="chat-item${c.id === S.chatId ? ' active' : ''}" data-id="${c.id}">
-      <div class="ci-avatar" style="background:${c.displayAvatarColor || c.avatarColor || AVATARS[0]}">${c.displayAvatar || c.avatar ? `<img src="${escHTML(c.displayAvatar || c.avatar)}">` : name[0]}${onlineDot}</div>
+      <div class="ci-avatar" style="background:${c.displayAvatarColor || c.avatarColor || AVATARS[0]}">${name[0]}${c.displayAvatar || c.avatar ? `<img src="${escHTML(c.displayAvatar || c.avatar)}">` : ''}${onlineDot}</div>
       <div class="ci-body"><div class="ci-top"><span class="ci-name">${name}</span><span class="ci-time">${time}</span></div><div class="ci-bottom"><span class="ci-msg">${preview}</span>${badge}</div></div>
     </div>`;
   }).join('');
@@ -608,7 +634,7 @@ function updateChatHeader() {
   $('ch-name').textContent = name;
   const avEl = $('ch-avatar');
   avEl.style.background = c.displayAvatarColor || c.avatarColor || AVATARS[0];
-  avEl.innerHTML = (c.displayAvatar || c.avatar) ? `<img src="${escHTML(c.displayAvatar || c.avatar)}">` : name[0].toUpperCase();
+  avEl.innerHTML = name[0].toUpperCase() + ((c.displayAvatar || c.avatar) ? `<img src="${escHTML(c.displayAvatar || c.avatar)}">` : '');
 
   if (c.type === 'private') {
     $('ch-status').textContent = c.online ? 'в сети' : (c._lastSeen ? `был(а) ${fmtTime(c._lastSeen)}` : '');
@@ -648,7 +674,7 @@ function renderMessages() {
 
     const cls = sameAuthor ? 'msg msg-collapsed' : 'msg';
     const color = m.senderAvatarColor || AVATARS[0];
-    const av = sameAuthor ? '<div class="msg-av" style="visibility:hidden"></div>' : `<div class="msg-av" style="background:${color}" data-uid="${m.senderId}">${m.senderAvatar ? `<img src="${escHTML(m.senderAvatar)}">` : (m.senderName || '?')[0].toUpperCase()}</div>`;
+    const av = sameAuthor ? '<div class="msg-av" style="visibility:hidden"></div>' : `<div class="msg-av" style="background:${color}" data-uid="${m.senderId}">${(m.senderName || '?')[0].toUpperCase()}${m.senderAvatar ? `<img src="${escHTML(m.senderAvatar)}">` : ''}</div>`;
     const nameColor = m.senderSuperUser ? '#ffd700' : color;
     const author = sameAuthor ? '' : `<div class="msg-top"><span class="msg-author" style="color:${nameColor}" data-uid="${m.senderId}">${escHTML(m.senderName)}</span><span class="msg-time">${fmtTime(m.timestamp)}</span>${m.editedAt ? '<span class="msg-edited">(ред.)</span>' : ''}</div>`;
 
@@ -1101,7 +1127,7 @@ function renderMembers() {
   const list = $('members-list');
   if (c.membersInfo?.length) {
     list.innerHTML = c.membersInfo.map(m => `<div class="member-item" onclick="showProfileById('${m.id}')">
-      <div class="m-avatar" style="background:${m.avatarColor || AVATARS[0]}">${m.avatar ? `<img src="${escHTML(m.avatar)}">` : (m.displayName || '?')[0].toUpperCase()}<div class="m-dot ${m.online ? 'on' : 'off'}"></div></div>
+      <div class="m-avatar" style="background:${m.avatarColor || AVATARS[0]}">${(m.displayName || '?')[0].toUpperCase()}${m.avatar ? `<img src="${escHTML(m.avatar)}">` : ''}<div class="m-dot ${m.online ? 'on' : 'off'}"></div></div>
       <span class="m-name ${m.online ? 'm-online' : ''}">${escHTML(m.displayName)}</span>
     </div>`).join('');
   } else if (c.type === 'private') {
@@ -1133,7 +1159,7 @@ function showProfile(u) {
   $('pv-bio').textContent = u.bio || '';
   const av = $('pv-avatar');
   av.style.background = u.avatarColor || AVATARS[0];
-  av.innerHTML = u.avatar ? `<img src="${escHTML(u.avatar)}">` : (u.displayName || '?')[0].toUpperCase();
+  av.innerHTML = (u.displayName || '?')[0].toUpperCase() + (u.avatar ? `<img src="${escHTML(u.avatar)}">` : '');
 
   const actions = $('pv-actions');
   if (u.id !== S.user.id) {
@@ -1179,7 +1205,7 @@ function fillSettings() {
   const avPreview = $('settings-avatar-preview');
   if (avPreview) {
     avPreview.style.background = S.user?.avatarColor || AVATARS[0];
-    avPreview.innerHTML = S.user?.avatar ? `<img src="${escHTML(S.user.avatar)}">` : (S.user?.displayName || '?')[0].toUpperCase();
+    avPreview.innerHTML = (S.user?.displayName || '?')[0].toUpperCase() + (S.user?.avatar ? `<img src="${escHTML(S.user.avatar)}">` : '');
   }
   if ($('settings-preview-name')) $('settings-preview-name').textContent = S.user?.displayName || '';
   if ($('settings-preview-uname')) $('settings-preview-uname').textContent = '@' + (S.user?.username || '');
@@ -1194,8 +1220,14 @@ function fillSettings() {
   $('mob-name') && ($('mob-name').textContent = S.user?.displayName || '');
   if ($('mob-avatar')) {
     $('mob-avatar').style.background = S.user?.avatarColor || AVATARS[0];
-    $('mob-avatar').innerHTML = S.user?.avatar ? `<img src="${escHTML(S.user.avatar)}">` : (S.user?.displayName || '?')[0].toUpperCase();
+    $('mob-avatar').innerHTML = (S.user?.displayName || '?')[0].toUpperCase() + (S.user?.avatar ? `<img src="${escHTML(S.user.avatar)}">` : '');
   }
+
+  // Design prefs in settings UI
+  const fontSize = S.user?.settings?.fontSize || 'normal';
+  $$('#font-size-opts .s-opt-btn').forEach(b => b.classList.toggle('active', b.dataset.val === fontSize));
+  const msgDensity = S.user?.settings?.msgDensity || 'cozy';
+  $$('#msg-density-opts .s-opt-btn').forEach(b => b.classList.toggle('active', b.dataset.val === msgDensity));
 }
 
 async function saveProfile() {
@@ -1285,8 +1317,12 @@ function applyTheme(theme) {
 function buildThemeGrid(containerId) {
   const grid = $(containerId);
   if (!grid) return;
-  grid.innerHTML = Object.entries(THEMES).map(([name, color]) =>
-    `<div class="theme-swatch${name === (S.user?.settings?.theme || 'default') ? ' active' : ''}" data-theme="${name}" style="background:${color}"><span class="ts-name">${name}</span></div>`
+  const isLarge = grid.classList.contains('theme-grid-large');
+  grid.innerHTML = Object.entries(THEMES).map(([name, t]) =>
+    `<div class="theme-swatch${name === (S.user?.settings?.theme || 'default') ? ' active' : ''}" data-theme="${name}" style="background:${t.bg}">
+      ${isLarge ? `<div class="ts-preview"><div class="ts-sb" style="background:${t.dark}"></div><div class="ts-pnl" style="background:${t.sec}"></div><div class="ts-ch"><div class="ts-m1" style="background:${t.sec}"></div><div class="ts-m2" style="background:${t.brand}"></div></div></div>` : ''}
+      <span class="ts-name">${name}</span>
+    </div>`
   ).join('');
   grid.querySelectorAll('.theme-swatch').forEach(s => s.onclick = async () => {
     applyTheme(s.dataset.theme);
@@ -1294,6 +1330,70 @@ function buildThemeGrid(containerId) {
       S.user = await api('/api/me', { method: 'PUT', body: JSON.stringify({ settings: { theme: s.dataset.theme } }) });
     } catch {}
   });
+}
+
+/* ── Design customization ──────────────────────────────────────────── */
+function applyDesignPrefs() {
+  const s = S.user?.settings || {};
+  // Font size
+  document.body.classList.remove('font-small', 'font-large');
+  if (s.fontSize && s.fontSize !== 'normal') document.body.classList.add(`font-${s.fontSize}`);
+  // Message density
+  document.body.classList.remove('density-compact', 'density-comfortable');
+  if (s.msgDensity && s.msgDensity !== 'cozy') document.body.classList.add(`density-${s.msgDensity}`);
+  // Wallpaper
+  applyWallpaper(s.wallpaper);
+}
+
+function applyWallpaper(wp) {
+  const mc = $('messages-container');
+  if (mc) {
+    mc.classList.remove('wp-dots', 'wp-grid', 'wp-diag', 'wp-cross');
+    if (wp && wp !== 'none') mc.classList.add(`wp-${wp}`);
+  }
+}
+
+function buildWallpaperGrid() {
+  const grid = $('wallpaper-grid');
+  if (!grid) return;
+  const wallpapers = [
+    { id: 'none', label: 'Нет', bg: '' },
+    { id: 'dots', label: '···', bg: 'radial-gradient(circle,var(--bg-active) 1px,transparent 1px)' },
+    { id: 'grid', label: '⊞', bg: 'linear-gradient(var(--bg-active) 1px,transparent 1px),linear-gradient(90deg,var(--bg-active) 1px,transparent 1px)' },
+    { id: 'diag', label: '⟋', bg: 'repeating-linear-gradient(45deg,transparent,transparent 6px,rgba(255,255,255,.03) 6px,rgba(255,255,255,.03) 12px)' },
+    { id: 'cross', label: '✕', bg: 'repeating-linear-gradient(45deg,transparent,transparent 8px,rgba(255,255,255,.02) 8px,rgba(255,255,255,.02) 9px),repeating-linear-gradient(-45deg,transparent,transparent 8px,rgba(255,255,255,.02) 8px,rgba(255,255,255,.02) 9px)' },
+  ];
+  const current = S.user?.settings?.wallpaper || 'none';
+  grid.innerHTML = wallpapers.map(w =>
+    `<div class="wp-swatch${w.id === current ? ' active' : ''}" data-wp="${w.id}" style="${w.bg ? 'background-image:' + w.bg + ';background-size:12px 12px' : ''}"><span class="wp-label">${w.label}</span></div>`
+  ).join('');
+  grid.querySelectorAll('.wp-swatch').forEach(s => s.onclick = async () => {
+    grid.querySelectorAll('.wp-swatch').forEach(x => x.classList.remove('active'));
+    s.classList.add('active');
+    applyWallpaper(s.dataset.wp);
+    saveSettingsToggle('wallpaper', s.dataset.wp);
+  });
+}
+
+function initDesignOptions() {
+  // Font size
+  $$('#font-size-opts .s-opt-btn').forEach(b => b.onclick = () => {
+    $$('#font-size-opts .s-opt-btn').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    document.body.classList.remove('font-small', 'font-large');
+    if (b.dataset.val !== 'normal') document.body.classList.add(`font-${b.dataset.val}`);
+    saveSettingsToggle('fontSize', b.dataset.val);
+  });
+  // Message density
+  $$('#msg-density-opts .s-opt-btn').forEach(b => b.onclick = () => {
+    $$('#msg-density-opts .s-opt-btn').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    document.body.classList.remove('density-compact', 'density-comfortable');
+    if (b.dataset.val !== 'cozy') document.body.classList.add(`density-${b.dataset.val}`);
+    saveSettingsToggle('msgDensity', b.dataset.val);
+  });
+  // Wallpaper
+  buildWallpaperGrid();
 }
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -1388,7 +1488,7 @@ function startCallAction(type) {
   $('call-audio-name').textContent = S.chatObj.displayName || 'Звонок';
   const av = $('call-audio-avatar');
   av.style.background = S.chatObj.displayAvatarColor || AVATARS[0];
-  av.innerHTML = (S.chatObj.displayAvatar) ? `<img src="${escHTML(S.chatObj.displayAvatar)}">` : (S.chatObj.displayName || '?')[0].toUpperCase();
+  av.innerHTML = (S.chatObj.displayName || '?')[0].toUpperCase() + (S.chatObj.displayAvatar ? `<img src="${escHTML(S.chatObj.displayAvatar)}">` : '');
   window.callsModule.startCall(peerId, type);
 }
 
@@ -1400,7 +1500,7 @@ function handleIncomingCall(data) {
   $('incoming-type').textContent = data.callType === 'video' ? 'Видеозвонок' : 'Аудиозвонок';
   const av = $('incoming-avatar');
   av.style.background = data.fromAvatarColor || AVATARS[0];
-  av.innerHTML = data.fromAvatar ? `<img src="${escHTML(data.fromAvatar)}">` : (data.fromName || '?')[0].toUpperCase();
+  av.innerHTML = (data.fromName || '?')[0].toUpperCase() + (data.fromAvatar ? `<img src="${escHTML(data.fromAvatar)}">` : '');
   show(overlay);
 }
 
@@ -1412,7 +1512,7 @@ function acceptIncoming() {
   $('call-audio-name').textContent = _incomingCallData.fromName || 'Звонок';
   const av = $('call-audio-avatar');
   av.style.background = _incomingCallData.fromAvatarColor || AVATARS[0];
-  av.innerHTML = _incomingCallData.fromAvatar ? `<img src="${escHTML(_incomingCallData.fromAvatar)}">` : (_incomingCallData.fromName || '?')[0].toUpperCase();
+  av.innerHTML = (_incomingCallData.fromName || '?')[0].toUpperCase() + (_incomingCallData.fromAvatar ? `<img src="${escHTML(_incomingCallData.fromAvatar)}">` : '');
   window.callsModule.acceptCall(_incomingCallData.from, _incomingCallData.offer, _incomingCallData.callType);
   _incomingCallData = null;
 }

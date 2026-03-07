@@ -2,9 +2,10 @@
 // Shadow Mess — Service Worker (PWA + Push Notifications + Caching)
 // =============================================================================
 
-const CACHE_NAME = 'shadow-mess-v20';
+const CACHE_NAME = 'shadow-mess-v21';
 const ASSETS = [
   '/',
+  '/static/icons/icon.svg',
   '/static/icons/icon-192.png',
   '/static/icons/icon-512.png',
   '/manifest.json',

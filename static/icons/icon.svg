@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="ghostGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7c3aed"/>
+      <stop offset="100%" stop-color="#5865f2"/>
+    </linearGradient>
+    <filter id="ghostShadow">
+      <feDropShadow dx="0" dy="4" stdDeviation="12" flood-color="#5865f2" flood-opacity=".35"/>
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="#1e1f22"/>
+  <g filter="url(#ghostShadow)">
+    <path d="M256 72c-88 0-152 64-152 152v160c0 6 3 11 8 8l40-28c7-5 14-5 20 0l36 28c6 5 14 5 20 0l28-22 28 22c6 5 14 5 20 0l36-28c7-5 14-5 20 0l40 28c5 3 8-2 8-8V224c0-88-64-152-152-152z" fill="url(#ghostGrad)" opacity=".95"/>
+    <ellipse cx="212" cy="212" rx="24" ry="28" fill="#fff" opacity=".95"/>
+    <ellipse cx="300" cy="212" rx="24" ry="28" fill="#fff" opacity=".95"/>
+    <circle cx="218" cy="218" r="12" fill="#1a1a2e"/>
+    <circle cx="306" cy="218" r="12" fill="#1a1a2e"/>
+    <circle cx="224" cy="210" r="4.5" fill="#fff" opacity=".85"/>
+    <circle cx="312" cy="210" r="4.5" fill="#fff" opacity=".85"/>
+    <path d="M232 264q24 20 48 0" stroke="rgba(255,255,255,.35)" stroke-width="3.5" fill="none" stroke-linecap="round"/>
+  </g>
+</svg>

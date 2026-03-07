@@ -8,7 +8,8 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Shadow Messenger</title>
   <link rel="manifest" href="/static/manifest.json">
-  <link rel="icon" href="/static/icons/ghost.png">
+  <link rel="icon" href="/static/icons/icon.svg" type="image/svg+xml">
+  <link rel="icon" href="/static/icons/ghost.png" type="image/png">
   <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link rel="stylesheet" href="/static/css/style.css">
@@ -27,12 +28,14 @@
           </linearGradient>
           <filter id="gGlow"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
         </defs>
-        <path d="M50 5 C25 5 10 25 10 50 L10 95 C10 98 12 100 15 98 L25 90 C27 88 30 88 32 90 L40 98 C42 100 45 100 47 98 L50 95 L53 98 C55 100 58 100 60 98 L68 90 C70 88 73 88 75 90 L85 98 C88 100 90 98 90 95 L90 50 C90 25 75 5 50 5Z" fill="url(#gGrad)" filter="url(#gGlow)" opacity="0.95"/>
-        <circle cx="37" cy="42" r="7" fill="#fff" opacity="0.95"/>
-        <circle cx="63" cy="42" r="7" fill="#fff" opacity="0.95"/>
-        <circle cx="39" cy="43" r="3" fill="#1e1f22"/>
-        <circle cx="65" cy="43" r="3" fill="#1e1f22"/>
-        <ellipse cx="50" cy="62" rx="8" ry="4" fill="rgba(255,255,255,0.2)"/>
+        <path d="M50 8 C26 8 12 28 12 50 L12 92 C12 95 14 97 16 95 L26 86 C29 84 33 84 36 86 L44 94 C46 96 50 96 52 94 L50 92 L48 94 C50 96 54 96 56 94 L64 86 C67 84 71 84 74 86 L84 95 C86 97 88 95 88 92 L88 50 C88 28 74 8 50 8Z" fill="url(#gGrad)" filter="url(#gGlow)" opacity="0.95"/>
+        <ellipse cx="38" cy="42" rx="6" ry="7" fill="#fff" opacity="0.95"/>
+        <ellipse cx="62" cy="42" rx="6" ry="7" fill="#fff" opacity="0.95"/>
+        <circle cx="40" cy="44" r="3" fill="#1e1f22"/>
+        <circle cx="64" cy="44" r="3" fill="#1e1f22"/>
+        <circle cx="42" cy="41" r="1.2" fill="#fff" opacity="0.8"/>
+        <circle cx="66" cy="41" r="1.2" fill="#fff" opacity="0.8"/>
+        <path d="M44 57 Q50 64 56 57" stroke="rgba(255,255,255,0.3)" stroke-width="1.5" fill="none" stroke-linecap="round"/>
       </svg>
     </div>
     <h1>Shadow Messenger</h1>
@@ -55,7 +58,7 @@
 </div>
 
 <!-- ===== APP ===== -->
-<div id="app" class="hidden">
+<div id="app" class="hidden members-hidden">
 
   <!-- Sidebar -->
   <aside id="sidebar">
@@ -68,9 +71,10 @@
     <div class="sb-bottom">
       <button class="sb-icon ghost-btn" id="ghost-toggle" title="Режим Призрака">
         <svg class="ghost-svg" viewBox="0 0 100 120" width="24" height="29">
-          <path d="M50 8 C28 8 12 28 12 50 L12 92 C12 95 14 97 17 95 L25 88 C27 86 30 86 32 88 L40 96 C42 98 45 98 47 96 L50 93 L53 96 C55 98 58 98 60 96 L68 88 C70 86 73 86 75 88 L83 95 C86 97 88 95 88 92 L88 50 C88 28 72 8 50 8Z" fill="currentColor"/>
-          <circle cx="38" cy="42" r="5" fill="var(--bg-dark,#1e1f22)"/>
-          <circle cx="62" cy="42" r="5" fill="var(--bg-dark,#1e1f22)"/>
+          <path d="M50 8 C28 8 12 28 12 50 L12 92 C12 95 14 97 16 95 L26 86 C29 84 33 84 36 86 L44 94 C46 96 50 96 52 94 L50 92 L48 94 C50 96 54 96 56 94 L64 86 C67 84 71 84 74 86 L84 95 C86 97 88 95 88 92 L88 50 C88 28 72 8 50 8Z" fill="currentColor"/>
+          <ellipse cx="38" cy="42" rx="5" ry="6" fill="var(--bg-dark,#1e1f22)"/>
+          <ellipse cx="62" cy="42" rx="5" ry="6" fill="var(--bg-dark,#1e1f22)"/>
+        </svg>
         </svg>
       </button>
       <button class="sb-icon" id="nav-settings" title="Настройки"><i class="fas fa-gear"></i></button>
@@ -120,9 +124,10 @@
     <div id="welcome-screen">
       <svg class="welcome-ghost" viewBox="0 0 100 120" width="80" height="96">
         <defs><linearGradient id="wgGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#7c3aed"/><stop offset="100%" style="stop-color:#5865f2"/></linearGradient></defs>
-        <path d="M50 5 C25 5 10 25 10 50 L10 95 C10 98 12 100 15 98 L25 90 C27 88 30 88 32 90 L40 98 C42 100 45 100 47 98 L50 95 L53 98 C55 100 58 100 60 98 L68 90 C70 88 73 88 75 90 L85 98 C88 100 90 98 90 95 L90 50 C90 25 75 5 50 5Z" fill="url(#wgGrad)" opacity="0.4"/>
-        <circle cx="37" cy="42" r="7" fill="rgba(255,255,255,0.3)"/>
-        <circle cx="63" cy="42" r="7" fill="rgba(255,255,255,0.3)"/>
+        <path d="M50 8 C26 8 12 28 12 50 L12 92 C12 95 14 97 16 95 L26 86 C29 84 33 84 36 86 L44 94 C46 96 50 96 52 94 L50 92 L48 94 C50 96 54 96 56 94 L64 86 C67 84 71 84 74 86 L84 95 C86 97 88 95 88 92 L88 50 C88 28 74 8 50 8Z" fill="url(#wgGrad)" opacity="0.4"/>
+        <ellipse cx="38" cy="42" rx="6" ry="7" fill="rgba(255,255,255,0.3)"/>
+        <ellipse cx="62" cy="42" rx="6" ry="7" fill="rgba(255,255,255,0.3)"/>
+      </svg>
       </svg>
       <h2>Shadow Messenger</h2>
       <p>Выберите чат, чтобы начать общение</p>
@@ -297,6 +302,24 @@
         <h3>Тема оформления</h3>
         <p class="s-hint">Выберите тему для интерфейса мессенджера</p>
         <div id="theme-grid" class="theme-grid-large"></div>
+        <div class="s-divider"></div>
+        <h3>Размер шрифта</h3>
+        <div class="s-option-row" id="font-size-opts">
+          <button class="s-opt-btn" data-val="small">A<small>−</small></button>
+          <button class="s-opt-btn active" data-val="normal">A</button>
+          <button class="s-opt-btn" data-val="large">A<small>+</small></button>
+        </div>
+        <div class="s-divider"></div>
+        <h3>Плотность сообщений</h3>
+        <div class="s-option-row" id="msg-density-opts">
+          <button class="s-opt-btn" data-val="compact"><i class="fas fa-compress"></i> Компактный</button>
+          <button class="s-opt-btn active" data-val="cozy"><i class="fas fa-grip-lines"></i> Стандартный</button>
+          <button class="s-opt-btn" data-val="comfortable"><i class="fas fa-expand"></i> Просторный</button>
+        </div>
+        <div class="s-divider"></div>
+        <h3>Фон чата</h3>
+        <p class="s-hint">Узор в области сообщений</p>
+        <div id="wallpaper-grid" class="wallpaper-grid"></div>
       </div>
 
       <div class="settings-section" id="sec-notifications">
