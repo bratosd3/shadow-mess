@@ -3,9 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+  <meta name="theme-color" content="#1e1f22">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <title>Shadow Messenger</title>
   <link rel="manifest" href="/static/manifest.json">
   <link rel="icon" href="/static/icons/ghost.png">
+  <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link rel="stylesheet" href="/static/css/style.css">
 </head>
@@ -14,7 +18,23 @@
 <!-- ===== AUTH ===== -->
 <div id="auth-screen">
   <div class="auth-card">
-    <img src="/static/icons/ghost.png" class="auth-logo" alt="Ghost">
+    <div class="auth-ghost-icon">
+      <svg viewBox="0 0 100 120" width="72" height="86">
+        <defs>
+          <linearGradient id="gGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#7c3aed"/>
+            <stop offset="100%" style="stop-color:#5865f2"/>
+          </linearGradient>
+          <filter id="gGlow"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        </defs>
+        <path d="M50 5 C25 5 10 25 10 50 L10 95 C10 98 12 100 15 98 L25 90 C27 88 30 88 32 90 L40 98 C42 100 45 100 47 98 L50 95 L53 98 C55 100 58 100 60 98 L68 90 C70 88 73 88 75 90 L85 98 C88 100 90 98 90 95 L90 50 C90 25 75 5 50 5Z" fill="url(#gGrad)" filter="url(#gGlow)" opacity="0.95"/>
+        <circle cx="37" cy="42" r="7" fill="#fff" opacity="0.95"/>
+        <circle cx="63" cy="42" r="7" fill="#fff" opacity="0.95"/>
+        <circle cx="39" cy="43" r="3" fill="#1e1f22"/>
+        <circle cx="65" cy="43" r="3" fill="#1e1f22"/>
+        <ellipse cx="50" cy="62" rx="8" ry="4" fill="rgba(255,255,255,0.2)"/>
+      </svg>
+    </div>
     <h1>Shadow Messenger</h1>
     <form id="login-form">
       <input type="text" id="login-username" placeholder="Имя пользователя" autocomplete="username" required>
@@ -37,22 +57,28 @@
 <!-- ===== APP ===== -->
 <div id="app" class="hidden">
 
-  <!-- Sidebar: Discord-style -->
+  <!-- Sidebar -->
   <aside id="sidebar">
     <div class="sb-top">
       <button class="sb-icon active" id="nav-dms" title="Личные сообщения"><i class="fas fa-comment-dots"></i></button>
       <div class="sb-sep"></div>
       <div id="hub-list"></div>
-      <button class="sb-icon" id="btn-add-hub" title="Создать хаб"><i class="fas fa-plus"></i></button>
+      <button class="sb-icon" id="btn-add-hub" title="Создать группу"><i class="fas fa-plus"></i></button>
     </div>
     <div class="sb-bottom">
-      <button class="sb-icon ghost-btn" id="ghost-toggle" title="Режим Призрака"><i class="fas fa-ghost"></i></button>
+      <button class="sb-icon ghost-btn" id="ghost-toggle" title="Режим Призрака">
+        <svg class="ghost-svg" viewBox="0 0 100 120" width="24" height="29">
+          <path d="M50 8 C28 8 12 28 12 50 L12 92 C12 95 14 97 17 95 L25 88 C27 86 30 86 32 88 L40 96 C42 98 45 98 47 96 L50 93 L53 96 C55 98 58 98 60 96 L68 88 C70 86 73 86 75 88 L83 95 C86 97 88 95 88 92 L88 50 C88 28 72 8 50 8Z" fill="currentColor"/>
+          <circle cx="38" cy="42" r="5" fill="var(--bg-dark,#1e1f22)"/>
+          <circle cx="62" cy="42" r="5" fill="var(--bg-dark,#1e1f22)"/>
+        </svg>
+      </button>
       <button class="sb-icon" id="nav-settings" title="Настройки"><i class="fas fa-gear"></i></button>
       <div class="sb-user" id="sb-user-pill"></div>
     </div>
   </aside>
 
-  <!-- Panel: Telegram-style list -->
+  <!-- Panel -->
   <div id="panel">
     <div id="panel-header">
       <span id="panel-title">Чаты</span>
@@ -62,9 +88,7 @@
       </div>
     </div>
     <div id="panel-search"><i class="fas fa-magnifying-glass"></i><input id="search-input" type="text" placeholder="Поиск..."></div>
-    <!-- Chats tab -->
     <div id="tab-chats" class="tab-pane active"><div id="chat-list"></div></div>
-    <!-- Contacts tab -->
     <div id="tab-contacts" class="tab-pane">
       <div class="sub-tabs">
         <button class="sub-tab active" data-ct="friends">Друзья</button>
@@ -75,17 +99,16 @@
       <div id="contacts-search-wrap" class="hidden"><input id="contacts-search" type="text" placeholder="Найти пользователя..."><button id="btn-contacts-search"><i class="fas fa-search"></i></button></div>
       <div id="contacts-list"></div>
     </div>
-    <!-- Calls tab -->
     <div id="tab-calls" class="tab-pane">
       <div id="calls-list"></div>
       <div class="empty-state" id="calls-empty"><i class="fas fa-phone-slash"></i><p>Нет звонков</p></div>
     </div>
-    <!-- Settings tab (mobile) -->
     <div id="tab-settings" class="tab-pane">
       <div class="mob-settings">
         <div class="mob-profile" id="mob-profile"><div class="avatar-lg" id="mob-avatar"></div><div class="mob-info"><span id="mob-name"></span><span id="mob-status-text">В сети</span></div></div>
         <button class="mob-item" data-act="edit-profile"><i class="fas fa-user-pen"></i>Редактировать профиль</button>
         <button class="mob-item" data-act="ghost"><i class="fas fa-ghost"></i>Режим Призрака<span id="ghost-mob-badge" class="mob-badge off">Выкл</span></button>
+        <button class="mob-item" data-act="notifications"><i class="fas fa-bell"></i>Уведомления<span id="notif-mob-badge" class="mob-badge off">Выкл</span></button>
         <button class="mob-item" data-act="themes"><i class="fas fa-palette"></i>Тема оформления</button>
         <button class="mob-item" data-act="sessions"><i class="fas fa-clock-rotate-left"></i>Сессии</button>
         <button class="mob-item danger" data-act="logout"><i class="fas fa-right-from-bracket"></i>Выйти</button>
@@ -95,7 +118,16 @@
 
   <!-- Chat Area -->
   <main id="chat-area">
-    <div id="welcome-screen"><img src="/static/icons/ghost.png" class="welcome-ghost" alt=""><h2>Shadow Messenger</h2><p>Выберите чат, чтобы начать общение</p></div>
+    <div id="welcome-screen">
+      <svg class="welcome-ghost" viewBox="0 0 100 120" width="80" height="96">
+        <defs><linearGradient id="wgGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#7c3aed"/><stop offset="100%" style="stop-color:#5865f2"/></linearGradient></defs>
+        <path d="M50 5 C25 5 10 25 10 50 L10 95 C10 98 12 100 15 98 L25 90 C27 88 30 88 32 90 L40 98 C42 100 45 100 47 98 L50 95 L53 98 C55 100 58 100 60 98 L68 90 C70 88 73 88 75 90 L85 98 C88 100 90 98 90 95 L90 50 C90 25 75 5 50 5Z" fill="url(#wgGrad)" opacity="0.4"/>
+        <circle cx="37" cy="42" r="7" fill="rgba(255,255,255,0.3)"/>
+        <circle cx="63" cy="42" r="7" fill="rgba(255,255,255,0.3)"/>
+      </svg>
+      <h2>Shadow Messenger</h2>
+      <p>Выберите чат, чтобы начать общение</p>
+    </div>
     <div id="chat-view" class="hidden">
       <header id="chat-header">
         <button id="chat-back"><i class="fas fa-arrow-left"></i></button>
@@ -107,6 +139,7 @@
           <button id="btn-audio-call" title="Звонок"><i class="fas fa-phone"></i></button>
           <button id="btn-video-call" title="Видео"><i class="fas fa-video"></i></button>
           <button id="btn-members" title="Участники"><i class="fas fa-user-group"></i></button>
+          <button id="btn-chat-menu" title="Меню"><i class="fas fa-ellipsis-vertical"></i></button>
         </div>
       </header>
       <div id="messages-container"><div id="messages-area"></div></div>
@@ -117,7 +150,9 @@
         <button id="btn-attach"><i class="fas fa-paperclip"></i></button>
         <textarea id="msg-input" placeholder="Сообщение..." rows="1"></textarea>
         <button id="btn-emoji"><i class="fas fa-face-smile"></i></button>
-        <button id="btn-send"><i class="fas fa-paper-plane"></i></button>
+        <button id="btn-voice" title="Голосовое сообщение"><i class="fas fa-microphone"></i></button>
+        <button id="btn-video-note" title="Видеокружок"><i class="fas fa-circle-dot"></i></button>
+        <button id="btn-send" class="hidden"><i class="fas fa-paper-plane"></i></button>
       </div>
     </div>
   </main>
@@ -128,13 +163,28 @@
     <div id="members-list"></div>
   </aside>
 
-  <!-- Bottom Tabs (mobile) -->
+  <!-- Bottom Tabs -->
   <nav id="bottom-tabs">
     <button class="btab active" data-tab="chats"><i class="fas fa-comment-dots"></i><span>Чаты</span><b class="btab-badge hidden" id="badge-chats"></b></button>
     <button class="btab" data-tab="contacts"><i class="fas fa-address-book"></i><span>Контакты</span><b class="btab-badge hidden" id="badge-contacts"></b></button>
     <button class="btab" data-tab="calls"><i class="fas fa-phone"></i><span>Звонки</span></button>
     <button class="btab" data-tab="settings"><i class="fas fa-gear"></i><span>Настройки</span></button>
   </nav>
+</div>
+
+<!-- ===== RECORDING OVERLAY ===== -->
+<div id="rec-overlay" class="hidden">
+  <div class="rec-content">
+    <div class="rec-circle" id="rec-circle">
+      <video id="rec-preview" autoplay playsinline muted></video>
+      <canvas id="rec-visualizer"></canvas>
+    </div>
+    <div class="rec-timer" id="rec-timer">0:00</div>
+    <div class="rec-controls">
+      <button id="rec-cancel" class="rec-btn rec-cancel-btn"><i class="fas fa-xmark"></i></button>
+      <button id="rec-stop" class="rec-btn rec-stop-btn"><i class="fas fa-paper-plane"></i></button>
+    </div>
+  </div>
 </div>
 
 <!-- ===== INCOMING CALL (VK-style) ===== -->
@@ -204,18 +254,29 @@
     <div class="modal-top"><h3>Настройки</h3><button class="modal-x" data-close="modal-settings"><i class="fas fa-xmark"></i></button></div>
     <div class="settings-body">
       <section class="s-section"><h4>Профиль</h4>
+        <div class="s-field"><label>Имя пользователя</label><input id="set-username" type="text"></div>
         <div class="s-field"><label>Отображаемое имя</label><input id="set-displayname" type="text"></div>
         <div class="s-field"><label>О себе</label><textarea id="set-bio" rows="2"></textarea></div>
         <div class="s-field"><label>Аватар</label><button id="set-avatar-btn" class="btn-sm"><i class="fas fa-camera"></i> Загрузить</button></div>
         <button id="btn-save-profile" class="btn-primary">Сохранить профиль</button>
       </section>
       <section class="s-section"><h4>Безопасность</h4>
-        <div class="s-field"><label>Новый пароль</label><input id="set-password" type="password"></div>
+        <div class="s-field"><label>Текущий пароль</label><input id="set-cur-password" type="password"></div>
+        <div class="s-field"><label>Новый пароль</label><input id="set-new-password" type="password"></div>
         <button id="btn-change-pw" class="btn-sm">Сменить пароль</button>
+      </section>
+      <section class="s-section"><h4>Уведомления</h4>
+        <label class="toggle"><input type="checkbox" id="set-notifications" checked><span class="toggle-track"></span><span class="toggle-lbl">Push-уведомления</span></label>
+        <label class="toggle" style="margin-top:8px"><input type="checkbox" id="set-sounds" checked><span class="toggle-track"></span><span class="toggle-lbl">Звуки</span></label>
+      </section>
+      <section class="s-section"><h4>Приватность</h4>
+        <label class="toggle"><input type="checkbox" id="set-show-online" checked><span class="toggle-track"></span><span class="toggle-lbl">Показывать онлайн</span></label>
+        <label class="toggle" style="margin-top:8px"><input type="checkbox" id="set-read-receipts" checked><span class="toggle-track"></span><span class="toggle-lbl">Отметки о прочтении</span></label>
+        <label class="toggle" style="margin-top:8px"><input type="checkbox" id="set-show-typing" checked><span class="toggle-track"></span><span class="toggle-lbl">Показывать набор текста</span></label>
       </section>
       <section class="s-section"><h4>Тема оформления</h4><div id="theme-grid" class="theme-grid"></div></section>
       <section class="s-section"><h4>Режим Призрака 👻</h4>
-        <p class="s-hint">Скрыть статус, набор текста и отметки прочтения</p>
+        <p class="s-hint">Скрыть статус, набор текста и отметки прочтения одной кнопкой</p>
         <label class="toggle"><input type="checkbox" id="set-ghost"><span class="toggle-track"></span><span class="toggle-lbl">Режим Призрака</span></label>
       </section>
       <section class="s-section"><h4>Активные сессии</h4><div id="sessions-list"></div><button id="btn-revoke" class="btn-danger-sm">Завершить все другие сессии</button></section>
@@ -248,19 +309,26 @@
 
 <!-- Context Menu -->
 <div id="ctx-menu" class="hidden"><div id="ctx-items"></div></div>
-
 <!-- Emoji Picker -->
 <div id="emoji-picker" class="hidden"><div id="emoji-cats"></div><div id="emoji-grid"></div></div>
-
 <!-- Lightbox -->
-<div id="lightbox" class="hidden"><button id="lb-close"><i class="fas fa-xmark"></i></button><img id="lb-img" src="" alt=""></div>
-
+<div id="lightbox" class="hidden"><button id="lb-close"><i class="fas fa-xmark"></i></button><img id="lb-img" src="" alt=""><video id="lb-video" controls class="hidden"></video></div>
 <!-- Toasts -->
 <div id="toast-container"></div>
-
 <!-- Hidden inputs -->
 <input type="file" id="file-input" class="hidden" multiple>
 <input type="file" id="avatar-input" class="hidden" accept="image/*">
+<!-- Audio elements for sounds -->
+<audio id="snd-ring" loop preload="auto"></audio>
+<audio id="snd-incoming" loop preload="auto"></audio>
+<audio id="snd-msg" preload="auto"></audio>
+<audio id="snd-call-end" preload="auto"></audio>
+<!-- Install PWA banner -->
+<div id="install-banner" class="hidden">
+  <span>Установить Shadow Messenger</span>
+  <button id="btn-install" class="btn-primary btn-sm">Установить</button>
+  <button id="btn-install-close"><i class="fas fa-xmark"></i></button>
+</div>
 
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 <script src="/static/js/calls.js"></script>
