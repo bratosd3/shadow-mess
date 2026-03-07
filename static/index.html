@@ -84,7 +84,6 @@
       <span id="panel-title">Чаты</span>
       <div class="panel-btns">
         <button id="btn-new-chat" title="Новый чат"><i class="fas fa-pen-to-square"></i></button>
-        <button id="btn-new-group" title="Группа"><i class="fas fa-users-line"></i></button>
       </div>
     </div>
     <div id="panel-search"><i class="fas fa-magnifying-glass"></i><input id="search-input" type="text" placeholder="Поиск..."></div>
@@ -229,6 +228,7 @@
         <button class="vk-ctrl-btn" id="toggle-mute"><i class="fas fa-microphone"></i><span class="vk-ctrl-label">Микрофон</span></button>
         <button class="vk-ctrl-btn" id="toggle-video"><i class="fas fa-video-slash"></i><span class="vk-ctrl-label">Камера</span></button>
         <button class="vk-ctrl-btn" id="toggle-screen"><i class="fas fa-display"></i><span class="vk-ctrl-label">Экран</span></button>
+        <button class="vk-ctrl-btn" id="btn-minimize-call"><i class="fas fa-compress"></i><span class="vk-ctrl-label">Свернуть</span></button>
       </div>
       <button class="vk-ctrl-btn vk-ctrl-end" id="btn-end-call"><i class="fas fa-phone-slash"></i><span class="vk-ctrl-label">Завершить</span></button>
     </div>
@@ -250,37 +250,82 @@
 
 <!-- ===== SETTINGS MODAL ===== -->
 <div id="modal-settings" class="modal-overlay hidden">
-  <div class="modal-card settings-card">
-    <div class="modal-top"><h3>Настройки</h3><button class="modal-x" data-close="modal-settings"><i class="fas fa-xmark"></i></button></div>
-    <div class="settings-body">
-      <section class="s-section"><h4>Профиль</h4>
-        <div class="s-field"><label>Имя пользователя</label><input id="set-username" type="text"></div>
-        <div class="s-field"><label>Отображаемое имя</label><input id="set-displayname" type="text"></div>
-        <div class="s-field"><label>О себе</label><textarea id="set-bio" rows="2"></textarea></div>
-        <div class="s-field"><label>Аватар</label><button id="set-avatar-btn" class="btn-sm"><i class="fas fa-camera"></i> Загрузить</button></div>
-        <button id="btn-save-profile" class="btn-primary">Сохранить профиль</button>
-      </section>
-      <section class="s-section"><h4>Безопасность</h4>
-        <div class="s-field"><label>Текущий пароль</label><input id="set-cur-password" type="password"></div>
-        <div class="s-field"><label>Новый пароль</label><input id="set-new-password" type="password"></div>
-        <button id="btn-change-pw" class="btn-sm">Сменить пароль</button>
-      </section>
-      <section class="s-section"><h4>Уведомления</h4>
-        <label class="toggle"><input type="checkbox" id="set-notifications" checked><span class="toggle-track"></span><span class="toggle-lbl">Push-уведомления</span></label>
-        <label class="toggle" style="margin-top:8px"><input type="checkbox" id="set-sounds" checked><span class="toggle-track"></span><span class="toggle-lbl">Звуки</span></label>
-      </section>
-      <section class="s-section"><h4>Приватность</h4>
-        <label class="toggle"><input type="checkbox" id="set-show-online" checked><span class="toggle-track"></span><span class="toggle-lbl">Показывать онлайн</span></label>
-        <label class="toggle" style="margin-top:8px"><input type="checkbox" id="set-read-receipts" checked><span class="toggle-track"></span><span class="toggle-lbl">Отметки о прочтении</span></label>
-        <label class="toggle" style="margin-top:8px"><input type="checkbox" id="set-show-typing" checked><span class="toggle-track"></span><span class="toggle-lbl">Показывать набор текста</span></label>
-      </section>
-      <section class="s-section"><h4>Тема оформления</h4><div id="theme-grid" class="theme-grid"></div></section>
-      <section class="s-section"><h4>Режим Призрака 👻</h4>
+  <div class="settings-fullscreen">
+    <div class="settings-sidebar">
+      <div class="settings-sb-title">Настройки</div>
+      <button class="settings-nav active" data-sec="sec-profile"><i class="fas fa-user"></i>Мой аккаунт</button>
+      <button class="settings-nav" data-sec="sec-appearance"><i class="fas fa-palette"></i>Внешний вид</button>
+      <button class="settings-nav" data-sec="sec-notifications"><i class="fas fa-bell"></i>Уведомления</button>
+      <button class="settings-nav" data-sec="sec-privacy"><i class="fas fa-shield-halved"></i>Приватность</button>
+      <button class="settings-nav" data-sec="sec-sessions"><i class="fas fa-clock-rotate-left"></i>Сессии</button>
+      <div class="settings-sb-sep"></div>
+      <button class="settings-nav danger" onclick="logout()"><i class="fas fa-right-from-bracket"></i>Выйти</button>
+    </div>
+    <div class="settings-content">
+      <button class="settings-close-btn" data-close="modal-settings"><i class="fas fa-xmark"></i><span>ESC</span></button>
+
+      <div class="settings-section active" id="sec-profile">
+        <h2>Мой аккаунт</h2>
+        <div class="s-profile-card">
+          <div class="s-profile-banner"></div>
+          <div class="s-profile-info">
+            <div class="s-profile-av" id="settings-avatar-preview"></div>
+            <div class="s-profile-meta">
+              <span class="s-profile-name" id="settings-preview-name"></span>
+              <span class="s-profile-uname" id="settings-preview-uname"></span>
+            </div>
+            <button id="set-avatar-btn" class="btn-sm"><i class="fas fa-camera"></i> Сменить аватар</button>
+          </div>
+        </div>
+        <div class="s-form-group">
+          <div class="s-field"><label>Имя пользователя</label><input id="set-username" type="text"></div>
+          <div class="s-field"><label>Отображаемое имя</label><input id="set-displayname" type="text"></div>
+          <div class="s-field"><label>О себе</label><textarea id="set-bio" rows="3"></textarea></div>
+          <button id="btn-save-profile" class="btn-primary">Сохранить изменения</button>
+        </div>
+        <div class="s-divider"></div>
+        <h3>Смена пароля</h3>
+        <div class="s-form-group">
+          <div class="s-field"><label>Текущий пароль</label><input id="set-cur-password" type="password"></div>
+          <div class="s-field"><label>Новый пароль</label><input id="set-new-password" type="password"></div>
+          <button id="btn-change-pw" class="btn-sm">Сменить пароль</button>
+        </div>
+      </div>
+
+      <div class="settings-section" id="sec-appearance">
+        <h2>Внешний вид</h2>
+        <h3>Тема оформления</h3>
+        <p class="s-hint">Выберите тему для интерфейса мессенджера</p>
+        <div id="theme-grid" class="theme-grid-large"></div>
+      </div>
+
+      <div class="settings-section" id="sec-notifications">
+        <h2>Уведомления</h2>
+        <div class="s-toggle-group">
+          <label class="toggle-card"><div class="tc-info"><i class="fas fa-bell"></i><div><span class="tc-title">Push-уведомления</span><span class="tc-desc">Получать уведомления о новых сообщениях</span></div></div><div class="toggle"><input type="checkbox" id="set-notifications" checked><span class="toggle-track"></span></div></label>
+          <label class="toggle-card"><div class="tc-info"><i class="fas fa-volume-high"></i><div><span class="tc-title">Звуки</span><span class="tc-desc">Звук при получении сообщения</span></div></div><div class="toggle"><input type="checkbox" id="set-sounds" checked><span class="toggle-track"></span></div></label>
+        </div>
+      </div>
+
+      <div class="settings-section" id="sec-privacy">
+        <h2>Приватность</h2>
+        <div class="s-toggle-group">
+          <label class="toggle-card"><div class="tc-info"><i class="fas fa-circle" style="color:var(--green)"></i><div><span class="tc-title">Статус онлайн</span><span class="tc-desc">Показывать другим, что вы в сети</span></div></div><div class="toggle"><input type="checkbox" id="set-show-online" checked><span class="toggle-track"></span></div></label>
+          <label class="toggle-card"><div class="tc-info"><i class="fas fa-check-double"></i><div><span class="tc-title">Отметки о прочтении</span><span class="tc-desc">Показывать, что вы прочитали сообщение</span></div></div><div class="toggle"><input type="checkbox" id="set-read-receipts" checked><span class="toggle-track"></span></div></label>
+          <label class="toggle-card"><div class="tc-info"><i class="fas fa-keyboard"></i><div><span class="tc-title">Индикатор набора</span><span class="tc-desc">Показывать «печатает...» при наборе текста</span></div></div><div class="toggle"><input type="checkbox" id="set-show-typing" checked><span class="toggle-track"></span></div></label>
+        </div>
+        <div class="s-divider"></div>
+        <h3>Режим Призрака 👻</h3>
         <p class="s-hint">Скрыть статус, набор текста и отметки прочтения одной кнопкой</p>
-        <label class="toggle"><input type="checkbox" id="set-ghost"><span class="toggle-track"></span><span class="toggle-lbl">Режим Призрака</span></label>
-      </section>
-      <section class="s-section"><h4>Активные сессии</h4><div id="sessions-list"></div><button id="btn-revoke" class="btn-danger-sm">Завершить все другие сессии</button></section>
-      <section class="s-section"><button id="btn-logout" class="btn-danger"><i class="fas fa-right-from-bracket"></i> Выйти</button></section>
+        <label class="toggle-card ghost-card"><div class="tc-info"><i class="fas fa-ghost"></i><div><span class="tc-title">Режим Призрака</span><span class="tc-desc">Полная невидимость — скрывает всё сразу</span></div></div><div class="toggle"><input type="checkbox" id="set-ghost"><span class="toggle-track"></span></div></label>
+      </div>
+
+      <div class="settings-section" id="sec-sessions">
+        <h2>Активные сессии</h2>
+        <p class="s-hint">Устройства, на которых выполнен вход в аккаунт</p>
+        <div id="sessions-list"></div>
+        <button id="btn-revoke" class="btn-danger-sm" style="margin-top:12px"><i class="fas fa-right-from-bracket"></i> Завершить все другие сессии</button>
+      </div>
     </div>
   </div>
 </div>
@@ -328,6 +373,22 @@
   <span>Установить Shadow Messenger</span>
   <button id="btn-install" class="btn-primary btn-sm">Установить</button>
   <button id="btn-install-close"><i class="fas fa-xmark"></i></button>
+</div>
+
+<!-- Minimized call widget -->
+<div id="call-mini" class="hidden">
+  <div class="call-mini-info">
+    <div class="call-mini-avatar" id="call-mini-avatar"></div>
+    <div class="call-mini-text">
+      <span class="call-mini-name" id="call-mini-name"></span>
+      <span class="call-mini-timer" id="call-mini-timer">0:00</span>
+    </div>
+  </div>
+  <div class="call-mini-btns">
+    <button id="call-mini-mute"><i class="fas fa-microphone"></i></button>
+    <button id="call-mini-expand"><i class="fas fa-expand"></i></button>
+    <button id="call-mini-end" class="call-mini-end-btn"><i class="fas fa-phone-slash"></i></button>
+  </div>
 </div>
 
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>

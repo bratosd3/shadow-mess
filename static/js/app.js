@@ -47,10 +47,10 @@ const AVATARS = ['#5865f2','#57f287','#fee75c','#eb459e','#ed4245','#3ba55c','#f
 function avatarHTML(u, cls = '') {
   if (!u) return `<div class="${cls}" style="background:#555">?</div>`;
   const style = `background:${u.avatarColor || u.displayAvatarColor || AVATARS[0]}`;
-  if (u.avatar || u.displayAvatar) {
-    return `<div class="${cls}" style="${style}"><img src="${u.avatar || u.displayAvatar}" alt=""></div>`;
-  }
   const letter = (u.displayName || u.username || '?')[0].toUpperCase();
+  if (u.avatar || u.displayAvatar) {
+    return `<div class="${cls}" style="${style}"><img src="${escHTML(u.avatar || u.displayAvatar)}" alt="" onerror="this.parentElement.textContent='${letter}'"></div>`;
+  }
   return `<div class="${cls}" style="${style}">${letter}</div>`;
 }
 
@@ -193,6 +193,9 @@ async function boot() {
   loadFriends();
   registerSW();
   setupPWA();
+  // Periodically refresh chat data to pick up avatar/name changes
+  if (window._chatRefreshInterval) clearInterval(window._chatRefreshInterval);
+  window._chatRefreshInterval = setInterval(() => { if (!document.hidden) loadChats(); }, 30000);
 }
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -307,7 +310,6 @@ function initUI() {
 
   // Panel
   $('btn-new-chat').onclick = () => { switchTab('contacts'); switchContactTab('search'); };
-  $('btn-new-group').onclick = () => show($('modal-group'));
   $('search-input').oninput = () => renderChatList();
 
   // Bottom tabs
@@ -352,6 +354,39 @@ function initUI() {
   $('btn-accept').onclick = () => acceptIncoming();
   $('btn-reject').onclick = () => rejectIncoming();
 
+  // Active call controls
+  $('toggle-mute').onclick = () => {
+    const muted = window.callsModule.toggleMute();
+    $('toggle-mute').classList.toggle('vk-ctrl-off', muted);
+    $('toggle-mute').querySelector('i').className = muted ? 'fas fa-microphone-slash' : 'fas fa-microphone';
+  };
+  $('toggle-video').onclick = async () => {
+    const off = await window.callsModule.toggleVideo();
+    $('toggle-video').classList.toggle('vk-ctrl-off', off);
+    $('toggle-video').querySelector('i').className = off ? 'fas fa-video-slash' : 'fas fa-video';
+  };
+  $('toggle-screen').onclick = async () => {
+    try {
+      if ($('toggle-screen').classList.contains('sharing')) {
+        await window.callsModule.stopScreenShare();
+        $('toggle-screen').classList.remove('sharing');
+      } else {
+        await window.callsModule.startScreenShare();
+        $('toggle-screen').classList.add('sharing');
+      }
+    } catch (e) { showToast('Не удалось поделиться экраном', 'error'); }
+  };
+  $('btn-end-call').onclick = () => handleCallEnded();
+  $('btn-minimize-call').onclick = () => minimizeCall();
+  $('call-mini-expand').onclick = () => expandCall();
+  $('call-mini-mute').onclick = () => {
+    const muted = window.callsModule.toggleMute();
+    $('call-mini-mute').querySelector('i').className = muted ? 'fas fa-microphone-slash' : 'fas fa-microphone';
+    $('toggle-mute').classList.toggle('vk-ctrl-off', muted);
+    $('toggle-mute').querySelector('i').className = muted ? 'fas fa-microphone-slash' : 'fas fa-microphone';
+  };
+  $('call-mini-end').onclick = () => handleCallEnded();
+
   // Lightbox
   $('lb-close').onclick = () => closeLightbox();
   $('lightbox').onclick = e => { if (e.target === $('lightbox')) closeLightbox(); };
@@ -362,7 +397,6 @@ function initUI() {
   // Settings
   $('btn-save-profile').onclick = () => saveProfile();
   $('btn-change-pw').onclick = () => changePassword();
-  $('btn-logout').onclick = () => logout();
   $('set-avatar-btn').onclick = () => $('avatar-input').click();
   $('avatar-input').onchange = () => uploadAvatar();
   $('btn-revoke').onclick = () => revokeSessions();
@@ -372,6 +406,7 @@ function initUI() {
   $('set-show-online').onchange = () => saveSettingsToggle('privShowOnline', $('set-show-online').checked);
   $('set-read-receipts').onchange = () => saveSettingsToggle('privReadReceipts', $('set-read-receipts').checked);
   $('set-show-typing').onchange = () => saveSettingsToggle('privShowTyping', $('set-show-typing').checked);
+  $$('.settings-nav[data-sec]').forEach(b => b.onclick = () => switchSettingsSection(b.dataset.sec));
 
   // Modal close buttons
   $$('[data-close]').forEach(b => b.onclick = () => hide($(b.dataset.close)));
@@ -862,6 +897,7 @@ function cancelEdit() { S.editMsg = null; $('msg-input').value = ''; hide($('edi
    CHAT MENU (delete chat etc.)
    ══════════════════════════════════════════════════════════════════════ */
 function showChatMenu(e) {
+  e.stopPropagation();
   if (!S.chatObj) return;
   const items = [];
   items.push({ icon: 'fa-thumbtack', label: S.chatObj.pinned ? 'Открепить' : 'Закрепить', action: 'toggle-pin' });
@@ -987,7 +1023,7 @@ window.removeFriend = removeFriend;
 async function startChatWith(uid) {
   try {
     const chat = await api('/api/chats', { method: 'POST', body: JSON.stringify({ userId: uid }) });
-    if (!S.chats.find(c => c.id === chat.id)) { await loadChats(); }
+    await loadChats();
     openChat(chat.id);
     switchTab('chats');
   } catch (e) { showToast(e.message, 'error'); }
@@ -1115,6 +1151,13 @@ function openSettings() {
   fillSettings();
   loadSessions();
   show($('modal-settings'));
+  // Activate first section
+  switchSettingsSection('sec-profile');
+}
+
+function switchSettingsSection(secId) {
+  $$('.settings-nav').forEach(b => b.classList.toggle('active', b.dataset.sec === secId));
+  $$('.settings-section').forEach(s => s.classList.toggle('active', s.id === secId));
 }
 
 function fillSettings() {
@@ -1131,6 +1174,15 @@ function fillSettings() {
   $('set-read-receipts').checked = s.privReadReceipts !== false;
   $('set-show-typing').checked = s.privShowTyping !== false;
   $('set-ghost').checked = S.ghostMode;
+
+  // Profile preview card
+  const avPreview = $('settings-avatar-preview');
+  if (avPreview) {
+    avPreview.style.background = S.user?.avatarColor || AVATARS[0];
+    avPreview.innerHTML = S.user?.avatar ? `<img src="${escHTML(S.user.avatar)}">` : (S.user?.displayName || '?')[0].toUpperCase();
+  }
+  if ($('settings-preview-name')) $('settings-preview-name').textContent = S.user?.displayName || '';
+  if ($('settings-preview-uname')) $('settings-preview-uname').textContent = '@' + (S.user?.username || '');
 
   // Mobile settings badges
   const ghostBadge = $('ghost-mob-badge');
@@ -1323,6 +1375,13 @@ function startCallAction(type) {
   const peerId = getPartner()?.id;
   if (!peerId) return;
   Sounds.ringStart();
+  _callTimerStart = Date.now();
+  if (window._callTimerInterval) clearInterval(window._callTimerInterval);
+  window._callTimerInterval = setInterval(() => {
+    const sec = Math.floor((Date.now() - _callTimerStart) / 1000);
+    const m = Math.floor(sec / 60), s = sec % 60;
+    $('call-audio-timer').textContent = `${m}:${String(s).padStart(2, '0')}`;
+  }, 1000);
   const overlay = $('active-call-overlay');
   show(overlay);
   // Set name/avatar
@@ -1354,7 +1413,7 @@ function acceptIncoming() {
   const av = $('call-audio-avatar');
   av.style.background = _incomingCallData.fromAvatarColor || AVATARS[0];
   av.innerHTML = _incomingCallData.fromAvatar ? `<img src="${escHTML(_incomingCallData.fromAvatar)}">` : (_incomingCallData.fromName || '?')[0].toUpperCase();
-  window.callsModule.acceptCall(_incomingCallData);
+  window.callsModule.acceptCall(_incomingCallData.from, _incomingCallData.offer, _incomingCallData.callType);
   _incomingCallData = null;
 }
 
@@ -1373,7 +1432,41 @@ function handleCallEnded() {
   window.callsModule.endCall();
   hide($('active-call-overlay'));
   hide($('incoming-call-overlay'));
+  hide($('call-mini'));
   _incomingCallData = null;
+  if (window._callTimerInterval) { clearInterval(window._callTimerInterval); window._callTimerInterval = null; }
+}
+
+/* ── Call minimize/expand ──────────────────────────────────────────── */
+let _callTimerStart = 0;
+
+function minimizeCall() {
+  hide($('active-call-overlay'));
+  const mini = $('call-mini');
+  // Copy name/avatar
+  $('call-mini-name').textContent = $('call-audio-name').textContent;
+  $('call-mini-avatar').style.background = $('call-audio-avatar').style.background;
+  $('call-mini-avatar').innerHTML = $('call-audio-avatar').innerHTML;
+  // Sync mute icon
+  const muted = window.callsModule.isMuted();
+  $('call-mini-mute').querySelector('i').className = muted ? 'fas fa-microphone-slash' : 'fas fa-microphone';
+  // Start timer if not started
+  if (!_callTimerStart) _callTimerStart = Date.now();
+  if (!window._callTimerInterval) {
+    window._callTimerInterval = setInterval(() => {
+      const sec = Math.floor((Date.now() - _callTimerStart) / 1000);
+      const m = Math.floor(sec / 60), s = sec % 60;
+      const t = `${m}:${String(s).padStart(2, '0')}`;
+      $('call-mini-timer').textContent = t;
+      $('call-audio-timer').textContent = t;
+    }, 1000);
+  }
+  show(mini);
+}
+
+function expandCall() {
+  hide($('call-mini'));
+  show($('active-call-overlay'));
 }
 
 /* ══════════════════════════════════════════════════════════════════════
