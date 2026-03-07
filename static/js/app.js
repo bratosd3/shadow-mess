@@ -252,6 +252,9 @@ function initSocket() {
   sk.on('call_rejected',   () => showToast('Звонок отклонён', 'info'));
   sk.on('call_ended',      () => { showToast('Звонок завершён', 'info'); window.callsModule?.onEnded?.(); hideIncomingCall(); });
   sk.on('session_revoked', () => { showToast('Сессия завершена', 'info'); setTimeout(logout, 1500); });
+  sk.on('call_status',     d => window.callsModule?.onPeerStatus?.(d));
+  sk.on('friend_request',  () => { showToast('Новый запрос в друзья!', 'info'); if (_currentFriendsTab === 'pending') loadFriends('pending'); });
+  sk.on('friend_accepted', () => { showToast('Ваш запрос в друзья принят!', 'success'); loadFriends(_currentFriendsTab); });
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -413,11 +416,27 @@ function showWelcome() {
 /* ══════════════════════════════════════════════════════════
    FRIENDS LIST
    ══════════════════════════════════════════════════════════ */
-let _allUsers = [];
+let _friendsList = [];
+let _currentFriendsTab = 'online';
 async function loadFriends(tab = 'online') {
+  _currentFriendsTab = tab;
+  const searchBar = $('friends-search-bar');
+  if (searchBar) searchBar.classList.toggle('hidden', tab !== 'add');
+
+  if (tab === 'add') {
+    renderFriends(tab);
+    return;
+  }
+  if (tab === 'pending') {
+    try {
+      const pending = await API.get('/api/friends/pending');
+      renderPendingFriends(pending);
+    } catch { renderPendingFriends([]); }
+    return;
+  }
   try {
-    _allUsers = await API.get('/api/users/search?q=');
-  } catch { return; }
+    _friendsList = await API.get('/api/friends');
+  } catch { _friendsList = []; }
   renderFriends(tab);
 }
 
@@ -427,11 +446,17 @@ function renderFriends(tab) {
   if (!list) return;
   list.innerHTML = '';
 
-  let users = _allUsers.filter(u => u.id !== S.user?.id);
+  if (tab === 'add') {
+    if (empty) empty.classList.add('hidden');
+    list.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:20px">Введите имя пользователя выше для поиска</p>';
+    return;
+  }
+
+  let users = _friendsList.filter(u => u.id !== S.user?.id);
   if (tab === 'online') users = users.filter(u => u.online);
 
   if (users.length === 0) {
-    if (empty) empty.classList.remove('hidden');
+    if (empty) { empty.classList.remove('hidden'); empty.querySelector('p').textContent = tab === 'online' ? 'Нет друзей в сети' : 'Список друзей пуст. Добавьте друзей!'; }
     return;
   }
   if (empty) empty.classList.add('hidden');
@@ -464,6 +489,19 @@ function renderFriends(tab) {
       catch (err) { showToast(err.message, 'error'); }
     });
     actions.appendChild(msgBtn);
+
+    // Удалить из друзей
+    if (u.friendshipId) {
+      const delBtn = document.createElement('button');
+      delBtn.title = 'Удалить из друзей';
+      delBtn.innerHTML = '<i class="fas fa-user-minus"></i>';
+      delBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        try { await API.del(`/api/friends/${u.friendshipId}`); showToast('Удалён из друзей', 'info'); loadFriends(_currentFriendsTab); }
+        catch (err) { showToast(err.message, 'error'); }
+      });
+      actions.appendChild(delBtn);
+    }
     item.appendChild(actions);
 
     item.addEventListener('click', async () => {
@@ -472,6 +510,115 @@ function renderFriends(tab) {
     });
     list.appendChild(item);
   });
+}
+
+function renderPendingFriends(pending) {
+  const list = $('friends-list');
+  const empty = $('friends-empty');
+  if (!list) return;
+  list.innerHTML = '';
+
+  if (pending.length === 0) {
+    if (empty) { empty.classList.remove('hidden'); empty.querySelector('p').textContent = 'Нет входящих запросов'; }
+    return;
+  }
+  if (empty) empty.classList.add('hidden');
+
+  pending.forEach(req => {
+    const u = req.user;
+    const item = document.createElement('div');
+    item.className = 'friend-item';
+    const av = document.createElement('div');
+    av.className = 'friend-item-avatar';
+    if (u.avatar) av.style.backgroundImage = `url(${u.avatar})`;
+    else { av.style.backgroundColor = u.avatarColor || '#444'; av.textContent = avatarText(u.displayName); }
+    item.appendChild(av);
+
+    const info = document.createElement('div');
+    info.className = 'friend-item-info';
+    info.innerHTML = `<div class="friend-item-name">${escHtml(u.displayName)}</div><div class="friend-item-status">Запрос в друзья</div>`;
+    item.appendChild(info);
+
+    const actions = document.createElement('div');
+    actions.className = 'friend-item-actions';
+    const acceptBtn = document.createElement('button');
+    acceptBtn.title = 'Принять';
+    acceptBtn.className = 'friend-accept-btn';
+    acceptBtn.innerHTML = '<i class="fas fa-check"></i>';
+    acceptBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      try { await API.post(`/api/friends/accept/${req.id}`); showToast('Запрос принят!', 'success'); loadFriends('pending'); }
+      catch (err) { showToast(err.message, 'error'); }
+    });
+    actions.appendChild(acceptBtn);
+
+    const rejectBtn = document.createElement('button');
+    rejectBtn.title = 'Отклонить';
+    rejectBtn.innerHTML = '<i class="fas fa-xmark"></i>';
+    rejectBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      try { await API.post(`/api/friends/reject/${req.id}`); showToast('Запрос отклонён', 'info'); loadFriends('pending'); }
+      catch (err) { showToast(err.message, 'error'); }
+    });
+    actions.appendChild(rejectBtn);
+    item.appendChild(actions);
+    list.appendChild(item);
+  });
+}
+
+async function searchAndRenderUsers(q) {
+  const list = $('friends-list');
+  if (!list) return;
+  list.innerHTML = '';
+  if (!q) { list.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:20px">Введите имя пользователя для поиска</p>'; return; }
+  try {
+    const users = await API.get(`/api/users/search?q=${encodeURIComponent(q)}`);
+    if (!users.length) { list.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:20px">Никого не найдено</p>'; return; }
+    for (const u of users) {
+      const item = document.createElement('div');
+      item.className = 'friend-item';
+      const av = document.createElement('div');
+      av.className = 'friend-item-avatar';
+      if (u.avatar) av.style.backgroundImage = `url(${u.avatar})`;
+      else { av.style.backgroundColor = u.avatarColor || '#444'; av.textContent = avatarText(u.displayName); }
+      item.appendChild(av);
+
+      const info = document.createElement('div');
+      info.className = 'friend-item-info';
+      info.innerHTML = `<div class="friend-item-name">${escHtml(u.displayName)}</div><div class="friend-item-status">@${escHtml(u.username)}</div>`;
+      item.appendChild(info);
+
+      const actions = document.createElement('div');
+      actions.className = 'friend-item-actions';
+
+      // Проверяем, не друг ли уже
+      const isFriend = _friendsList.some(f => f.id === u.id);
+      if (isFriend) {
+        const badge = document.createElement('span');
+        badge.style.cssText = 'color:var(--text-muted);font-size:12px';
+        badge.textContent = 'В друзьях';
+        actions.appendChild(badge);
+      } else {
+        const addBtn = document.createElement('button');
+        addBtn.title = 'Добавить в друзья';
+        addBtn.className = 'friend-accept-btn';
+        addBtn.innerHTML = '<i class="fas fa-user-plus"></i>';
+        addBtn.addEventListener('click', async (e) => {
+          e.stopPropagation();
+          try {
+            await API.post('/api/friends/request', { userId: u.id });
+            showToast('Запрос отправлен!', 'success');
+            addBtn.disabled = true;
+            addBtn.innerHTML = '<i class="fas fa-clock"></i>';
+            addBtn.title = 'Запрос отправлен';
+          } catch (err) { showToast(err.message, 'error'); }
+        });
+        actions.appendChild(addBtn);
+      }
+      item.appendChild(actions);
+      list.appendChild(item);
+    }
+  } catch { list.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:20px">Ошибка поиска</p>'; }
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -1497,12 +1644,18 @@ document.addEventListener('DOMContentLoaded', () => {
   on('toggle-mute', 'click', () => {
     const muted = window.callsModule?.toggleMute();
     const btn = $('toggle-mute');
-    if (btn) { btn.innerHTML = muted ? '<i class="fas fa-microphone-slash"></i>' : '<i class="fas fa-microphone"></i>'; btn.classList.toggle('active', muted); }
+    if (btn) {
+      btn.querySelector('i').className = muted ? 'fas fa-microphone-slash' : 'fas fa-microphone';
+      btn.classList.toggle('vk-ctrl-off', muted);
+    }
   });
   on('toggle-video', 'click', async () => {
     const off = await window.callsModule?.toggleVideo();
     const btn = $('toggle-video');
-    if (btn) { btn.innerHTML = off ? '<i class="fas fa-video-slash"></i>' : '<i class="fas fa-video"></i>'; btn.classList.toggle('active', !off); }
+    if (btn) {
+      btn.querySelector('i').className = off ? 'fas fa-video-slash' : 'fas fa-video';
+      btn.classList.toggle('vk-ctrl-off', off);
+    }
   });
   on('toggle-screen', 'click', async () => {
     if (window.callsModule?.isInCall?.()) {
@@ -1521,6 +1674,12 @@ document.addEventListener('DOMContentLoaded', () => {
       loadFriends(btn.dataset.tab);
     });
   });
+
+  // ── Friends search (add tab) ──────────────────────────
+  on('friends-search-input', 'input', debounce(() => {
+    const q = $('friends-search-input').value.trim();
+    searchAndRenderUsers(q);
+  }, 400));
 
   // ── Mic / Deaf toggles ────────────────────────────────
   let micMuted = false, deafened = false;

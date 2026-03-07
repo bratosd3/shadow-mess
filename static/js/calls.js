@@ -53,82 +53,36 @@ window.callsModule = (() => {
       const source = _audioCtx.createMediaStreamSource(stream);
       const dest = _audioCtx.createMediaStreamDestination();
 
-      // Highpass filter — removes low-frequency rumble/hum (e.g. AC fans)
+      // Simple highpass — removes rumble below 80Hz
       const highpass = _audioCtx.createBiquadFilter();
       highpass.type = 'highpass';
-      highpass.frequency.value = 100;
+      highpass.frequency.value = 80;
       highpass.Q.value = 0.7;
 
-      // Second highpass at 60Hz to catch deep hum/buzzing
-      const highpass2 = _audioCtx.createBiquadFilter();
-      highpass2.type = 'highpass';
-      highpass2.frequency.value = 60;
-      highpass2.Q.value = 1.0;
-
-      // Notch filter at 50Hz to remove power line hum (EU/RU)
-      const notch50 = _audioCtx.createBiquadFilter();
-      notch50.type = 'notch';
-      notch50.frequency.value = 50;
-      notch50.Q.value = 10;
-
-      // Notch filter at 60Hz power line hum (US)
-      const notch60 = _audioCtx.createBiquadFilter();
-      notch60.type = 'notch';
-      notch60.frequency.value = 60;
-      notch60.Q.value = 10;
-
-      // Bandpass emphasis for voice frequencies (300Hz-3400Hz boost)
-      const voiceBoost = _audioCtx.createBiquadFilter();
-      voiceBoost.type = 'peaking';
-      voiceBoost.frequency.value = 1500;
-      voiceBoost.Q.value = 0.5;
-      voiceBoost.gain.value = 3;
-
-      // De-esser: reduce harsh sibilance (4k-8k range)
-      const deesser = _audioCtx.createBiquadFilter();
-      deesser.type = 'peaking';
-      deesser.frequency.value = 6000;
-      deesser.Q.value = 2;
-      deesser.gain.value = -4;
-
-      // Lowpass removes high-frequency hiss
+      // Gentle lowpass — removes hiss above 14kHz
       const lowpass = _audioCtx.createBiquadFilter();
       lowpass.type = 'lowpass';
-      lowpass.frequency.value = 12000;
+      lowpass.frequency.value = 14000;
       lowpass.Q.value = 0.5;
 
-      // Compressor to normalize levels — acts as noise gate effect
+      // Compressor — normalize levels
       const compressor = _audioCtx.createDynamicsCompressor();
-      compressor.threshold.value = -35;
-      compressor.knee.value = 20;
-      compressor.ratio.value = 16;
-      compressor.attack.value = 0.002;
-      compressor.release.value = 0.15;
+      compressor.threshold.value = -30;
+      compressor.knee.value = 25;
+      compressor.ratio.value = 4;
+      compressor.attack.value = 0.003;
+      compressor.release.value = 0.25;
 
-      // Second gentle compressor for leveling
-      const limiter = _audioCtx.createDynamicsCompressor();
-      limiter.threshold.value = -6;
-      limiter.knee.value = 0;
-      limiter.ratio.value = 20;
-      limiter.attack.value = 0.001;
-      limiter.release.value = 0.1;
-
-      // Gain boost
+      // Gain
       const gain = _audioCtx.createGain();
-      gain.gain.value = 1.6;
+      gain.gain.value = 1.2;
 
-      // Enhanced chain
-      source.connect(highpass2);
-      highpass2.connect(highpass);
-      highpass.connect(notch50);
-      notch50.connect(notch60);
-      notch60.connect(voiceBoost);
-      voiceBoost.connect(deesser);
-      deesser.connect(lowpass);
+      // Simple chain: highpass → lowpass → compressor → gain
+      source.connect(highpass);
+      highpass.connect(lowpass);
       lowpass.connect(compressor);
       compressor.connect(gain);
-      gain.connect(limiter);
-      limiter.connect(dest);
+      gain.connect(dest);
 
       // Replace audio track
       const processedTrack = dest.stream.getAudioTracks()[0];
@@ -137,7 +91,7 @@ window.callsModule = (() => {
       stream.addTrack(processedTrack);
 
       processedTrack._origTrack = origTrack;
-      _noiseNode = { source, highpass, highpass2, notch50, notch60, voiceBoost, deesser, lowpass, compressor, limiter, gain, dest };
+      _noiseNode = { source, highpass, lowpass, compressor, gain, dest };
     } catch (e) {
       console.warn('[calls] Noise suppression failed:', e);
     }
@@ -507,8 +461,8 @@ window.callsModule = (() => {
 
     $('active-call-overlay')?.classList.add('hidden');
     $('toggle-screen')?.classList.remove('sharing');
-    $('toggle-mute')?.classList.remove('muted');
-    $('toggle-video')?.classList.remove('active');
+    $('toggle-mute')?.classList.remove('vk-ctrl-off');
+    $('toggle-video')?.classList.remove('vk-ctrl-off');
     clearInterval(window._callTimerInterval);
 
     const vl = $('call-video-layer');
@@ -524,7 +478,7 @@ window.callsModule = (() => {
     // Use gain node mute when noise suppression is active to keep AudioContext alive
     // (disabling tracks can kill the audio session on mobile, muting remote audio too)
     if (_noiseNode && _noiseNode.gain) {
-      _noiseNode.gain.gain.value = isMuted ? 0 : 1.5;
+      _noiseNode.gain.gain.value = isMuted ? 0 : 1.2;
     } else {
       // Fallback: toggle track.enabled when no noise suppression chain
       localStream.getAudioTracks().forEach(t => { t.enabled = !isMuted; });

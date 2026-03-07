@@ -160,6 +160,21 @@ messageSchema.set('toJSON', {
 });
 const Message = mongoose.model('Message', messageSchema);
 
+// Дружба
+const friendshipSchema = new mongoose.Schema({
+  _id:       { type: String, default: uuidv4 },
+  sender:    { type: String, required: true, index: true },
+  receiver:  { type: String, required: true, index: true },
+  status:    { type: String, enum: ['pending', 'accepted', 'rejected'], default: 'pending' },
+  createdAt: { type: Date, default: Date.now },
+}, { _id: false });
+friendshipSchema.index({ sender: 1, receiver: 1 }, { unique: true });
+friendshipSchema.set('toJSON', {
+  virtuals: true,
+  transform: (doc, ret) => { ret.id = ret._id; delete ret.__v; return ret; }
+});
+const Friendship = mongoose.model('Friendship', friendshipSchema);
+
 // Push-подписки для уведомлений
 const pushSubSchema = new mongoose.Schema({
   _id:          { type: String, default: uuidv4 },
@@ -725,6 +740,171 @@ app.get('/api/users/search', authMiddleware, async (req, res) => {
 });
 
 // ── Get user by id ────────────────────────────────────────────────────────
+
+// ── Friends API ───────────────────────────────────────────────────────────
+// Отправить запрос дружбы
+app.post('/api/friends/request', authMiddleware, async (req, res) => {
+  try {
+    const { userId } = req.body;
+    if (!userId) return res.status(400).json({ error: 'userId required' });
+    if (userId === req.user.id) return res.status(400).json({ error: 'Нельзя добавить себя' });
+    const target = await User.findById(userId);
+    if (!target) return res.status(404).json({ error: 'Пользователь не найден' });
+    // Проверить, есть ли уже запрос или дружба
+    const existing = await Friendship.findOne({
+      $or: [
+        { sender: req.user.id, receiver: userId },
+        { sender: userId, receiver: req.user.id }
+      ]
+    });
+    if (existing) {
+      if (existing.status === 'accepted') return res.status(400).json({ error: 'Уже в друзьях' });
+      if (existing.status === 'pending') return res.status(400).json({ error: 'Запрос уже отправлен' });
+      if (existing.status === 'rejected') {
+        existing.status = 'pending';
+        existing.sender = req.user.id;
+        existing.receiver = userId;
+        existing.createdAt = new Date();
+        await existing.save();
+        // Уведомить получателя в реальном времени
+        const sset = onlineUsers.get(userId);
+        if (sset) sset.forEach(sid => io.to(sid).emit('friend_request', { from: req.user.id }));
+        return res.json({ ok: true, status: 'pending' });
+      }
+    }
+    await Friendship.create({ sender: req.user.id, receiver: userId });
+    // Уведомить получателя
+    const sset = onlineUsers.get(userId);
+    if (sset) sset.forEach(sid => io.to(sid).emit('friend_request', { from: req.user.id }));
+    res.json({ ok: true, status: 'pending' });
+  } catch (err) {
+    console.error('Friend request error:', err);
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Принять запрос дружбы
+app.post('/api/friends/accept/:id', authMiddleware, async (req, res) => {
+  try {
+    const fr = await Friendship.findOne({ _id: req.params.id, receiver: req.user.id, status: 'pending' });
+    if (!fr) return res.status(404).json({ error: 'Запрос не найден' });
+    fr.status = 'accepted';
+    await fr.save();
+    // Уведомить отправителя
+    const sset = onlineUsers.get(fr.sender);
+    if (sset) sset.forEach(sid => io.to(sid).emit('friend_accepted', { userId: req.user.id }));
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Отклонить запрос
+app.post('/api/friends/reject/:id', authMiddleware, async (req, res) => {
+  try {
+    const fr = await Friendship.findOne({ _id: req.params.id, receiver: req.user.id, status: 'pending' });
+    if (!fr) return res.status(404).json({ error: 'Запрос не найден' });
+    fr.status = 'rejected';
+    await fr.save();
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Удалить из друзей
+app.delete('/api/friends/:id', authMiddleware, async (req, res) => {
+  try {
+    const fr = await Friendship.findOneAndDelete({
+      _id: req.params.id,
+      $or: [{ sender: req.user.id }, { receiver: req.user.id }]
+    });
+    if (!fr) return res.status(404).json({ error: 'Не найдено' });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Список друзей (принятые)
+app.get('/api/friends', authMiddleware, async (req, res) => {
+  try {
+    const friendships = await Friendship.find({
+      status: 'accepted',
+      $or: [{ sender: req.user.id }, { receiver: req.user.id }]
+    }).lean();
+    const friendIds = friendships.map(f => f.sender === req.user.id ? f.receiver : f.sender);
+    const users = await User.find({ _id: { $in: friendIds } }).select('-passwordHash -__v').lean();
+    const result = users.map(u => {
+      u.id = u._id;
+      u.online = (u.settings?.privShowOnline !== false) ? isOnline(u._id) : false;
+      if (u.settings?.privShowAvatar === false) u.avatar = null;
+      const fr = friendships.find(f => (f.sender === u._id || f.receiver === u._id));
+      u.friendshipId = fr?._id;
+      return u;
+    });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Входящие запросы
+app.get('/api/friends/pending', authMiddleware, async (req, res) => {
+  try {
+    const pending = await Friendship.find({ receiver: req.user.id, status: 'pending' }).lean();
+    const senderIds = pending.map(f => f.sender);
+    const users = await User.find({ _id: { $in: senderIds } }).select('-passwordHash -__v').lean();
+    const result = pending.map(f => {
+      const u = users.find(u => u._id === f.sender);
+      return {
+        id: f._id,
+        user: u ? { id: u._id, displayName: u.displayName, username: u.username, avatar: u.avatar, avatarColor: u.avatarColor, online: isOnline(u._id) } : null,
+        createdAt: f.createdAt
+      };
+    }).filter(r => r.user);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Исходящие запросы
+app.get('/api/friends/outgoing', authMiddleware, async (req, res) => {
+  try {
+    const outgoing = await Friendship.find({ sender: req.user.id, status: 'pending' }).lean();
+    const receiverIds = outgoing.map(f => f.receiver);
+    const users = await User.find({ _id: { $in: receiverIds } }).select('-passwordHash -__v').lean();
+    const result = outgoing.map(f => {
+      const u = users.find(u => u._id === f.receiver);
+      return {
+        id: f._id,
+        user: u ? { id: u._id, displayName: u.displayName, username: u.username, avatar: u.avatar, avatarColor: u.avatarColor, online: isOnline(u._id) } : null,
+        createdAt: f.createdAt
+      };
+    }).filter(r => r.user);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// Статус дружбы с конкретным пользователем
+app.get('/api/friends/status/:userId', authMiddleware, async (req, res) => {
+  try {
+    const fr = await Friendship.findOne({
+      $or: [
+        { sender: req.user.id, receiver: req.params.userId },
+        { sender: req.params.userId, receiver: req.user.id }
+      ]
+    }).lean();
+    if (!fr) return res.json({ status: 'none' });
+    res.json({ status: fr.status, id: fr._id, isSender: fr.sender === req.user.id });
+  } catch (err) {
+    res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
 app.get('/api/users/:id', authMiddleware, async (req, res) => {
   const user = await User.findById(req.params.id).lean();
   if (!user) return res.status(404).json({ error: 'Not found' });
