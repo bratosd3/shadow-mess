@@ -41,11 +41,13 @@ window.callsModule = (() => {
     if (!stream || !stream.getAudioTracks().length) return stream;
 
     // Skip Web Audio processing on iOS — causes audio crackling and glitches
+    // iOS already has good built-in echo cancellation + noise suppression
     if (isIOS()) return stream;
 
     try {
       _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
+      // Resume AudioContext immediately (needed for some browsers)
       if (_audioCtx.state === 'suspended') {
         _audioCtx.resume().catch(() => {});
       }
@@ -53,91 +55,45 @@ window.callsModule = (() => {
       const source = _audioCtx.createMediaStreamSource(stream);
       const dest = _audioCtx.createMediaStreamDestination();
 
-      // Highpass filter — removes low-frequency rumble/hum (e.g. AC fans)
+      // Highpass filter removes low-frequency rumble/hum
       const highpass = _audioCtx.createBiquadFilter();
       highpass.type = 'highpass';
-      highpass.frequency.value = 100;
+      highpass.frequency.value = 85;
       highpass.Q.value = 0.7;
-
-      // Second highpass at 60Hz to catch deep hum/buzzing
-      const highpass2 = _audioCtx.createBiquadFilter();
-      highpass2.type = 'highpass';
-      highpass2.frequency.value = 60;
-      highpass2.Q.value = 1.0;
-
-      // Notch filter at 50Hz to remove power line hum (EU/RU)
-      const notch50 = _audioCtx.createBiquadFilter();
-      notch50.type = 'notch';
-      notch50.frequency.value = 50;
-      notch50.Q.value = 10;
-
-      // Notch filter at 60Hz power line hum (US)
-      const notch60 = _audioCtx.createBiquadFilter();
-      notch60.type = 'notch';
-      notch60.frequency.value = 60;
-      notch60.Q.value = 10;
-
-      // Bandpass emphasis for voice frequencies (300Hz-3400Hz boost)
-      const voiceBoost = _audioCtx.createBiquadFilter();
-      voiceBoost.type = 'peaking';
-      voiceBoost.frequency.value = 1500;
-      voiceBoost.Q.value = 0.5;
-      voiceBoost.gain.value = 3;
-
-      // De-esser: reduce harsh sibilance (4k-8k range)
-      const deesser = _audioCtx.createBiquadFilter();
-      deesser.type = 'peaking';
-      deesser.frequency.value = 6000;
-      deesser.Q.value = 2;
-      deesser.gain.value = -4;
 
       // Lowpass removes high-frequency hiss
       const lowpass = _audioCtx.createBiquadFilter();
       lowpass.type = 'lowpass';
-      lowpass.frequency.value = 12000;
-      lowpass.Q.value = 0.5;
+      lowpass.frequency.value = 14000;
 
-      // Compressor to normalize levels — acts as noise gate effect
+      // Compressor to normalize levels
       const compressor = _audioCtx.createDynamicsCompressor();
-      compressor.threshold.value = -35;
-      compressor.knee.value = 20;
-      compressor.ratio.value = 16;
-      compressor.attack.value = 0.002;
-      compressor.release.value = 0.15;
-
-      // Second gentle compressor for leveling
-      const limiter = _audioCtx.createDynamicsCompressor();
-      limiter.threshold.value = -6;
-      limiter.knee.value = 0;
-      limiter.ratio.value = 20;
-      limiter.attack.value = 0.001;
-      limiter.release.value = 0.1;
+      compressor.threshold.value = -40;
+      compressor.knee.value = 30;
+      compressor.ratio.value = 12;
+      compressor.attack.value = 0.003;
+      compressor.release.value = 0.2;
 
       // Gain boost
       const gain = _audioCtx.createGain();
-      gain.gain.value = 1.6;
+      gain.gain.value = 1.5;
 
-      // Enhanced chain
-      source.connect(highpass2);
-      highpass2.connect(highpass);
-      highpass.connect(notch50);
-      notch50.connect(notch60);
-      notch60.connect(voiceBoost);
-      voiceBoost.connect(deesser);
-      deesser.connect(lowpass);
+      // Simple chain — no ScriptProcessor (causes crackling on mobile)
+      source.connect(highpass);
+      highpass.connect(lowpass);
       lowpass.connect(compressor);
       compressor.connect(gain);
-      gain.connect(limiter);
-      limiter.connect(dest);
+      gain.connect(dest);
 
-      // Replace audio track
+      // Replace audio track in the original stream
       const processedTrack = dest.stream.getAudioTracks()[0];
       const origTrack = stream.getAudioTracks()[0];
       stream.removeTrack(origTrack);
       stream.addTrack(processedTrack);
 
+      // Keep reference to stop original track later
       processedTrack._origTrack = origTrack;
-      _noiseNode = { source, highpass, highpass2, notch50, notch60, voiceBoost, deesser, lowpass, compressor, limiter, gain, dest };
+      _noiseNode = { source, highpass, lowpass, compressor, gain, dest };
     } catch (e) {
       console.warn('[calls] Noise suppression failed:', e);
     }
@@ -434,9 +390,6 @@ window.callsModule = (() => {
         fromName: user?.displayName || user?.username || '',
         fromAvatarColor: user?.avatarColor || '#333333'
       });
-
-      // Show active call overlay
-      $('active-call-overlay')?.classList.remove('hidden');
     } catch (err) {
       console.error('[calls] startCall error:', err);
       endCall();
@@ -459,9 +412,6 @@ window.callsModule = (() => {
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
       getSocket()?.emit('call_answer', { to: userId, answer: pc.localDescription });
-
-      // Show active call overlay
-      $('active-call-overlay')?.classList.remove('hidden');
     } catch (err) {
       console.error('[calls] acceptCall error:', err);
       endCall();

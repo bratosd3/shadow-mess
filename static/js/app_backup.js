@@ -167,7 +167,6 @@ function showApp() {
   updateUserPanel();
   initSocket();
   loadChats();
-  loadFriends('online');
   subscribePush();
 }
 
@@ -243,14 +242,14 @@ function initSocket() {
   sk.on('chat_deleted', ({ chatId }) => { S.chats = S.chats.filter(c => c.id !== chatId); if (S.activeChat?.id === chatId) { S.activeChat = null; showWelcome(); } renderChatList(); });
 
   // Calls
-  sk.on('call_incoming',   d => showIncomingCall(d));
+  sk.on('call_incoming',   d => window.callsModule?.onIncoming?.(d) || showToast(`Входящий звонок от ${d.fromName}`, 'info'));
   sk.on('call_answered',   d => window.callsModule?.onAnswer?.(d));
   sk.on('call_ice',        d => window.callsModule?.onIce?.(d));
   sk.on('call_renegotiate',d => window.callsModule?.onRenegotiate?.(d));
   sk.on('call_accepting',  () => {});
   sk.on('call_busy',       () => showToast('Абонент занят', 'info'));
   sk.on('call_rejected',   () => showToast('Звонок отклонён', 'info'));
-  sk.on('call_ended',      () => { showToast('Звонок завершён', 'info'); window.callsModule?.onEnded?.(); hideIncomingCall(); });
+  sk.on('call_ended',      () => { showToast('Звонок завершён', 'info'); window.callsModule?.onEnded?.(); });
   sk.on('session_revoked', () => { showToast('Сессия завершена', 'info'); setTimeout(logout, 1500); });
 }
 
@@ -407,110 +406,6 @@ function showWelcome() {
   $('active-chat').classList.add('hidden');
   $('welcome-screen').classList.remove('hidden');
   qsa('.chat-item').forEach(el => el.classList.remove('active'));
-  loadFriends('online');
-}
-
-/* ══════════════════════════════════════════════════════════
-   FRIENDS LIST
-   ══════════════════════════════════════════════════════════ */
-let _allUsers = [];
-async function loadFriends(tab = 'online') {
-  try {
-    _allUsers = await API.get('/api/users/search?q=');
-  } catch { return; }
-  renderFriends(tab);
-}
-
-function renderFriends(tab) {
-  const list = $('friends-list');
-  const empty = $('friends-empty');
-  if (!list) return;
-  list.innerHTML = '';
-
-  let users = _allUsers.filter(u => u.id !== S.user?.id);
-  if (tab === 'online') users = users.filter(u => u.online);
-
-  if (users.length === 0) {
-    if (empty) empty.classList.remove('hidden');
-    return;
-  }
-  if (empty) empty.classList.add('hidden');
-
-  users.forEach(u => {
-    const item = document.createElement('div');
-    item.className = 'friend-item';
-    const av = document.createElement('div');
-    av.className = 'friend-item-avatar';
-    if (u.avatar) av.style.backgroundImage = `url(${u.avatar})`;
-    else { av.style.backgroundColor = u.avatarColor || '#444'; av.textContent = avatarText(u.displayName); }
-    const dot = document.createElement('div');
-    dot.className = `friend-item-dot ${u.online ? 'online' : 'offline'}`;
-    av.appendChild(dot);
-    item.appendChild(av);
-
-    const info = document.createElement('div');
-    info.className = 'friend-item-info';
-    info.innerHTML = `<div class="friend-item-name">${escHtml(u.displayName)}</div><div class="friend-item-status">${u.online ? 'В сети' : 'Не в сети'}</div>`;
-    item.appendChild(info);
-
-    const actions = document.createElement('div');
-    actions.className = 'friend-item-actions';
-    const msgBtn = document.createElement('button');
-    msgBtn.title = 'Написать';
-    msgBtn.innerHTML = '<i class="fas fa-comment"></i>';
-    msgBtn.addEventListener('click', async (e) => {
-      e.stopPropagation();
-      try { const chat = await API.post('/api/chats', { userId: u.id }); await loadChats(); openChat(chat.id); }
-      catch (err) { showToast(err.message, 'error'); }
-    });
-    actions.appendChild(msgBtn);
-    item.appendChild(actions);
-
-    item.addEventListener('click', async () => {
-      try { const chat = await API.post('/api/chats', { userId: u.id }); await loadChats(); openChat(chat.id); }
-      catch (err) { showToast(err.message, 'error'); }
-    });
-    list.appendChild(item);
-  });
-}
-
-/* ══════════════════════════════════════════════════════════
-   THEMES
-   ══════════════════════════════════════════════════════════ */
-const THEMES = {
-  phantom:  { darkest:'#0a0a0a', dark:'#111111', primary:'#161616', secondary:'#121212', tertiary:'#0a0a0a', input:'#1c1c1c', brand:'#ffffff', accent:'linear-gradient(135deg,#fff,#ccc)', accentColor:'#ffffff' },
-  midnight: { darkest:'#000005', dark:'#080812', primary:'#0d0d1a', secondary:'#0a0a15', tertiary:'#000005', input:'#141428', brand:'#6366f1', accent:'linear-gradient(135deg,#6366f1,#818cf8)', accentColor:'#6366f1' },
-  obsidian: { darkest:'#0e0e1a', dark:'#14142a', primary:'#1a1a2e', secondary:'#16162a', tertiary:'#0e0e1a', input:'#22223a', brand:'#7c83ff', accent:'linear-gradient(135deg,#7c83ff,#a5b4fc)', accentColor:'#7c83ff' },
-  crimson:  { darkest:'#0a0000', dark:'#140000', primary:'#1a0000', secondary:'#120000', tertiary:'#0a0000', input:'#2d0000', brand:'#ef4444', accent:'linear-gradient(135deg,#ef4444,#f87171)', accentColor:'#ef4444' },
-  emerald:  { darkest:'#000a04', dark:'#001a0a', primary:'#00200d', secondary:'#001a0a', tertiary:'#000a04', input:'#002d12', brand:'#22c55e', accent:'linear-gradient(135deg,#22c55e,#4ade80)', accentColor:'#22c55e' },
-  ocean:    { darkest:'#000810', dark:'#001020', primary:'#001428', secondary:'#001020', tertiary:'#000810', input:'#001830', brand:'#3b82f6', accent:'linear-gradient(135deg,#3b82f6,#60a5fa)', accentColor:'#3b82f6' },
-  violet:   { darkest:'#08001a', dark:'#10001a', primary:'#140020', secondary:'#10001a', tertiary:'#08001a', input:'#1a0030', brand:'#a855f7', accent:'linear-gradient(135deg,#a855f7,#c084fc)', accentColor:'#a855f7' },
-  sunset:   { darkest:'#0a0400', dark:'#1a0800', primary:'#200e00', secondary:'#1a0800', tertiary:'#0a0400', input:'#2d1200', brand:'#f97316', accent:'linear-gradient(135deg,#f97316,#fb923c)', accentColor:'#f97316' },
-  arctic:   { darkest:'#050a10', dark:'#0a1520', primary:'#0e1a28', secondary:'#0a1520', tertiary:'#050a10', input:'#122030', brand:'#67e8f9', accent:'linear-gradient(135deg,#67e8f9,#a5f3fc)', accentColor:'#67e8f9' },
-  rose:     { darkest:'#0a0008', dark:'#1a0010', primary:'#200015', secondary:'#1a0010', tertiary:'#0a0008', input:'#2d001a', brand:'#f43f5e', accent:'linear-gradient(135deg,#f43f5e,#fb7185)', accentColor:'#f43f5e' },
-  cyber:    { darkest:'#050505', dark:'#0a0a0a', primary:'#0f0f0f', secondary:'#0a0a0a', tertiary:'#050505', input:'#001a1a', brand:'#06b6d4', accent:'linear-gradient(135deg,#06b6d4,#22d3ee)', accentColor:'#06b6d4' },
-  amber:    { darkest:'#0a0800', dark:'#1a1000', primary:'#201400', secondary:'#1a1000', tertiary:'#0a0800', input:'#2d1a00', brand:'#f59e0b', accent:'linear-gradient(135deg,#f59e0b,#fbbf24)', accentColor:'#f59e0b' },
-  slate:    { darkest:'#101010', dark:'#1a1a1a', primary:'#202020', secondary:'#1a1a1a', tertiary:'#101010', input:'#2a2a2a', brand:'#94a3b8', accent:'linear-gradient(135deg,#94a3b8,#cbd5e1)', accentColor:'#94a3b8' },
-  nord:     { darkest:'#242933', dark:'#2e3440', primary:'#3b4252', secondary:'#2e3440', tertiary:'#242933', input:'#434c5e', brand:'#88c0d0', accent:'linear-gradient(135deg,#88c0d0,#8fbcbb)', accentColor:'#88c0d0' },
-  dracula:  { darkest:'#1e1f29', dark:'#282a36', primary:'#2c2e3a', secondary:'#282a36', tertiary:'#1e1f29', input:'#44475a', brand:'#bd93f9', accent:'linear-gradient(135deg,#bd93f9,#ff79c6)', accentColor:'#bd93f9' },
-  monokai:  { darkest:'#1e1f1c', dark:'#272822', primary:'#2d2e27', secondary:'#272822', tertiary:'#1e1f1c', input:'#3e3d32', brand:'#a6e22e', accent:'linear-gradient(135deg,#a6e22e,#e6db74)', accentColor:'#a6e22e' },
-  abyss:    { darkest:'#000010', dark:'#000020', primary:'#000030', secondary:'#000020', tertiary:'#000010', input:'#000040', brand:'#4fc1ff', accent:'linear-gradient(135deg,#4fc1ff,#9cdcfe)', accentColor:'#4fc1ff' },
-};
-
-function applyTheme(name) {
-  const t = THEMES[name];
-  if (!t) return;
-  const r = document.documentElement.style;
-  r.setProperty('--bg-darkest', t.darkest);
-  r.setProperty('--bg-dark', t.dark);
-  r.setProperty('--bg-primary', t.primary);
-  r.setProperty('--bg-secondary', t.secondary);
-  r.setProperty('--bg-tertiary', t.tertiary);
-  r.setProperty('--bg-input', t.input);
-  r.setProperty('--bg-brand', t.brand);
-  r.setProperty('--accent-gradient', t.accent);
-  r.setProperty('--accent-color', t.accentColor);
-  localStorage.setItem('sm_theme', name);
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -1149,16 +1044,9 @@ function initSettings() {
     r.addEventListener('change', () => {
       qsa('.theme-option').forEach(o => o.classList.remove('selected'));
       r.closest('.theme-option').classList.add('selected');
-      applyTheme(r.value);
       showToast('Тема применена', 'success', 2000);
     });
   });
-
-  // Restore saved theme
-  const savedTheme = localStorage.getItem('sm_theme') || 'phantom';
-  applyTheme(savedTheme);
-  const themeRadio = qs(`input[name="theme"][value="${savedTheme}"]`);
-  if (themeRadio) { themeRadio.checked = true; qsa('.theme-option').forEach(o => o.classList.remove('selected')); themeRadio.closest('.theme-option').classList.add('selected'); }
 
   // Volume sliders
   on('voice-input-vol', 'input', () => { const el = $('voice-input-val'); if (el) el.textContent = $('voice-input-vol').value + '%'; });
@@ -1317,52 +1205,6 @@ function urlB64(b64) {
 }
 
 /* ══════════════════════════════════════════════════════════
-   INCOMING CALL OVERLAY
-   ══════════════════════════════════════════════════════════ */
-let _incomingCallData = null;
-let _ringtoneInterval = null;
-
-function showIncomingCall(data) {
-  _incomingCallData = data;
-  const overlay = $('incoming-call-overlay');
-  if (!overlay) return;
-  const av = $('incoming-call-avatar');
-  if (data.fromAvatar) { av.style.backgroundImage = `url(${data.fromAvatar})`; av.textContent = ''; }
-  else { av.style.backgroundImage = ''; av.style.backgroundColor = data.fromAvatarColor || '#444'; av.textContent = avatarText(data.fromName); }
-  $('incoming-call-name').textContent = data.fromName || 'Неизвестный';
-  $('incoming-call-type').textContent = data.callType === 'video' ? 'Видеозвонок' : 'Голосовой звонок';
-  overlay.classList.remove('hidden');
-  // Auto-reject after 30s
-  _ringtoneInterval = setTimeout(() => { hideIncomingCall(); showToast('Пропущенный звонок', 'warning'); }, 30000);
-}
-
-function hideIncomingCall() {
-  $('incoming-call-overlay')?.classList.add('hidden');
-  clearTimeout(_ringtoneInterval);
-  _incomingCallData = null;
-}
-
-function showActiveCall(name, avatar, avatarColor) {
-  const overlay = $('active-call-overlay');
-  if (!overlay) return;
-  overlay.classList.remove('hidden');
-  const av = $('call-audio-avatar');
-  if (avatar) { av.style.backgroundImage = `url(${avatar})`; av.textContent = ''; }
-  else { av.style.backgroundImage = ''; av.style.backgroundColor = avatarColor || '#444'; av.textContent = avatarText(name); }
-  $('call-audio-name').textContent = name || '';
-  $('call-audio-timer').textContent = 'Подключение...';
-  // Start timer
-  const start = Date.now();
-  window._callTimerInterval = setInterval(() => {
-    const elapsed = Math.floor((Date.now() - start) / 1000);
-    const m = Math.floor(elapsed / 60);
-    const s = elapsed % 60;
-    const el = $('call-audio-timer');
-    if (el) el.textContent = `${m}:${String(s).padStart(2, '0')}`;
-  }, 1000);
-}
-
-/* ══════════════════════════════════════════════════════════
    INIT
    ══════════════════════════════════════════════════════════ */
 document.addEventListener('DOMContentLoaded', () => {
@@ -1412,6 +1254,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // ── Buttons ───────────────────────────────────────────
   on('btn-logout', 'click', logout);
   on('btn-new-chat', 'click', () => openModal('modal-new-chat'));
+  on('btn-new-chat2', 'click', () => openModal('modal-new-chat'));
   on('btn-search-open', 'click', () => openModal('modal-new-chat'));
   on('btn-new-group', 'click', () => openModal('modal-new-group'));
   on('btn-settings', 'click', openSettings);
@@ -1463,63 +1306,19 @@ document.addEventListener('DOMContentLoaded', () => {
   on('btn-call', 'click', () => {
     if (!S.activeChat || S.activeChat.type !== 'private') return;
     const peerId = S.activeChat.members?.find(id => id !== S.user?.id);
-    if (peerId && window.callsModule?.startCall) {
-      window.callsModule.startCall(peerId, 'audio');
-      showActiveCall(S.activeChat.displayName || S.activeChat.name, S.activeChat.displayAvatar, S.activeChat.displayAvatarColor);
-    } else showToast('Модуль звонков не загружен', 'error');
+    if (peerId && window.callsModule?.startCall) window.callsModule.startCall(peerId, 'audio');
+    else showToast('Модуль звонков не загружен', 'error');
   });
   on('btn-video-call', 'click', () => {
     if (!S.activeChat || S.activeChat.type !== 'private') return;
     const peerId = S.activeChat.members?.find(id => id !== S.user?.id);
-    if (peerId && window.callsModule?.startCall) {
-      window.callsModule.startCall(peerId, 'video');
-      showActiveCall(S.activeChat.displayName || S.activeChat.name, S.activeChat.displayAvatar, S.activeChat.displayAvatarColor);
-    } else showToast('Модуль звонков не загружен', 'error');
+    if (peerId && window.callsModule?.startCall) window.callsModule.startCall(peerId, 'video');
+    else showToast('Модуль звонков не загружен', 'error');
   });
 
-  // ── Incoming call buttons ─────────────────────────────
-  on('btn-accept-call', 'click', () => {
-    if (!_incomingCallData) return;
-    const d = _incomingCallData;
-    hideIncomingCall();
-    S.socket?.emit('call_accepting', { to: d.from });
-    window.callsModule?.acceptCall(d.from, d.offer, d.callType);
-    showActiveCall(d.fromName, d.fromAvatar, d.fromAvatarColor);
-  });
-  on('btn-reject-call', 'click', () => {
-    if (!_incomingCallData) return;
-    S.socket?.emit('call_reject', { to: _incomingCallData.from });
-    hideIncomingCall();
-  });
-
-  // ── Active call controls ──────────────────────────────
-  on('btn-end-call', 'click', () => { window.callsModule?.endCall(); });
-  on('toggle-mute', 'click', () => {
-    const muted = window.callsModule?.toggleMute();
-    const btn = $('toggle-mute');
-    if (btn) { btn.innerHTML = muted ? '<i class="fas fa-microphone-slash"></i>' : '<i class="fas fa-microphone"></i>'; btn.classList.toggle('active', muted); }
-  });
-  on('toggle-video', 'click', async () => {
-    const off = await window.callsModule?.toggleVideo();
-    const btn = $('toggle-video');
-    if (btn) { btn.innerHTML = off ? '<i class="fas fa-video-slash"></i>' : '<i class="fas fa-video"></i>'; btn.classList.toggle('active', !off); }
-  });
-  on('toggle-screen', 'click', async () => {
-    if (window.callsModule?.isInCall?.()) {
-      try {
-        if ($('toggle-screen')?.classList.contains('sharing')) { await window.callsModule.stopScreenShare(); $('toggle-screen').classList.remove('sharing'); }
-        else { await window.callsModule.startScreenShare(); $('toggle-screen').classList.add('sharing'); }
-      } catch { showToast('Не удалось начать демонстрацию', 'error'); }
-    }
-  });
-
-  // ── Friends tab ────────────────────────────────────────
+  // ── Friends tab (no real server logic, just style) ────
   qsa('.fh-tab').forEach(btn => {
-    btn.addEventListener('click', () => {
-      qsa('.fh-tab').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      loadFriends(btn.dataset.tab);
-    });
+    btn.addEventListener('click', () => { qsa('.fh-tab').forEach(b => b.classList.remove('active')); btn.classList.add('active'); });
   });
 
   // ── Mic / Deaf toggles ────────────────────────────────

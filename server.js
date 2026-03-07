@@ -708,12 +708,12 @@ app.post('/api/me/sessions/revoke', authMiddleware, async (req, res) => {
 // ── Search users ──────────────────────────────────────────────────────────
 app.get('/api/users/search', authMiddleware, async (req, res) => {
   const q = (req.query.q || '').trim();
-  if (!q) return res.json([]);
-  const regex = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-  const users = await User.find({
-    _id: { $ne: req.user.id },
-    $or: [{ username: regex }, { displayName: regex }]
-  }).select('-passwordHash -__v').limit(20).lean();
+  const filter = { _id: { $ne: req.user.id } };
+  if (q) {
+    const regex = new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    filter.$or = [{ username: regex }, { displayName: regex }];
+  }
+  const users = await User.find(filter).select('-passwordHash -__v').limit(50).lean();
 
   const results = users.map(u => {
     u.id = u._id;
