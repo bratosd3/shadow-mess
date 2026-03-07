@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════
-   Shadow Messenger — Discord-Clone  (app.js)
+   Shadow Messenger v2 — app.js
    ═══════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -7,8 +7,8 @@
 const S = {
   token: null, user: null, chats: [], activeChat: null, messages: [],
   socket: null, replyTo: null, editingMsgId: null,
-  membersVisible: false, emojiOpen: false,
-  settingsOpen: false, _mobileScreen: 'chats',
+  emojiOpen: false, settingsOpen: false,
+  currentScreen: 'chats', previousScreen: 'chats',
 };
 window.State = S;
 
@@ -38,10 +38,7 @@ function fmtDate(iso) {
   if (d.toDateString() === y.toDateString()) return 'Вчера';
   return d.toLocaleDateString('ru', { day: 'numeric', month: 'long', year: 'numeric' });
 }
-function fmtFullDate(iso) {
-  const d = new Date(iso);
-  return `${fmtDate(iso)} ${fmtTime(iso)}`;
-}
+function fmtFullDate(iso) { return `${fmtDate(iso)} ${fmtTime(iso)}`; }
 function fmtSize(b) {
   if (b < 1024) return b + ' Б';
   if (b < 1048576) return (b / 1024).toFixed(1) + ' КБ';
@@ -57,7 +54,7 @@ function linkify(text) {
 }
 function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
 
-/* ── API helper — auto-logout on 401 ─────────────────── */
+/* ── API helper ──────────────────────────────────────── */
 const API = {
   async req(method, path, body, isFormData) {
     const h = {};
@@ -115,6 +112,39 @@ async function fetchLinkPreview(url, container) {
 }
 
 /* ══════════════════════════════════════════════════════════
+   SCREEN NAVIGATION
+   ══════════════════════════════════════════════════════════ */
+function switchScreen(name) {
+  // Don't reload if already on this screen (except chat which may change)
+  if (name !== 'chat') S.previousScreen = S.currentScreen;
+  S.currentScreen = name;
+
+  // Hide all screens, show target
+  qsa('.screen').forEach(s => s.classList.remove('active'));
+  const screen = $('screen-' + name);
+  if (screen) screen.classList.add('active');
+
+  // Update bottom nav
+  qsa('.bnav-item').forEach(b => b.classList.remove('active'));
+  const navMap = { hubs: 'bnav-hubs', chats: 'bnav-chats', friends: 'bnav-friends', profile: 'bnav-profile' };
+  if (navMap[name]) $(navMap[name])?.classList.add('active');
+
+  // Show/hide bottom nav (hide when in chat)
+  $('bottom-nav').classList.toggle('hidden', name === 'chat');
+
+  // Load data for target screen
+  if (name === 'chats') { loadChats(); }
+  else if (name === 'friends') { loadFriends(_currentFriendsTab); }
+  else if (name === 'profile') { updateProfileScreen(); }
+  else if (name === 'hubs') { renderHubs(); }
+}
+
+function goBack() {
+  S.activeChat = null;
+  switchScreen(S.previousScreen || 'chats');
+}
+
+/* ══════════════════════════════════════════════════════════
    AUTH
    ══════════════════════════════════════════════════════════ */
 function initAuth() {
@@ -132,7 +162,7 @@ function initAuth() {
       await onLogin(d);
     } catch (err) {
       errEl.textContent = err.message || 'Ошибка входа';
-      errEl.style.color = '#ed4245';
+      errEl.style.color = 'var(--text-danger)';
     }
   });
   ['li-username', 'li-password'].forEach(id => on(id, 'keydown', e => { if (e.key === 'Enter') $('btn-login').click(); }));
@@ -164,10 +194,11 @@ async function onLogin({ token, user }) {
 function showApp() {
   $('auth-screen').classList.add('hidden');
   $('app').classList.remove('hidden');
-  updateUserPanel();
   initSocket();
   loadChats();
   loadFriends('online');
+  updateProfileScreen();
+  switchScreen('chats');
   subscribePush();
 }
 
@@ -183,16 +214,16 @@ function logout() {
   closeSettings();
 }
 
-function updateUserPanel() {
+function updateProfileScreen() {
   if (!S.user) return;
-  const av = $('my-avatar');
+  const av = $('my-profile-avatar');
   if (S.user.avatar) { av.style.backgroundImage = `url(${S.user.avatar})`; av.textContent = ''; }
   else { av.style.backgroundImage = ''; av.style.backgroundColor = S.user.avatarColor || '#5865f2'; av.textContent = avatarText(S.user.displayName); }
-  $('my-name').textContent = S.user.displayName;
-  $('my-tag').textContent = S.user.username;
+  $('my-profile-name').textContent = S.user.displayName;
+  $('my-profile-username').textContent = '@' + S.user.username;
+  $('my-profile-bio').textContent = S.user.bio || '';
 }
 
-/* ── Auto-login with token validation ────────────────── */
 async function tryAutoLogin() {
   const token = localStorage.getItem('sm_token');
   const userJson = localStorage.getItem('sm_user');
@@ -200,14 +231,12 @@ async function tryAutoLogin() {
   S.token = token;
   try { S.user = JSON.parse(userJson); } catch { return; }
   if (!S.user) return;
-  // Validate token with server
   try {
     const freshUser = await API.get('/api/me');
     S.user = freshUser;
     localStorage.setItem('sm_user', JSON.stringify(freshUser));
     showApp();
   } catch {
-    // Token invalid — clear and stay on login
     S.token = null; S.user = null;
     localStorage.removeItem('sm_token');
     localStorage.removeItem('sm_user');
@@ -239,8 +268,8 @@ function initSocket() {
   sk.on('user_online',  ({ userId }) => updateOnline(userId, true));
   sk.on('user_offline', ({ userId }) => updateOnline(userId, false));
   sk.on('chat_created', async chat => { sk.emit('join_chat', { chatId: chat.id }); await loadChats(); });
-  sk.on('chat_updated', chat => { const i = S.chats.findIndex(c => c.id === chat.id); if (i !== -1) { Object.assign(S.chats[i], chat); renderChatList(); } });
-  sk.on('chat_deleted', ({ chatId }) => { S.chats = S.chats.filter(c => c.id !== chatId); if (S.activeChat?.id === chatId) { S.activeChat = null; showWelcome(); } renderChatList(); });
+  sk.on('chat_updated', chat => { const i = S.chats.findIndex(c => c.id === chat.id); if (i !== -1) { Object.assign(S.chats[i], chat); renderChatList(); renderHubs(); } });
+  sk.on('chat_deleted', ({ chatId }) => { S.chats = S.chats.filter(c => c.id !== chatId); if (S.activeChat?.id === chatId) { S.activeChat = null; goBack(); } renderChatList(); renderHubs(); });
 
   // Calls
   sk.on('call_incoming',   d => showIncomingCall(d));
@@ -254,11 +283,11 @@ function initSocket() {
   sk.on('session_revoked', () => { showToast('Сессия завершена', 'info'); setTimeout(logout, 1500); });
   sk.on('call_status',     d => window.callsModule?.onPeerStatus?.(d));
   sk.on('friend_request',  () => { showToast('Новый запрос в друзья!', 'info'); if (_currentFriendsTab === 'pending') loadFriends('pending'); });
-  sk.on('friend_accepted', () => { showToast('Ваш запрос в друзья принят!', 'success'); loadFriends(_currentFriendsTab); });
+  sk.on('friend_accepted', () => { showToast('Ваш запрос принят!', 'success'); loadFriends(_currentFriendsTab); });
 }
 
 /* ══════════════════════════════════════════════════════════
-   CHAT LIST
+   CHAT LIST (Private chats — "Сообщения")
    ══════════════════════════════════════════════════════════ */
 async function loadChats() {
   try { S.chats = await API.get('/api/chats'); }
@@ -268,17 +297,17 @@ async function loadChats() {
 }
 
 function renderChatList(filter = '') {
-  const list = $('chat-list');
+  const list = $('dialog-list');
   if (!list) return;
-  const items = list.querySelectorAll('.chat-item');
-  items.forEach(el => el.remove());
+  list.innerHTML = '';
 
-  let chats = S.chats;
+  let chats = S.chats.filter(c => c.type === 'private');
   if (filter) chats = chats.filter(c => (c.displayName || c.name || '').toLowerCase().includes(filter.toLowerCase()));
 
-  const empty = $('chat-list-empty');
-  if (empty) empty.classList.toggle('hidden', chats.length > 0);
-
+  if (chats.length === 0) {
+    list.innerHTML = '<div class="empty-state"><p>Нет сообщений</p></div>';
+    return;
+  }
   const frag = document.createDocumentFragment();
   chats.forEach(c => frag.appendChild(buildChatItem(c)));
   list.appendChild(frag);
@@ -289,19 +318,16 @@ function buildChatItem(chat) {
   el.className = `chat-item${S.activeChat?.id === chat.id ? ' active' : ''}`;
   el.dataset.chatid = chat.id;
 
-  // Avatar
   const av = document.createElement('div');
   av.className = 'chat-item-avatar';
   if (chat.displayAvatar) av.style.backgroundImage = `url(${chat.displayAvatar})`;
   else { av.style.backgroundColor = chat.displayAvatarColor || '#5865f2'; av.textContent = avatarText(chat.displayName || chat.name); }
 
-  // Status dot
   const dot = document.createElement('div');
   dot.className = `chat-item-status ${chat.online ? 'online' : 'offline'}`;
   av.appendChild(dot);
   el.appendChild(av);
 
-  // Info
   const info = document.createElement('div');
   info.className = 'chat-item-info';
   const name = document.createElement('div');
@@ -314,30 +340,29 @@ function buildChatItem(chat) {
     preview.className = 'chat-item-preview';
     const sender = chat.lastMessage.senderId === S.user?.id ? 'Вы' : (chat.lastMessage.senderName || '').split(' ')[0];
     let text = chat.lastMessage.text || '';
-    if (chat.lastMessage.type === 'image') text = 'Отправил(а) фото';
-    else if (chat.lastMessage.type === 'video') text = 'Отправил(а) видео';
-    else if (chat.lastMessage.type === 'file') text = 'Отправил(а) файл';
-    else if (chat.lastMessage.type === 'voice') text = 'Голосовое сообщение';
+    if (chat.lastMessage.type === 'image') text = '📷 Фото';
+    else if (chat.lastMessage.type === 'video') text = '🎬 Видео';
+    else if (chat.lastMessage.type === 'file') text = '📎 Файл';
+    else if (chat.lastMessage.type === 'voice') text = '🎤 Голосовое';
     preview.textContent = (chat.type !== 'private' ? sender + ': ' : '') + text;
     info.appendChild(preview);
   }
   el.appendChild(info);
 
-  // Meta
   const meta = document.createElement('div');
   meta.className = 'chat-item-meta';
+  if (chat.lastMessage) {
+    const time = document.createElement('div');
+    time.className = 'chat-item-time';
+    time.textContent = fmtTime(chat.lastMessage.timestamp);
+    meta.appendChild(time);
+  }
   if (chat.unreadCount > 0) {
     const badge = document.createElement('div');
     badge.className = 'chat-item-badge';
     badge.textContent = chat.unreadCount > 99 ? '99+' : chat.unreadCount;
     meta.appendChild(badge);
   }
-  // Close button (Discord style)
-  const closeBtn = document.createElement('button');
-  closeBtn.className = 'chat-item-close icon-btn';
-  closeBtn.innerHTML = '<i class="fas fa-xmark" style="font-size:12px"></i>';
-  closeBtn.addEventListener('click', e => { e.stopPropagation(); });
-  meta.appendChild(closeBtn);
   el.appendChild(meta);
 
   el.addEventListener('click', () => openChat(chat.id));
@@ -350,6 +375,63 @@ function updateTabTitle() {
 }
 
 /* ══════════════════════════════════════════════════════════
+   HUBS (Group chats)
+   ══════════════════════════════════════════════════════════ */
+function renderHubs() {
+  const scroll = $('hubs-scroll');
+  const grid = $('subchat-grid');
+  if (!scroll || !grid) return;
+  scroll.innerHTML = '';
+  grid.innerHTML = '';
+
+  const hubs = S.chats.filter(c => c.type === 'group');
+
+  if (hubs.length === 0) {
+    grid.innerHTML = '<div class="empty-state"><p>У вас пока нет хабов</p></div>';
+    return;
+  }
+
+  // Horizontal hub icons
+  hubs.forEach(h => {
+    const icon = document.createElement('div');
+    icon.className = 'hub-icon';
+    const av = document.createElement('div');
+    av.className = 'hub-icon-avatar';
+    if (h.displayAvatar) av.style.backgroundImage = `url(${h.displayAvatar})`;
+    else { av.style.backgroundColor = h.displayAvatarColor || '#5865f2'; av.textContent = avatarText(h.name).charAt(0); }
+    icon.appendChild(av);
+    const nm = document.createElement('span');
+    nm.className = 'hub-icon-name';
+    nm.textContent = (h.name || 'Хаб').slice(0, 8);
+    icon.appendChild(nm);
+    icon.addEventListener('click', () => openChat(h.id));
+    scroll.appendChild(icon);
+  });
+
+  // Hub cards grid
+  hubs.forEach(h => {
+    const card = document.createElement('div');
+    card.className = 'subchat-card';
+    const nm = document.createElement('div');
+    nm.className = 'subchat-card-name';
+    nm.textContent = h.name || 'Хаб';
+    card.appendChild(nm);
+    const inf = document.createElement('div');
+    inf.className = 'subchat-card-info';
+    inf.textContent = h.membersInfo ? h.membersInfo.length + ' участников' : '';
+    card.appendChild(inf);
+    if (h.unreadCount > 0) {
+      const badge = document.createElement('div');
+      badge.className = 'subchat-card-unread';
+      badge.textContent = h.unreadCount;
+      card.appendChild(badge);
+    }
+    card.addEventListener('click', () => openChat(h.id));
+    grid.appendChild(card);
+  });
+}
+
+/* ══════════════════════════════════════════════════════════
    OPEN CHAT
    ══════════════════════════════════════════════════════════ */
 async function openChat(chatId) {
@@ -357,24 +439,22 @@ async function openChat(chatId) {
   if (!chat) return;
   S.activeChat = chat;
 
-  $('welcome-screen').classList.add('hidden');
-  $('active-chat').classList.remove('hidden');
+  // Switch to chat screen
+  switchScreen('chat');
+
+  // Set header
   $('chat-name').textContent = chat.displayName || chat.name || 'Чат';
   updateChatStatus(chat);
 
-  // Set header avatar
   const chAv = $('ch-avatar');
   if (chAv) {
     if (chat.displayAvatar) { chAv.style.backgroundImage = `url(${chat.displayAvatar})`; chAv.textContent = ''; }
     else { chAv.style.backgroundImage = ''; chAv.style.backgroundColor = chat.displayAvatarColor || '#5865f2'; chAv.textContent = avatarText(chat.displayName || chat.name); }
   }
 
-  // Call buttons
+  // Call buttons (private only)
   $('btn-call').classList.toggle('hidden', chat.type !== 'private');
   $('btn-video-call').classList.toggle('hidden', chat.type !== 'private');
-
-  // Highlight
-  qsa('.chat-item').forEach(el => el.classList.toggle('active', el.dataset.chatid === chatId));
 
   // Load messages
   try { S.messages = await API.get(`/api/chats/${chatId}/messages`); }
@@ -386,132 +466,48 @@ async function openChat(chatId) {
 
   // Clear unread
   const ci = S.chats.findIndex(c => c.id === chatId);
-  if (ci !== -1) { S.chats[ci].unreadCount = 0; renderChatList(); updateTabTitle(); }
-
-  // Mobile: show chat, hide bottom nav
-  if (isMobile()) {
-    $('bottom-nav').classList.add('hidden');
-    $('top-bar').style.display = 'none';
-  }
+  if (ci !== -1) { S.chats[ci].unreadCount = 0; renderChatList(); renderHubs(); updateTabTitle(); }
 
   $('msg-input').placeholder = `Написать @${chat.displayName || chat.name || 'чат'}`;
-
-  // Members / Right panel
-  if (chat.type === 'group' && chat.membersInfo) renderMembers(chat.membersInfo);
-  if (chat.type === 'private') {
-    populateUserInfo(chat);
-  }
 }
 
 function updateChatStatus(chat) {
   const el = $('chat-status');
   if (!el) return;
   if (chat.type === 'private') {
-    el.textContent = chat.online ? 'В сети' : '';
+    el.textContent = chat.online ? 'в сети' : '';
   } else if (chat.type === 'group' && chat.membersInfo) {
     const cnt = chat.membersInfo.length;
     const onl = chat.membersInfo.filter(m => m.online).length;
-    el.textContent = `${cnt} участн.${onl > 0 ? ` | ${onl} в сети` : ''}`;
+    el.textContent = `${cnt} уч.${onl > 0 ? ' · ' + onl + ' в сети' : ''}`;
   } else el.textContent = '';
 }
 
-function showWelcome() {
-  $('active-chat').classList.add('hidden');
-  $('welcome-screen').classList.remove('hidden');
-  $('right-col')?.classList.add('hidden');
-  qsa('.chat-item').forEach(el => el.classList.remove('active'));
-  if (isMobile()) {
-    $('bottom-nav').classList.remove('hidden');
-    $('top-bar').style.display = 'flex';
-    $('top-bar-title').textContent = 'Друзья';
-    setMobileScreen('friends');
+/* ══════════════════════════════════════════════════════════
+   PROFILE VIEWER
+   ══════════════════════════════════════════════════════════ */
+function openProfileViewer(user) {
+  const pv = $('profile-viewer');
+  if (!pv) return;
+  const av = $('pv-avatar');
+  if (user.avatar || user.displayAvatar) {
+    av.style.backgroundImage = `url(${user.avatar || user.displayAvatar})`;
+    av.textContent = '';
+  } else {
+    av.style.backgroundImage = '';
+    av.style.backgroundColor = user.avatarColor || user.displayAvatarColor || '#5865f2';
+    av.textContent = avatarText(user.displayName || user.name);
   }
-  loadFriends('online');
+  $('pv-name').textContent = user.displayName || user.name || '';
+  $('pv-username').textContent = '@' + (user.username || user.otherUsername || '');
+  $('pv-status').textContent = user.online ? 'В сети' : 'Не в сети';
+  $('pv-status').style.color = user.online ? 'var(--status-online)' : 'var(--text-muted)';
+  $('pv-bio').textContent = user.bio || '';
+  pv.classList.remove('hidden');
 }
 
-/* ── Populate user-info-card for private chat ───────── */
-function populateUserInfo(chat) {
-  const card = $('user-info-card');
-  if (!card) return;
-  const av = $('uic-avatar');
-  if (chat.displayAvatar) { av.style.backgroundImage = `url(${chat.displayAvatar})`; av.textContent = ''; }
-  else { av.style.backgroundImage = ''; av.style.backgroundColor = chat.displayAvatarColor || '#5865f2'; av.textContent = avatarText(chat.displayName || chat.name); }
-  $('uic-name').textContent = chat.displayName || chat.name || '';
-  $('uic-tag').textContent = '@' + (chat.otherUsername || '');
-  $('uic-status').textContent = chat.online ? 'В сети' : 'Не в сети';
-  card.classList.remove('hidden');
-  $('members-list').innerHTML = '';
-}
-
-/* ── Mobile screen switching ─────────────────────────── */
-function setMobileScreen(screen) {
-  S._mobileScreen = screen;
-  const bnChats = $('bnav-chats'), bnHubs = $('bnav-hubs'), bnFriends = $('bnav-friends');
-  qsa('.bnav-item').forEach(b => b.classList.remove('active'));
-
-  // Hide active chat when switching screens
-  $('active-chat').classList.add('hidden');
-  $('welcome-screen').classList.add('hidden');
-
-  if (screen === 'chats') {
-    bnChats?.classList.add('active');
-    $('welcome-screen').classList.remove('hidden');
-    // Show chat list in welcome screen area
-    $('friends-header').classList.add('hidden');
-    $('friends-body').classList.add('hidden');
-    showMobileChatList();
-    $('top-bar-title').textContent = 'Чаты';
-  } else if (screen === 'hubs') {
-    bnHubs?.classList.add('active');
-    $('welcome-screen').classList.remove('hidden');
-    $('friends-header').classList.add('hidden');
-    $('friends-body').classList.add('hidden');
-    showMobileHubList();
-    $('top-bar-title').textContent = 'Хабы';
-  } else if (screen === 'friends') {
-    bnFriends?.classList.add('active');
-    $('welcome-screen').classList.remove('hidden');
-    $('friends-header').classList.remove('hidden');
-    $('friends-body').classList.remove('hidden');
-    hideMobileLists();
-    $('top-bar-title').textContent = 'Друзья';
-    loadFriends('online');
-  }
-}
-
-/* Mobile chat list shown inline */
-let _mobileChatListEl = null;
-function showMobileChatList() {
-  hideMobileLists();
-  const ws = $('welcome-screen');
-  if (!_mobileChatListEl) {
-    _mobileChatListEl = document.createElement('div');
-    _mobileChatListEl.className = 'mobile-list-panel';
-    _mobileChatListEl.id = 'mobile-chat-list';
-  }
-  _mobileChatListEl.innerHTML = '';
-  const frag = document.createDocumentFragment();
-  S.chats.forEach(c => frag.appendChild(buildChatItem(c)));
-  _mobileChatListEl.appendChild(frag);
-  ws.appendChild(_mobileChatListEl);
-}
-
-let _mobileHubListEl = null;
-function showMobileHubList() {
-  hideMobileLists();
-  const ws = $('welcome-screen');
-  if (!_mobileHubListEl) {
-    _mobileHubListEl = document.createElement('div');
-    _mobileHubListEl.className = 'mobile-list-panel';
-    _mobileHubListEl.id = 'mobile-hub-list';
-    _mobileHubListEl.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:40px">Хабы скоро появятся</p>';
-  }
-  ws.appendChild(_mobileHubListEl);
-}
-
-function hideMobileLists() {
-  _mobileChatListEl?.remove();
-  _mobileHubListEl?.remove();
+function closeProfileViewer() {
+  $('profile-viewer')?.classList.add('hidden');
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -519,10 +515,9 @@ function hideMobileLists() {
    ══════════════════════════════════════════════════════════ */
 let _friendsList = [];
 let _currentFriendsTab = 'online';
+
 async function loadFriends(tab = 'online') {
   _currentFriendsTab = tab;
-  const searchBar = $('friends-search-bar');
-  if (searchBar) searchBar.classList.toggle('hidden', tab !== 'add');
 
   if (tab === 'add') {
     renderFriends(tab);
@@ -547,17 +542,27 @@ function renderFriends(tab) {
   if (!list) return;
   list.innerHTML = '';
 
+  const searchQuery = $('friends-search-input')?.value?.trim()?.toLowerCase() || '';
+
   if (tab === 'add') {
     if (empty) empty.classList.add('hidden');
-    list.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:20px">Введите имя пользователя выше для поиска</p>';
+    if (searchQuery) {
+      searchAndRenderUsers(searchQuery);
+    } else {
+      list.innerHTML = '<div class="empty-state"><p>Введите имя для поиска</p></div>';
+    }
     return;
   }
 
   let users = _friendsList.filter(u => u.id !== S.user?.id);
   if (tab === 'online') users = users.filter(u => u.online);
+  if (searchQuery && tab !== 'add') users = users.filter(u => u.displayName.toLowerCase().includes(searchQuery));
 
   if (users.length === 0) {
-    if (empty) { empty.classList.remove('hidden'); empty.querySelector('p').textContent = tab === 'online' ? 'Нет друзей в сети' : 'Список друзей пуст. Добавьте друзей!'; }
+    if (empty) {
+      empty.classList.remove('hidden');
+      empty.querySelector('p').textContent = tab === 'online' ? 'Нет друзей в сети' : 'Список друзей пуст';
+    }
     return;
   }
   if (empty) empty.classList.add('hidden');
@@ -591,10 +596,28 @@ function renderFriends(tab) {
     });
     actions.appendChild(msgBtn);
 
-    // Удалить из друзей
+    const callBtn = document.createElement('button');
+    callBtn.title = 'Позвонить';
+    callBtn.innerHTML = '<i class="fas fa-phone"></i>';
+    callBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      try {
+        const chat = await API.post('/api/chats', { userId: u.id });
+        await loadChats();
+        openChat(chat.id);
+        // Start call
+        const peerId = chat.members?.find(id => id !== S.user?.id) || u.id;
+        if (window.callsModule?.startCall) {
+          window.callsModule.startCall(peerId, 'audio');
+          showActiveCall(u.displayName, u.avatar, u.avatarColor);
+        }
+      } catch (err) { showToast(err.message, 'error'); }
+    });
+    actions.appendChild(callBtn);
+
     if (u.friendshipId) {
       const delBtn = document.createElement('button');
-      delBtn.title = 'Удалить из друзей';
+      delBtn.title = 'Удалить';
       delBtn.innerHTML = '<i class="fas fa-user-minus"></i>';
       delBtn.addEventListener('click', async (e) => {
         e.stopPropagation();
@@ -604,11 +627,6 @@ function renderFriends(tab) {
       actions.appendChild(delBtn);
     }
     item.appendChild(actions);
-
-    item.addEventListener('click', async () => {
-      try { const chat = await API.post('/api/chats', { userId: u.id }); await loadChats(); openChat(chat.id); }
-      catch (err) { showToast(err.message, 'error'); }
-    });
     list.appendChild(item);
   });
 }
@@ -671,10 +689,10 @@ async function searchAndRenderUsers(q) {
   const list = $('friends-list');
   if (!list) return;
   list.innerHTML = '';
-  if (!q) { list.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:20px">Введите имя пользователя для поиска</p>'; return; }
+  if (!q) { list.innerHTML = '<div class="empty-state"><p>Введите имя для поиска</p></div>'; return; }
   try {
     const users = await API.get(`/api/users/search?q=${encodeURIComponent(q)}`);
-    if (!users.length) { list.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:20px">Никого не найдено</p>'; return; }
+    if (!users.length) { list.innerHTML = '<div class="empty-state"><p>Никого не найдено</p></div>'; return; }
     for (const u of users) {
       const item = document.createElement('div');
       item.className = 'friend-item';
@@ -691,8 +709,6 @@ async function searchAndRenderUsers(q) {
 
       const actions = document.createElement('div');
       actions.className = 'friend-item-actions';
-
-      // Проверяем, не друг ли уже
       const isFriend = _friendsList.some(f => f.id === u.id);
       if (isFriend) {
         const badge = document.createElement('span');
@@ -701,7 +717,7 @@ async function searchAndRenderUsers(q) {
         actions.appendChild(badge);
       } else {
         const addBtn = document.createElement('button');
-        addBtn.title = 'Добавить в друзья';
+        addBtn.title = 'Добавить';
         addBtn.className = 'friend-accept-btn';
         addBtn.innerHTML = '<i class="fas fa-user-plus"></i>';
         addBtn.addEventListener('click', async (e) => {
@@ -711,7 +727,6 @@ async function searchAndRenderUsers(q) {
             showToast('Запрос отправлен!', 'success');
             addBtn.disabled = true;
             addBtn.innerHTML = '<i class="fas fa-clock"></i>';
-            addBtn.title = 'Запрос отправлен';
           } catch (err) { showToast(err.message, 'error'); }
         });
         actions.appendChild(addBtn);
@@ -719,14 +734,14 @@ async function searchAndRenderUsers(q) {
       item.appendChild(actions);
       list.appendChild(item);
     }
-  } catch { list.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:20px">Ошибка поиска</p>'; }
+  } catch { list.innerHTML = '<div class="empty-state"><p>Ошибка поиска</p></div>'; }
 }
 
 /* ══════════════════════════════════════════════════════════
    THEMES
    ══════════════════════════════════════════════════════════ */
 const THEMES = {
-  phantom:  { darkest:'#202225', dark:'#2f3136', primary:'#36393f', secondary:'#2f3136', tertiary:'#202225', input:'#40444b', brand:'#5865f2', accent:'linear-gradient(135deg,#5865f2,#7983f5)', accentColor:'#5865f2' },
+  phantom:  { darkest:'#0A0A0A', dark:'#1E1E1E', primary:'#161616', secondary:'#1A1A1A', tertiary:'#0A0A0A', input:'#2D2D2D', brand:'#5865f2', accent:'linear-gradient(135deg,#5865f2,#7983f5)', accentColor:'#5865f2' },
   midnight: { darkest:'#000005', dark:'#080812', primary:'#0d0d1a', secondary:'#0a0a15', tertiary:'#000005', input:'#141428', brand:'#6366f1', accent:'linear-gradient(135deg,#6366f1,#818cf8)', accentColor:'#6366f1' },
   obsidian: { darkest:'#0e0e1a', dark:'#14142a', primary:'#1a1a2e', secondary:'#16162a', tertiary:'#0e0e1a', input:'#22223a', brand:'#7c83ff', accent:'linear-gradient(135deg,#7c83ff,#a5b4fc)', accentColor:'#7c83ff' },
   crimson:  { darkest:'#0a0000', dark:'#140000', primary:'#1a0000', secondary:'#120000', tertiary:'#0a0000', input:'#2d0000', brand:'#ef4444', accent:'linear-gradient(135deg,#ef4444,#f87171)', accentColor:'#ef4444' },
@@ -769,22 +784,20 @@ function renderMessages() {
   if (!area) return;
   area.innerHTML = '';
 
-  // Chat beginning
   if (S.activeChat) {
     const begin = document.createElement('div');
     begin.className = 'chat-begin';
     const ic = document.createElement('div');
     ic.className = 'chat-begin-icon';
-    if (S.activeChat.type === 'private') ic.innerHTML = '<i class="fas fa-at"></i>';
-    else ic.innerHTML = '<i class="fas fa-hashtag"></i>';
+    ic.innerHTML = S.activeChat.type === 'private' ? '<i class="fas fa-at"></i>' : '<i class="fas fa-hashtag"></i>';
     begin.appendChild(ic);
     const h3 = document.createElement('h3');
     h3.textContent = S.activeChat.displayName || S.activeChat.name || '';
     begin.appendChild(h3);
     const p = document.createElement('p');
     p.textContent = S.activeChat.type === 'private'
-      ? `Это начало вашей переписки с @${S.activeChat.displayName || ''}`
-      : `Добро пожаловать в #${S.activeChat.name || ''}!`;
+      ? `Начало переписки с @${S.activeChat.displayName || ''}`
+      : `Добро пожаловать в ${S.activeChat.name || ''}!`;
     begin.appendChild(p);
     area.appendChild(begin);
   }
@@ -805,7 +818,7 @@ function renderMessages() {
       lastSenderId = null;
     }
     const ts = new Date(msg.timestamp).getTime();
-    const grouped = msg.senderId === lastSenderId && (ts - lastTime) < 420_000; // 7 min
+    const grouped = msg.senderId === lastSenderId && (ts - lastTime) < 420_000;
     frag.appendChild(buildMsgEl(msg, grouped));
     lastSenderId = msg.senderId;
     lastTime = ts;
@@ -818,7 +831,6 @@ function buildMsgEl(msg, grouped) {
   row.className = `msg-row${grouped ? ' grouped' : ''}`;
   row.dataset.msgid = msg.id;
 
-  // Avatar (absolute positioned)
   if (!grouped) {
     const av = document.createElement('div');
     av.className = 'msg-avatar';
@@ -826,18 +838,15 @@ function buildMsgEl(msg, grouped) {
     else { av.style.backgroundColor = msg.senderAvatarColor || '#5865f2'; av.textContent = avatarText(msg.senderName); }
     row.appendChild(av);
   } else {
-    // Hover time for grouped messages
     const ht = document.createElement('span');
     ht.className = 'msg-hover-time';
     ht.textContent = fmtTime(msg.timestamp);
     row.appendChild(ht);
   }
 
-  // Content
   const content = document.createElement('div');
   content.className = 'msg-content';
 
-  // Header
   if (!grouped) {
     const hdr = document.createElement('div');
     hdr.className = 'msg-header';
@@ -853,13 +862,11 @@ function buildMsgEl(msg, grouped) {
     content.appendChild(hdr);
   }
 
-  // Reply
   if (msg.replyTo) {
     const orig = S.messages.find(m => m.id === msg.replyTo);
     if (orig) {
       const rp = document.createElement('div');
       rp.className = 'msg-reply';
-      // Reply avatar
       const rpAv = document.createElement('div');
       rpAv.className = 'msg-reply-av';
       if (orig.senderAvatar) rpAv.style.backgroundImage = `url(${orig.senderAvatar})`;
@@ -875,7 +882,6 @@ function buildMsgEl(msg, grouped) {
     }
   }
 
-  // Forward
   if (msg.forwardFrom) {
     const fw = document.createElement('div');
     fw.style.cssText = 'font-size:12px;color:var(--text-muted);margin-bottom:2px;font-style:italic';
@@ -883,7 +889,6 @@ function buildMsgEl(msg, grouped) {
     content.appendChild(fw);
   }
 
-  // Body
   if (msg.type === 'image' && msg.fileUrl) {
     const img = document.createElement('img');
     img.className = 'msg-image';
@@ -926,7 +931,6 @@ function buildMsgEl(msg, grouped) {
     if (urlMatch) fetchLinkPreview(urlMatch[1], content);
   }
 
-  // Reactions
   if (msg.reactions && Object.keys(msg.reactions).length > 0) {
     const rc = document.createElement('div');
     rc.className = 'msg-reactions';
@@ -940,43 +944,35 @@ function buildMsgEl(msg, grouped) {
     content.appendChild(rc);
   }
 
-  // Hover toolbar
   const actions = document.createElement('div');
   actions.className = 'msg-actions';
-  const reacts = ['😂', '❤️', '👍', '🔥'];
-  reacts.forEach(em => {
+  ['😂', '❤️', '👍', '🔥'].forEach(em => {
     const b = document.createElement('button');
     b.className = 'msg-action-btn';
     b.textContent = em;
-    b.title = 'Реакция';
     b.addEventListener('click', () => reactToMsg(msg.id, em));
     actions.appendChild(b);
   });
   const replyBtn = document.createElement('button');
   replyBtn.className = 'msg-action-btn';
   replyBtn.innerHTML = '<i class="fas fa-reply"></i>';
-  replyBtn.title = 'Ответить';
   replyBtn.addEventListener('click', () => setReply(msg));
   actions.appendChild(replyBtn);
   if (msg.senderId === S.user?.id) {
     const editBtn = document.createElement('button');
     editBtn.className = 'msg-action-btn';
     editBtn.innerHTML = '<i class="fas fa-pen"></i>';
-    editBtn.title = 'Редактировать';
     editBtn.addEventListener('click', () => startEdit(msg));
     actions.appendChild(editBtn);
     const delBtn = document.createElement('button');
     delBtn.className = 'msg-action-btn';
     delBtn.innerHTML = '<i class="fas fa-trash-can"></i>';
-    delBtn.title = 'Удалить';
     delBtn.addEventListener('click', () => deleteMsg(msg.id));
     actions.appendChild(delBtn);
   }
   row.appendChild(actions);
 
-  // Context menu
   row.addEventListener('contextmenu', e => { e.preventDefault(); showCtxMenu(e, msg); });
-  // Long press mobile
   let lp, lpMoved = false;
   row.addEventListener('touchstart', () => { lpMoved = false; lp = setTimeout(() => { if (!lpMoved) showCtxMenu(null, msg); }, 500); }, { passive: true });
   row.addEventListener('touchmove', () => { lpMoved = true; clearTimeout(lp); }, { passive: true });
@@ -992,7 +988,6 @@ function buildVoiceEl(msg) {
   const audio = new Audio(msg.fileUrl);
   audio.preload = 'metadata';
   let playing = false;
-
   const playBtn = document.createElement('button');
   playBtn.className = 'voice-play-btn';
   playBtn.innerHTML = '<i class="fas fa-play"></i>';
@@ -1039,10 +1034,10 @@ function handleNewMessage(msg) {
   if (ci !== -1) {
     S.chats[ci].lastMessage = msg;
     if (S.activeChat?.id !== msg.chatId) S.chats[ci].unreadCount = (S.chats[ci].unreadCount || 0) + 1;
-    // Move to top
     const [c] = S.chats.splice(ci, 1);
     S.chats.unshift(c);
-    renderChatList();
+    if (S.currentScreen === 'chats') renderChatList();
+    if (S.currentScreen === 'hubs') renderHubs();
     updateTabTitle();
   }
   if (S.activeChat?.id === msg.chatId) {
@@ -1063,7 +1058,6 @@ async function sendMessage() {
 
   const chatId = S.activeChat.id;
 
-  // Editing
   if (S.editingMsgId) {
     try {
       const edited = await API.put(`/api/messages/${S.editingMsgId}`, { text });
@@ -1176,8 +1170,9 @@ function updateOnline(uid, online) {
     if (c.type === 'private') { const other = c.members?.find(id => id !== S.user?.id); if (other === uid) c.online = online; }
     if (c.membersInfo) c.membersInfo.forEach(m => { if (m.id === uid) m.online = online; });
   });
-  renderChatList();
-  if (S.activeChat) { updateChatStatus(S.activeChat); if (S.activeChat.membersInfo) renderMembers(S.activeChat.membersInfo); }
+  if (S.currentScreen === 'chats') renderChatList();
+  if (S.currentScreen === 'hubs') renderHubs();
+  if (S.activeChat) updateChatStatus(S.activeChat);
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -1197,54 +1192,11 @@ function showCtxMenu(e, msg) {
 function closeCtxMenu() { $('ctx-menu').classList.add('hidden'); _ctxMsg = null; }
 
 /* ══════════════════════════════════════════════════════════
-   MEMBERS SIDEBAR
-   ══════════════════════════════════════════════════════════ */
-function renderMembers(members) {
-  const list = $('members-list');
-  if (!list) return;
-  list.innerHTML = '';
-  const online = members.filter(m => m.online);
-  const offline = members.filter(m => !m.online);
-  if (online.length) {
-    const cat = document.createElement('div'); cat.className = 'members-cat';
-    cat.textContent = `В СЕТИ — ${online.length}`;
-    list.appendChild(cat);
-    online.forEach(m => list.appendChild(mkMemberEl(m, true)));
-  }
-  if (offline.length) {
-    const cat = document.createElement('div'); cat.className = 'members-cat';
-    cat.textContent = `НЕ В СЕТИ — ${offline.length}`;
-    list.appendChild(cat);
-    offline.forEach(m => list.appendChild(mkMemberEl(m, false)));
-  }
-}
-
-function mkMemberEl(m, isOn) {
-  const el = document.createElement('div');
-  el.className = `member-item${isOn ? '' : ' offline'}`;
-  const av = document.createElement('div');
-  av.className = 'member-av';
-  if (m.avatar) av.style.backgroundImage = `url(${m.avatar})`;
-  else { av.style.backgroundColor = m.avatarColor || '#5865f2'; av.textContent = avatarText(m.displayName); }
-  const dot = document.createElement('div');
-  dot.className = `member-status-dot ${isOn ? 'online' : 'offline'}`;
-  av.appendChild(dot);
-  el.appendChild(av);
-  const nm = document.createElement('div');
-  nm.className = 'member-name';
-  nm.textContent = m.displayName;
-  if (m.superUser) nm.style.color = '#f0b232';
-  el.appendChild(nm);
-  return el;
-}
-
-/* ══════════════════════════════════════════════════════════
    MODALS
    ══════════════════════════════════════════════════════════ */
 function openModal(id) { $(id).classList.remove('hidden'); }
 function closeModal(id) { $(id).classList.add('hidden'); }
 
-/* New chat */
 function initNewChatModal() {
   const inp = $('new-chat-search'), res = $('new-chat-results');
   inp.addEventListener('input', debounce(async () => {
@@ -1271,7 +1223,6 @@ function initNewChatModal() {
   }, 300));
 }
 
-/* New group */
 function initNewGroupModal() {
   const selected = [];
   const inp = $('group-member-search'), res = $('group-search-results'), tags = $('group-selected');
@@ -1319,13 +1270,12 @@ function initNewGroupModal() {
 }
 
 /* ══════════════════════════════════════════════════════════
-   SETTINGS — Discord full-page layout
+   SETTINGS
    ══════════════════════════════════════════════════════════ */
 function openSettings() {
   S.settingsOpen = true;
   $('modal-settings').classList.remove('hidden');
   if (!S.user) return;
-  // Fill card
   const av = $('sc-avatar');
   if (S.user.avatar) { av.style.backgroundImage = `url(${S.user.avatar})`; av.textContent = ''; }
   else { av.style.backgroundImage = ''; av.style.backgroundColor = S.user.avatarColor || '#5865f2'; av.textContent = avatarText(S.user.displayName); }
@@ -1333,7 +1283,6 @@ function openSettings() {
   $('sc-tag').textContent = '#' + S.user.username;
   $('sc-displayname').textContent = S.user.displayName;
   $('sc-username').textContent = S.user.username;
-  // Fill edit inputs
   $('set-displayname').value = S.user.displayName || '';
   $('set-username').value = S.user.username || '';
   $('set-bio').value = S.user.bio || '';
@@ -1371,8 +1320,8 @@ function initSettings() {
       });
       S.user = user;
       localStorage.setItem('sm_user', JSON.stringify(user));
-      updateUserPanel();
-      openSettings(); // refresh card
+      updateProfileScreen();
+      openSettings();
       $('edit-profile-panel').classList.add('hidden');
       showToast('Профиль обновлён', 'success');
     } catch (e) { showToast(e.message, 'error'); }
@@ -1384,7 +1333,6 @@ function initSettings() {
     catch (e) { showToast(e.message, 'error'); }
   });
 
-  // Font size slider
   on('font-size-slider', 'input', () => {
     const v = $('font-size-slider').value;
     $('font-size-preview').textContent = 'Текущий: ' + v + 'px';
@@ -1392,7 +1340,6 @@ function initSettings() {
     qsa('.msg-text').forEach(el => { el.style.fontSize = v + 'px'; });
   });
 
-  // Theme selector
   qsa('.theme-option input[name="theme"]').forEach(r => {
     r.addEventListener('change', () => {
       qsa('.theme-option').forEach(o => o.classList.remove('selected'));
@@ -1402,26 +1349,20 @@ function initSettings() {
     });
   });
 
-  // Restore saved theme
   const savedTheme = localStorage.getItem('sm_theme') || 'phantom';
   applyTheme(savedTheme);
   const themeRadio = qs(`input[name="theme"][value="${savedTheme}"]`);
   if (themeRadio) { themeRadio.checked = true; qsa('.theme-option').forEach(o => o.classList.remove('selected')); themeRadio.closest('.theme-option').classList.add('selected'); }
 
-  // Volume sliders
   on('voice-input-vol', 'input', () => { const el = $('voice-input-val'); if (el) el.textContent = $('voice-input-vol').value + '%'; });
   on('voice-output-vol', 'input', () => { const el = $('voice-output-val'); if (el) el.textContent = $('voice-output-vol').value + '%'; });
-
-  // About me counter
   on('set-about-me', 'input', () => { const el = $('about-me-count'); if (el) el.textContent = $('set-about-me').value.length; });
 
-  // Revoke sessions
   on('btn-revoke-sessions', 'click', async () => {
     try { await API.del('/api/sessions'); showToast('Все сессии завершены', 'success'); }
     catch { showToast('Не удалось завершить сессии', 'error'); }
   });
 
-  // Avatar upload
   const avatarFileInput = document.createElement('input');
   avatarFileInput.type = 'file';
   avatarFileInput.accept = 'image/*';
@@ -1434,7 +1375,7 @@ function initSettings() {
       const user = await API.upload('/api/me/avatar', fd);
       S.user = user;
       localStorage.setItem('sm_user', JSON.stringify(user));
-      updateUserPanel();
+      updateProfileScreen();
       showToast('Аватар обновлён', 'success');
     } catch (err) { showToast(err.message, 'error'); }
   });
@@ -1469,14 +1410,9 @@ function buildEmojiPicker() {
     const btn = document.createElement('button');
     btn.className = 'emoji-btn';
     btn.textContent = em;
-    btn.addEventListener('click', () => {
-      const inp = $('msg-input');
-      inp.value += em;
-      inp.focus();
-    });
+    btn.addEventListener('click', () => { $('msg-input').value += em; $('msg-input').focus(); });
     grid.appendChild(btn);
   });
-  // Search filter
   on('ep-search', 'input', () => {
     const q = $('ep-search').value.toLowerCase();
     grid.querySelectorAll('.emoji-btn').forEach(b => { b.style.display = q ? (b.textContent.includes(q) ? '' : 'none') : ''; });
@@ -1494,19 +1430,6 @@ function toggleEmoji() {
    LIGHTBOX
    ══════════════════════════════════════════════════════════ */
 function openLightbox(url) { $('lightbox-img').src = url; $('lightbox').classList.remove('hidden'); }
-
-/* ══════════════════════════════════════════════════════════
-   MOBILE BACK — return to previous screen
-   ══════════════════════════════════════════════════════════ */
-function mobileBack() {
-  if (!isMobile()) { showWelcome(); return; }
-  S.activeChat = null;
-  $('active-chat').classList.add('hidden');
-  $('bottom-nav').classList.remove('hidden');
-  $('top-bar').style.display = 'flex';
-  const screen = S._mobileScreen || 'chats';
-  setMobileScreen(screen);
-}
 
 /* ══════════════════════════════════════════════════════════
    INPUT AUTO-RESIZE
@@ -1557,7 +1480,6 @@ function showIncomingCall(data) {
   $('incoming-call-name').textContent = data.fromName || 'Неизвестный';
   $('incoming-call-type').textContent = data.callType === 'video' ? 'Видеозвонок' : 'Голосовой звонок';
   overlay.classList.remove('hidden');
-  // Auto-reject after 30s
   _ringtoneInterval = setTimeout(() => { hideIncomingCall(); showToast('Пропущенный звонок', 'warning'); }, 30000);
 }
 
@@ -1576,7 +1498,6 @@ function showActiveCall(name, avatar, avatarColor) {
   else { av.style.backgroundImage = ''; av.style.backgroundColor = avatarColor || '#444'; av.textContent = avatarText(name); }
   $('call-audio-name').textContent = name || '';
   $('call-audio-timer').textContent = 'Подключение...';
-  // Start timer
   const start = Date.now();
   window._callTimerInterval = setInterval(() => {
     const elapsed = Math.floor((Date.now() - start) / 1000);
@@ -1595,11 +1516,9 @@ document.addEventListener('DOMContentLoaded', () => {
   initNewChatModal();
   initNewGroupModal();
   initSettings();
-
-  // Auto-login
   tryAutoLogin();
 
-  // ── Send ──────────────────────────────────────────────
+  // ── Send ──
   on('msg-input', 'keydown', e => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
     else if (S.activeChat) S.socket?.emit('typing_start', { chatId: S.activeChat.id });
@@ -1611,16 +1530,9 @@ document.addEventListener('DOMContentLoaded', () => {
     _stopTimer = setTimeout(() => { if (S.activeChat) S.socket?.emit('typing_stop', { chatId: S.activeChat.id }); }, 3000);
   });
 
-  // ── File upload ───────────────────────────────────────
+  // ── File upload ──
   on('btn-attach', 'click', () => $('file-input').click());
   on('file-input', 'change', e => { for (const file of e.target.files) uploadFile(file); e.target.value = ''; });
-
-  // Drag & drop
-  const mainArea = $('main-area');
-  if (mainArea) {
-    mainArea.addEventListener('dragover', e => e.preventDefault());
-    mainArea.addEventListener('drop', e => { e.preventDefault(); for (const f of e.dataTransfer.files) uploadFile(f); });
-  }
 
   // Paste images
   document.addEventListener('paste', e => {
@@ -1628,62 +1540,49 @@ document.addEventListener('DOMContentLoaded', () => {
     for (const item of (e.clipboardData?.items || [])) { if (item.type.startsWith('image/')) { const f = item.getAsFile(); if (f) uploadFile(f); } }
   });
 
-  // ── Emoji ─────────────────────────────────────────────
+  // ── Emoji ──
   on('btn-emoji', 'click', toggleEmoji);
-
-  // ── Reply ─────────────────────────────────────────────
   on('reply-close', 'click', clearReply);
 
-  // ── Buttons ───────────────────────────────────────────
+  // ── Screen navigation ──
+  on('bnav-hubs', 'click', () => switchScreen('hubs'));
+  on('bnav-chats', 'click', () => switchScreen('chats'));
+  on('bnav-friends', 'click', () => switchScreen('friends'));
+  on('bnav-profile', 'click', () => switchScreen('profile'));
+
+  // ── Chat back ──
+  on('btn-chat-back', 'click', goBack);
+
+  // ── New chat / hub ──
+  on('btn-new-dm', 'click', () => openModal('modal-new-chat'));
+  on('btn-create-hub', 'click', () => openModal('modal-new-group'));
+
+  // ── Profile screen buttons ──
+  on('btn-open-settings', 'click', openSettings);
+  on('btn-edit-my-profile', 'click', () => { openSettings(); showSettingsSection('profiles'); });
   on('btn-logout', 'click', logout);
-  on('btn-new-chat', 'click', () => openModal('modal-new-chat'));
-  on('btn-search-open', 'click', () => openModal('modal-new-chat'));
-  on('btn-new-group', 'click', () => openModal('modal-new-group'));
-  on('btn-settings', 'click', openSettings);
+  on('btn-settings-logout', 'click', logout);
 
-  // ── Left tab switching ────────────────────────────────
-  on('left-tab-chats', 'click', () => {
-    $('left-tab-chats').classList.add('active');
-    $('left-tab-hubs').classList.remove('active');
-    $('left-panel-chats').classList.remove('hidden');
-    $('left-panel-hubs').classList.add('hidden');
-  });
-  on('left-tab-hubs', 'click', () => {
-    $('left-tab-hubs').classList.add('active');
-    $('left-tab-chats').classList.remove('active');
-    $('left-panel-hubs').classList.remove('hidden');
-    $('left-panel-chats').classList.add('hidden');
-  });
-
-  // ── Bottom nav (mobile) ──────────────────────────────
-  on('bnav-chats', 'click', () => setMobileScreen('chats'));
-  on('bnav-hubs', 'click', () => setMobileScreen('hubs'));
-  on('bnav-friends', 'click', () => setMobileScreen('friends'));
-
-  // ── Members / Right col toggle ────────────────────────
-  on('btn-members', 'click', () => {
-    const rc = $('right-col');
-    if (!rc) return;
-    S.membersVisible = !S.membersVisible;
-    rc.classList.toggle('hidden', !S.membersVisible);
-    if (S.membersVisible && S.activeChat) {
-      if (S.activeChat.type === 'private') {
-        $('right-header-title').textContent = 'Информация';
-        populateUserInfo(S.activeChat);
-      } else {
-        $('right-header-title').textContent = 'Участники';
-        $('user-info-card')?.classList.add('hidden');
-      }
+  // ── Chat info button ──
+  on('btn-chat-info', 'click', () => {
+    if (!S.activeChat) return;
+    if (S.activeChat.type === 'private') {
+      openProfileViewer(S.activeChat);
+    } else {
+      showToast(`${S.activeChat.name}: ${S.activeChat.membersInfo?.length || 0} участников`, 'info');
     }
   });
-  on('right-col-close', 'click', () => {
-    S.membersVisible = false;
-    $('right-col')?.classList.add('hidden');
-  });
 
-  // ── UIC call button ───────────────────────────────────
-  on('uic-call-btn', 'click', () => {
+  // ── Profile viewer ──
+  on('pv-close', 'click', closeProfileViewer);
+  on('profile-viewer', 'click', e => { if (e.target.id === 'profile-viewer') closeProfileViewer(); });
+  on('pv-msg-btn', 'click', () => {
+    closeProfileViewer();
+    if (S.activeChat) openChat(S.activeChat.id);
+  });
+  on('pv-call-btn', 'click', () => {
     if (!S.activeChat || S.activeChat.type !== 'private') return;
+    closeProfileViewer();
     const peerId = S.activeChat.members?.find(id => id !== S.user?.id);
     if (peerId && window.callsModule?.startCall) {
       window.callsModule.startCall(peerId, 'audio');
@@ -1691,45 +1590,51 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // ── Mobile back buttons ───────────────────────────────
-  on('btn-back', 'click', () => mobileBack());
-  on('btn-back-chat', 'click', () => mobileBack());
-
-  // ── Close modals ──────────────────────────────────────
-  on('modal-new-chat-close', 'click', () => closeModal('modal-new-chat'));
-  on('modal-new-group-close', 'click', () => closeModal('modal-new-group'));
-  qsa('.modal-overlay').forEach(overlay => {
-    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.add('hidden'); });
+  // ── Friends tabs ──
+  qsa('.ftab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      qsa('.ftab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      $('btn-add-friend')?.classList.remove('active');
+      $('friends-search-input').placeholder = 'Поиск друзей...';
+      $('friends-search-input').value = '';
+      loadFriends(btn.dataset.tab);
+    });
   });
 
-  // ── Context menu ──────────────────────────────────────
-  document.addEventListener('click', e => { if (!e.target.closest('.ctx-menu')) closeCtxMenu(); });
-  $('ctx-menu').addEventListener('click', e => {
-    const item = e.target.closest('.ctx-item');
-    if (!item || !_ctxMsg) return;
-    const a = item.dataset.action;
-    if (a === 'reply') setReply(_ctxMsg);
-    else if (a === 'edit') startEdit(_ctxMsg);
-    else if (a === 'delete') deleteMsg(_ctxMsg.id);
-    else if (a === 'react') reactToMsg(_ctxMsg.id, '👍');
-    closeCtxMenu();
+  // ── Add friend button ──
+  on('btn-add-friend', 'click', () => {
+    qsa('.ftab').forEach(b => b.classList.remove('active'));
+    $('btn-add-friend').classList.add('active');
+    $('friends-search-input').placeholder = 'Введите имя для поиска...';
+    $('friends-search-input').value = '';
+    $('friends-search-input').focus();
+    loadFriends('add');
   });
 
-  // ── Lightbox ──────────────────────────────────────────
-  on('lightbox', 'click', () => $('lightbox').classList.add('hidden'));
-  on('lightbox-close', 'click', () => $('lightbox').classList.add('hidden'));
+  // ── Friends search ──
+  on('friends-search-input', 'input', debounce(() => {
+    const q = $('friends-search-input').value.trim();
+    if (_currentFriendsTab === 'add') {
+      searchAndRenderUsers(q);
+    } else {
+      renderFriends(_currentFriendsTab);
+    }
+  }, 400));
 
-  // ── Search / filter ───────────────────────────────────
-  /* Channel-header search opens new chat modal on mobile */
+  // ── Chats search ──
+  on('chats-search', 'input', debounce(() => {
+    renderChatList($('chats-search').value.trim());
+  }, 300));
 
-  // ── Calls ─────────────────────────────────────────────
+  // ── Calls ──
   on('btn-call', 'click', () => {
     if (!S.activeChat || S.activeChat.type !== 'private') return;
     const peerId = S.activeChat.members?.find(id => id !== S.user?.id);
     if (peerId && window.callsModule?.startCall) {
       window.callsModule.startCall(peerId, 'audio');
       showActiveCall(S.activeChat.displayName || S.activeChat.name, S.activeChat.displayAvatar, S.activeChat.displayAvatarColor);
-    } else showToast('Модуль звонков не загружен', 'error');
+    }
   });
   on('btn-video-call', 'click', () => {
     if (!S.activeChat || S.activeChat.type !== 'private') return;
@@ -1737,10 +1642,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (peerId && window.callsModule?.startCall) {
       window.callsModule.startCall(peerId, 'video');
       showActiveCall(S.activeChat.displayName || S.activeChat.name, S.activeChat.displayAvatar, S.activeChat.displayAvatarColor);
-    } else showToast('Модуль звонков не загружен', 'error');
+    }
   });
 
-  // ── Incoming call buttons ─────────────────────────────
+  // ── Incoming call buttons ──
   on('btn-accept-call', 'click', () => {
     if (!_incomingCallData) return;
     const d = _incomingCallData;
@@ -1755,7 +1660,7 @@ document.addEventListener('DOMContentLoaded', () => {
     hideIncomingCall();
   });
 
-  // ── Active call controls ──────────────────────────────
+  // ── Active call controls ──
   on('btn-end-call', 'click', () => { window.callsModule?.endCall(); });
   on('toggle-mute', 'click', () => {
     const muted = window.callsModule?.toggleMute();
@@ -1782,49 +1687,43 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // ── Friends tab ────────────────────────────────────────
-  qsa('.fh-tab').forEach(btn => {
-    btn.addEventListener('click', () => {
-      qsa('.fh-tab').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      loadFriends(btn.dataset.tab);
-    });
+  // ── Close modals ──
+  on('modal-new-chat-close', 'click', () => closeModal('modal-new-chat'));
+  on('modal-new-group-close', 'click', () => closeModal('modal-new-group'));
+  qsa('.modal-overlay').forEach(overlay => {
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.add('hidden'); });
   });
 
-  // ── Friends search (add tab) ──────────────────────────
-  on('friends-search-input', 'input', debounce(() => {
-    const q = $('friends-search-input').value.trim();
-    searchAndRenderUsers(q);
-  }, 400));
-
-  // ── Mic / Deaf toggles ────────────────────────────────
-  let micMuted = false, deafened = false;
-  on('btn-mic', 'click', () => {
-    micMuted = !micMuted;
-    const btn = $('btn-mic');
-    btn.innerHTML = micMuted ? '<i class="fas fa-microphone-slash"></i>' : '<i class="fas fa-microphone"></i>';
-    btn.style.color = micMuted ? 'var(--text-danger)' : '';
-    showToast(micMuted ? 'Микрофон выключен' : 'Микрофон включён', 'info', 2000);
-  });
-  on('btn-deaf', 'click', () => {
-    deafened = !deafened;
-    const btn = $('btn-deaf');
-    btn.innerHTML = deafened ? '<i class="fas fa-ear-deaf"></i>' : '<i class="fas fa-headphones"></i>';
-    btn.style.color = deafened ? 'var(--text-danger)' : '';
-    showToast(deafened ? 'Звук выключен' : 'Звук включён', 'info', 2000);
+  // ── Context menu ──
+  document.addEventListener('click', e => { if (!e.target.closest('.ctx-menu')) closeCtxMenu(); });
+  $('ctx-menu').addEventListener('click', e => {
+    const item = e.target.closest('.ctx-item');
+    if (!item || !_ctxMsg) return;
+    const a = item.dataset.action;
+    if (a === 'reply') setReply(_ctxMsg);
+    else if (a === 'edit') startEdit(_ctxMsg);
+    else if (a === 'delete') deleteMsg(_ctxMsg.id);
+    else if (a === 'react') reactToMsg(_ctxMsg.id, '👍');
+    closeCtxMenu();
   });
 
-  // ── ESC closes settings / emoji / lightbox ────────────
+  // ── Lightbox ──
+  on('lightbox', 'click', () => $('lightbox').classList.add('hidden'));
+  on('lightbox-close', 'click', () => $('lightbox').classList.add('hidden'));
+
+  // ── ESC handler ──
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
       if (S.settingsOpen) closeSettings();
+      else if (!$('profile-viewer').classList.contains('hidden')) closeProfileViewer();
       else if (S.emojiOpen) { $('emoji-picker').classList.add('hidden'); S.emojiOpen = false; }
       else if (!$('lightbox').classList.contains('hidden')) $('lightbox').classList.add('hidden');
       else if (S.editingMsgId) { S.editingMsgId = null; $('msg-input').value = ''; $('chat-input-inner').classList.remove('editing'); }
+      else if (S.currentScreen === 'chat') goBack();
     }
   });
 
-  // ── Close emoji on outside click ──────────────────────
+  // ── Close emoji on outside click ──
   document.addEventListener('click', e => {
     if (S.emojiOpen && !e.target.closest('.emoji-picker') && !e.target.closest('#btn-emoji')) {
       $('emoji-picker').classList.add('hidden');
@@ -1832,6 +1731,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // ── Service Worker ────────────────────────────────────
+  // ── Service Worker ──
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
 });

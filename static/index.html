@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
-  <meta name="theme-color" content="#0a0a0f"/>
+  <meta name="theme-color" content="#0a0a0a"/>
   <title>Shadow Messenger</title>
   <link rel="manifest" href="/manifest.json"/>
   <link rel="apple-touch-icon" href="/static/icons/icon-192.png"/>
@@ -22,7 +22,7 @@
       <h2>С возвращением!</h2>
       <p class="auth-sub">Мы рады видеть тебя снова!</p>
       <div id="login-error" class="auth-error"></div>
-      <label>АДРЕС ЭЛЕКТРОННОЙ ПОЧТЫ ИЛИ ЛОГИН <span class="req">*</span></label>
+      <label>ЛОГИН <span class="req">*</span></label>
       <input type="text" id="li-username" autocomplete="username" required/>
       <label>ПАРОЛЬ <span class="req">*</span></label>
       <input type="password" id="li-password" autocomplete="current-password" required/>
@@ -49,179 +49,142 @@
 </div>
 
 <!-- ═══════ APP ═══════ -->
-<div id="app" class="app-layout hidden">
+<div id="app" class="hidden">
 
-  <!-- ══ LEFT COLUMN: Hubs + Chats ══ -->
-  <aside class="left-col" id="left-col">
-    <header class="left-header">
-      <div class="left-tabs">
-        <button class="left-tab active" data-left="chats" id="left-tab-chats"><i class="fas fa-comment-dots"></i><span>Чаты</span></button>
-        <button class="left-tab" data-left="hubs" id="left-tab-hubs"><i class="fas fa-planet-ringed fa-layer-group"></i><span>Хабы</span></button>
+  <!-- ── Screen: Hubs ── -->
+  <section class="screen" id="screen-hubs">
+    <div class="screen-header">
+      <h1 class="screen-title">Хабы</h1>
+      <button class="icon-btn" id="btn-create-hub" title="Создать хаб"><i class="fas fa-plus"></i></button>
+    </div>
+    <div class="hubs-scroll" id="hubs-scroll"></div>
+    <div class="subchat-grid" id="subchat-grid"></div>
+  </section>
+
+  <!-- ── Screen: Chats ── -->
+  <section class="screen active" id="screen-chats">
+    <div class="screen-header">
+      <h1 class="screen-title">Сообщения</h1>
+      <button class="icon-btn" id="btn-new-dm" title="Новый чат"><i class="fas fa-pen-to-square"></i></button>
+    </div>
+    <div class="search-bar">
+      <i class="fas fa-magnifying-glass search-bar-icon"></i>
+      <input type="text" id="chats-search" placeholder="Поиск..."/>
+    </div>
+    <div class="dialog-list" id="dialog-list"></div>
+  </section>
+
+  <!-- ── Screen: Friends ── -->
+  <section class="screen" id="screen-friends">
+    <div class="screen-header">
+      <h1 class="screen-title">Друзья</h1>
+      <button class="btn-accent-sm" id="btn-add-friend"><i class="fas fa-user-plus"></i> Добавить</button>
+    </div>
+    <div class="search-bar" id="friends-search-bar">
+      <i class="fas fa-magnifying-glass search-bar-icon"></i>
+      <input type="text" id="friends-search-input" placeholder="Поиск друзей..."/>
+    </div>
+    <div class="friends-tabs">
+      <button class="ftab active" data-tab="online">В сети</button>
+      <button class="ftab" data-tab="all">Все</button>
+      <button class="ftab" data-tab="pending">Запросы</button>
+    </div>
+    <div id="friends-list" class="friends-list"></div>
+    <div class="friends-empty hidden" id="friends-empty"><p>Здесь пока пусто</p></div>
+  </section>
+
+  <!-- ── Screen: Profile ── -->
+  <section class="screen" id="screen-profile">
+    <div class="profile-card">
+      <div class="profile-avatar-wrap">
+        <div class="profile-avatar" id="my-profile-avatar"></div>
       </div>
-      <div class="left-actions">
-        <button class="icon-btn" id="btn-search-open" title="Поиск"><i class="fas fa-magnifying-glass"></i></button>
-        <button class="icon-btn" id="btn-new-chat" title="Новый чат"><i class="fas fa-pen-to-square"></i></button>
+      <div class="profile-name" id="my-profile-name"></div>
+      <div class="profile-username" id="my-profile-username"></div>
+      <div class="profile-bio" id="my-profile-bio"></div>
+    </div>
+    <div class="profile-menu">
+      <button class="profile-menu-item" id="btn-open-settings">
+        <i class="fas fa-gear"></i><span>Настройки</span><i class="fas fa-chevron-right pm-arrow"></i>
+      </button>
+      <button class="profile-menu-item" id="btn-edit-my-profile">
+        <i class="fas fa-pen"></i><span>Редактировать профиль</span><i class="fas fa-chevron-right pm-arrow"></i>
+      </button>
+      <button class="profile-menu-item danger" id="btn-logout">
+        <i class="fas fa-right-from-bracket"></i><span>Выйти</span>
+      </button>
+    </div>
+  </section>
+
+  <!-- ── Screen: Chat (shared) ── -->
+  <section class="screen" id="screen-chat">
+    <header class="chat-header">
+      <button class="icon-btn" id="btn-chat-back"><i class="fas fa-arrow-left"></i></button>
+      <div class="ch-avatar" id="ch-avatar"></div>
+      <div class="ch-info">
+        <span class="ch-name" id="chat-name"></span>
+        <span class="ch-status" id="chat-status"></span>
+      </div>
+      <div class="ch-tools">
+        <button class="icon-btn hidden" id="btn-call" title="Звонок"><i class="fas fa-phone"></i></button>
+        <button class="icon-btn hidden" id="btn-video-call" title="Видео"><i class="fas fa-video"></i></button>
+        <button class="icon-btn" id="btn-chat-info" title="Инфо"><i class="fas fa-ellipsis-vertical"></i></button>
       </div>
     </header>
-
-    <!-- Chats panel -->
-    <div class="left-panel" id="left-panel-chats">
-      <div class="left-section-label">Личные сообщения</div>
-      <div class="channel-list" id="chat-list">
-        <div id="chat-list-empty" class="channel-empty hidden">Нет чатов</div>
+    <div class="messages-scroll" id="messages-scroll">
+      <div class="messages-list" id="messages-area"></div>
+    </div>
+    <div class="typing-bar hidden" id="typing-bar">
+      <div class="typing-dots"><span></span><span></span><span></span></div>
+      <span class="typing-text" id="typing-text"></span>
+    </div>
+    <div class="reply-bar hidden" id="reply-bar">
+      <div class="reply-bar-body">
+        Отвечая <span id="reply-name"></span>
+        <span class="reply-preview" id="reply-text"></span>
+      </div>
+      <button class="reply-bar-close" id="reply-close"><i class="fas fa-xmark"></i></button>
+    </div>
+    <div class="chat-input-wrap">
+      <div class="chat-input-inner" id="chat-input-inner">
+        <button class="ci-btn" id="btn-attach"><i class="fas fa-paperclip"></i></button>
+        <textarea id="msg-input" placeholder="Написать сообщение…" rows="1"></textarea>
+        <button class="ci-btn" id="btn-emoji"><i class="fas fa-face-smile"></i></button>
       </div>
     </div>
+  </section>
 
-    <!-- Hubs panel -->
-    <div class="left-panel hidden" id="left-panel-hubs">
-      <div class="hub-grid" id="hub-grid">
-        <!-- hubs dynamically rendered -->
-      </div>
-      <button class="hub-add-btn" id="btn-new-group"><i class="fas fa-plus"></i> Создать хаб</button>
-    </div>
-
-    <!-- User panel (bottom of left col) -->
-    <div class="user-panel" id="user-panel">
-      <div class="user-panel-left">
-        <div class="user-panel-avatar" id="my-avatar">
-          <div class="avatar-status-dot online" id="my-status-dot"></div>
-        </div>
-        <div class="user-panel-info">
-          <div class="user-panel-name" id="my-name"></div>
-          <div class="user-panel-tag" id="my-tag"></div>
-        </div>
-      </div>
-      <div class="user-panel-btns">
-        <button class="up-btn" id="btn-mic" title="Микрофон"><i class="fas fa-microphone"></i></button>
-        <button class="up-btn" id="btn-deaf" title="Звук"><i class="fas fa-headphones"></i></button>
-        <button class="up-btn" id="btn-settings" title="Настройки"><i class="fas fa-gear"></i></button>
-      </div>
-    </div>
-  </aside>
-
-  <!-- ══ CENTER COLUMN: Main content ══ -->
-  <main class="center-col" id="main-area">
-    <!-- Top bar (mobile) -->
-    <header class="top-bar" id="top-bar">
-      <button class="icon-btn top-bar-back hidden" id="btn-back"><i class="fas fa-arrow-left"></i></button>
-      <span class="top-bar-title" id="top-bar-title">Shadow Messenger</span>
-      <div class="top-bar-actions">
-        <button class="icon-btn hidden" id="top-bar-search"><i class="fas fa-magnifying-glass"></i></button>
-        <button class="icon-btn hidden" id="top-bar-call"><i class="fas fa-phone"></i></button>
-      </div>
-    </header>
-
-    <!-- Welcome / Friends screen -->
-    <div class="welcome-screen" id="welcome-screen">
-      <div class="friends-header" id="friends-header">
-        <div class="friends-header-left">
-          <i class="fas fa-user-group"></i><span>Друзья</span>
-          <div class="fh-divider"></div>
-          <button class="fh-tab active" data-tab="online">В сети</button>
-          <button class="fh-tab" data-tab="all">Все</button>
-          <button class="fh-tab" data-tab="pending">Запросы</button>
-          <button class="fh-tab" data-tab="add"><i class="fas fa-user-plus" style="margin-right:4px"></i>Найти</button>
-        </div>
-      </div>
-      <div class="friends-body" id="friends-body">
-        <div class="friends-search-bar hidden" id="friends-search-bar">
-          <input type="text" id="friends-search-input" placeholder="Введите имя пользователя для поиска..." class="modal-search"/>
-        </div>
-        <div id="friends-list"></div>
-        <div class="friends-empty hidden" id="friends-empty">
-          <div class="friends-empty-img"></div>
-          <p>Здесь пока пусто. Начните чат!</p>
-        </div>
-      </div>
-    </div>
-
-    <!-- Active chat -->
-    <div class="active-chat hidden" id="active-chat">
-      <header class="chat-header" id="chat-header">
-        <button class="icon-btn mobile-back" id="btn-back-chat"><i class="fas fa-arrow-left"></i></button>
-        <div class="ch-avatar" id="ch-avatar"></div>
-        <div class="ch-info">
-          <span class="ch-name" id="chat-name"></span>
-          <span class="ch-status" id="chat-status"></span>
-        </div>
-        <div class="ch-tools">
-          <button class="icon-btn" id="btn-call" title="Голосовой звонок"><i class="fas fa-phone"></i></button>
-          <button class="icon-btn" id="btn-video-call" title="Видеозвонок"><i class="fas fa-video"></i></button>
-          <button class="icon-btn" id="btn-pin" title="Закреплённые"><i class="fas fa-thumbtack"></i></button>
-          <button class="icon-btn" id="btn-members" title="Участники"><i class="fas fa-user-group"></i></button>
-          <div class="ch-search-wrap">
-            <input type="text" id="msg-search-input" placeholder="Поиск" class="ch-search-input"/>
-            <i class="fas fa-magnifying-glass ch-search-icon"></i>
-          </div>
-        </div>
-      </header>
-
-      <div class="messages-scroll" id="messages-scroll">
-        <div class="messages-list" id="messages-area"></div>
-      </div>
-
-      <div class="typing-bar hidden" id="typing-bar">
-        <div class="typing-dots"><span></span><span></span><span></span></div>
-        <span class="typing-text" id="typing-text"></span>
-      </div>
-
-      <div class="reply-bar hidden" id="reply-bar">
-        <div class="reply-bar-body">
-          Отвечая <span id="reply-name"></span>
-          <span class="reply-preview" id="reply-text"></span>
-        </div>
-        <button class="reply-bar-close" id="reply-close"><i class="fas fa-xmark"></i></button>
-      </div>
-
-      <div class="chat-input-wrap">
-        <div class="chat-input-inner">
-          <button class="ci-btn" id="btn-attach"><i class="fas fa-circle-plus"></i></button>
-          <div class="ci-editor-wrap">
-            <textarea id="msg-input" placeholder="Написать сообщение…" rows="1"></textarea>
-          </div>
-          <div class="ci-right-btns">
-            <button class="ci-btn" id="btn-emoji" title="Эмодзи"><i class="fas fa-face-smile"></i></button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </main>
-
-  <!-- ══ RIGHT COLUMN: Members / Info ══ -->
-  <aside class="right-col hidden" id="right-col">
-    <header class="right-header">
-      <span class="right-header-title" id="right-header-title">Участники</span>
-      <button class="icon-btn" id="right-col-close"><i class="fas fa-xmark"></i></button>
-    </header>
-    <div class="right-body" id="right-body">
-      <!-- User info (private chat) -->
-      <div class="user-info-card hidden" id="user-info-card">
-        <div class="uic-avatar" id="uic-avatar"></div>
-        <div class="uic-name" id="uic-name"></div>
-        <div class="uic-tag" id="uic-tag"></div>
-        <div class="uic-status" id="uic-status"></div>
-        <button class="btn-primary btn-sm" id="uic-call-btn"><i class="fas fa-phone"></i> Позвонить</button>
-      </div>
-      <!-- Members list (group chat) -->
-      <div class="members-list" id="members-list"></div>
-    </div>
-  </aside>
-
-  <!-- ══ MOBILE BOTTOM NAV ══ -->
+  <!-- ── Bottom nav ── -->
   <nav class="bottom-nav" id="bottom-nav">
-    <button class="bnav-item active" data-nav="chats" id="bnav-chats">
-      <i class="fas fa-comment-dots"></i>
-      <span>Чаты</span>
+    <button class="bnav-item" id="bnav-hubs">
+      <i class="fas fa-house"></i><span>Хабы</span>
     </button>
-    <button class="bnav-item" data-nav="hubs" id="bnav-hubs">
-      <i class="fas fa-layer-group"></i>
-      <span>Хабы</span>
+    <button class="bnav-item active" id="bnav-chats">
+      <i class="fas fa-comment-dots"></i><span>Чаты</span>
     </button>
-    <button class="bnav-item" data-nav="friends" id="bnav-friends">
-      <i class="fas fa-user-group"></i>
-      <span>Друзья</span>
+    <button class="bnav-item" id="bnav-friends">
+      <i class="fas fa-user-group"></i><span>Друзья</span>
+    </button>
+    <button class="bnav-item" id="bnav-profile">
+      <i class="fas fa-user"></i><span>Профиль</span>
     </button>
   </nav>
+</div>
+
+<!-- ═══════ PROFILE VIEWER ═══════ -->
+<div class="profile-viewer-overlay hidden" id="profile-viewer">
+  <div class="profile-viewer-card">
+    <button class="pv-close" id="pv-close"><i class="fas fa-xmark"></i></button>
+    <div class="pv-avatar" id="pv-avatar"></div>
+    <div class="pv-name" id="pv-name"></div>
+    <div class="pv-username" id="pv-username"></div>
+    <div class="pv-status" id="pv-status"></div>
+    <div class="pv-bio" id="pv-bio"></div>
+    <div class="pv-actions">
+      <button class="btn-accent" id="pv-msg-btn"><i class="fas fa-comment"></i> Написать</button>
+      <button class="btn-accent-outline" id="pv-call-btn"><i class="fas fa-phone"></i> Позвонить</button>
+    </div>
+  </div>
 </div>
 
 <!-- ═══════ INCOMING CALL ═══════ -->
@@ -241,7 +204,6 @@
 <div class="active-call-overlay hidden" id="active-call-overlay">
   <div class="vk-call-bg" id="vk-call-bg"></div>
   <div class="vk-call-content">
-    <!-- Video layer -->
     <div class="vk-call-video-layer hidden" id="call-video-layer">
       <video class="vk-remote-video" id="remote-video" autoplay playsinline></video>
       <div class="vk-call-pip hidden" id="call-pip">
@@ -250,7 +212,6 @@
       </div>
       <div class="vk-screen-badge hidden" id="call-screen-badge">Демонстрация экрана</div>
     </div>
-    <!-- Audio layer (main view when no video) -->
     <div class="vk-call-audio-layer" id="call-audio-layer">
       <div class="vk-call-avatar-wrap">
         <div class="vk-call-avatar" id="call-audio-avatar"></div>
@@ -258,7 +219,6 @@
       </div>
       <div class="vk-call-name" id="call-audio-name"></div>
       <div class="vk-call-timer" id="call-audio-timer">Подключение...</div>
-      <!-- Status indicators -->
       <div class="vk-call-statuses">
         <div class="vk-status-item" id="my-mic-status" title="Ваш микрофон">
           <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
@@ -278,7 +238,6 @@
         </div>
       </div>
     </div>
-    <!-- Controls bar (bottom) -->
     <div class="vk-call-controls">
       <div class="vk-ctrl-group">
         <button class="vk-ctrl-btn" id="toggle-mute" title="Микрофон">
@@ -303,29 +262,27 @@
 </div>
 
 <!-- ═══════ MODALS ═══════ -->
-<!-- New chat / DM -->
 <div class="modal-overlay hidden" id="modal-new-chat">
   <div class="modal-box">
     <div class="modal-header">
-      <h3>Выберите друзей</h3>
+      <h3>Новое сообщение</h3>
       <button class="modal-close-btn" id="modal-new-chat-close"><i class="fas fa-xmark"></i></button>
     </div>
-    <p class="modal-desc">Вы можете написать личное сообщение.</p>
+    <p class="modal-desc">Найдите пользователя для переписки.</p>
     <input type="text" id="new-chat-search" placeholder="Введите имя пользователя" class="modal-search"/>
     <div class="modal-results" id="new-chat-results"></div>
   </div>
 </div>
 
-<!-- New group -->
 <div class="modal-overlay hidden" id="modal-new-group">
   <div class="modal-box">
     <div class="modal-header">
-      <h3>Создать сервер</h3>
+      <h3>Создать хаб</h3>
       <button class="modal-close-btn" id="modal-new-group-close"><i class="fas fa-xmark"></i></button>
     </div>
-    <p class="modal-desc">Сервер — это место, где вы общаетесь с друзьями.</p>
-    <label class="modal-label">НАЗВАНИЕ СЕРВЕРА</label>
-    <input type="text" id="group-name-input" placeholder="Сервер" class="modal-search"/>
+    <p class="modal-desc">Хаб — место для общения с друзьями.</p>
+    <label class="modal-label">НАЗВАНИЕ ХАБА</label>
+    <input type="text" id="group-name-input" placeholder="Мой хаб" class="modal-search"/>
     <label class="modal-label">ДОБАВИТЬ УЧАСТНИКОВ</label>
     <input type="text" id="group-member-search" placeholder="Введите имя пользователя" class="modal-search"/>
     <div class="modal-results" id="group-search-results"></div>
@@ -337,7 +294,7 @@
   </div>
 </div>
 
-<!-- Settings -->
+<!-- ═══════ SETTINGS ═══════ -->
 <div class="modal-overlay hidden" id="modal-settings">
   <div class="settings-layout">
     <nav class="settings-nav">
@@ -357,7 +314,7 @@
       <div class="settings-nav-label">О ПРИЛОЖЕНИИ</div>
       <button class="settings-nav-item" data-section="about"><i class="fas fa-circle-info"></i> О Shadow Messenger</button>
       <div class="settings-nav-sep"></div>
-      <button class="settings-nav-item danger" id="btn-logout"><i class="fas fa-right-from-bracket"></i> Выйти</button>
+      <button class="settings-nav-item danger" id="btn-settings-logout"><i class="fas fa-right-from-bracket"></i> Выйти</button>
     </nav>
     <div class="settings-content">
       <div class="settings-close-wrap">
@@ -376,20 +333,13 @@
               <span class="sc-name" id="sc-name"></span>
               <span class="sc-tag" id="sc-tag"></span>
             </div>
-            <button class="btn-primary btn-sm" id="btn-edit-profile">Редактировать профиль</button>
+            <button class="btn-primary btn-sm" id="btn-edit-profile">Редактировать</button>
           </div>
           <div class="sc-fields" id="sc-fields">
-            <div class="sc-field">
-              <div class="sc-field-label">ОТОБРАЖАЕМОЕ ИМЯ</div>
-              <div class="sc-field-val" id="sc-displayname"></div>
-            </div>
-            <div class="sc-field">
-              <div class="sc-field-label">ИМЯ ПОЛЬЗОВАТЕЛЯ</div>
-              <div class="sc-field-val" id="sc-username"></div>
-            </div>
+            <div class="sc-field"><div class="sc-field-label">ОТОБРАЖАЕМОЕ ИМЯ</div><div class="sc-field-val" id="sc-displayname"></div></div>
+            <div class="sc-field"><div class="sc-field-label">ИМЯ ПОЛЬЗОВАТЕЛЯ</div><div class="sc-field-val" id="sc-username"></div></div>
           </div>
         </div>
-        <!-- Edit profile panel (hidden by default) -->
         <div class="edit-profile-panel hidden" id="edit-profile-panel">
           <h3>Редактировать профиль</h3>
           <label class="modal-label">ОТОБРАЖАЕМОЕ ИМЯ</label>
@@ -417,51 +367,38 @@
         <div class="settings-card" style="margin-top:20px">
           <h4>Активные сессии</h4>
           <p class="settings-hint">Управляйте устройствами, на которых вы вошли.</p>
-          <button class="btn-primary btn-sm btn-danger-fill" id="btn-revoke-sessions">Завершить все остальные сессии</button>
+          <button class="btn-primary btn-sm btn-danger-fill" id="btn-revoke-sessions">Завершить все сессии</button>
         </div>
       </div>
-
       <div class="settings-page hidden" id="settings-profiles">
         <h2>Профили</h2>
         <div class="settings-card">
           <h4>Аватар профиля</h4>
-          <p class="settings-hint">Рекомендуемый размер: не менее 128×128 пикселей. Формат: PNG, JPG, GIF.</p>
+          <p class="settings-hint">Рекомендуемый размер: 128×128 пикселей. PNG, JPG, GIF.</p>
           <div class="avatar-upload-area">
             <div class="avatar-upload-preview" id="avatar-upload-preview"><i class="fas fa-camera"></i></div>
-            <button class="btn-primary btn-sm" id="btn-upload-avatar">Загрузить аватар</button>
+            <button class="btn-primary btn-sm" id="btn-upload-avatar">Загрузить</button>
             <button class="btn-secondary btn-sm" id="btn-remove-avatar">Удалить</button>
           </div>
         </div>
         <div class="settings-card" style="margin-top:20px">
           <h4>О себе</h4>
-          <p class="settings-hint">Расскажите другим о себе. Появится в вашем профиле.</p>
           <textarea id="set-about-me" class="modal-search" rows="4" maxlength="190" placeholder="Расскажите о себе…"></textarea>
           <div class="char-counter"><span id="about-me-count">0</span>/190</div>
         </div>
       </div>
-
       <div class="settings-page hidden" id="settings-privacy">
         <h2>Конфиденциальность</h2>
         <div class="settings-card">
           <h4>Личные сообщения</h4>
-          <div class="settings-toggle-row">
-            <span>Разрешить ЛС от участников сервера</span>
-            <label class="toggle-switch"><input type="checkbox" id="toggle-dm-server" checked/><span class="toggle-slider"></span></label>
-          </div>
-          <div class="settings-toggle-row">
-            <span>Разрешить ЛС от всех пользователей</span>
-            <label class="toggle-switch"><input type="checkbox" id="toggle-dm-all" checked/><span class="toggle-slider"></span></label>
-          </div>
+          <div class="settings-toggle-row"><span>Разрешить ЛС от участников хаба</span><label class="toggle-switch"><input type="checkbox" id="toggle-dm-server" checked/><span class="toggle-slider"></span></label></div>
+          <div class="settings-toggle-row"><span>Разрешить ЛС от всех</span><label class="toggle-switch"><input type="checkbox" id="toggle-dm-all" checked/><span class="toggle-slider"></span></label></div>
         </div>
         <div class="settings-card" style="margin-top:20px">
           <h4>Активность</h4>
-          <div class="settings-toggle-row">
-            <span>Показывать текущую активность в статусе</span>
-            <label class="toggle-switch"><input type="checkbox" id="toggle-activity" checked/><span class="toggle-slider"></span></label>
-          </div>
+          <div class="settings-toggle-row"><span>Показывать активность</span><label class="toggle-switch"><input type="checkbox" id="toggle-activity" checked/><span class="toggle-slider"></span></label></div>
         </div>
       </div>
-
       <div class="settings-page hidden" id="settings-appearance">
         <h2>Внешний вид</h2>
         <div class="settings-card">
@@ -487,7 +424,7 @@
           </div>
         </div>
         <div class="settings-card" style="margin-top:20px">
-          <h4>Размер текста сообщений</h4>
+          <h4>Размер текста</h4>
           <div class="slider-row">
             <span class="slider-label">12px</span>
             <input type="range" id="font-size-slider" min="12" max="24" value="16" class="settings-slider"/>
@@ -496,36 +433,22 @@
           <p class="settings-hint" id="font-size-preview">Текущий: 16px</p>
         </div>
         <div class="settings-card" style="margin-top:20px">
-          <h4>Масштаб интерфейса</h4>
-          <div class="settings-toggle-row">
-            <span>Компактный режим сообщений</span>
-            <label class="toggle-switch"><input type="checkbox" id="toggle-compact"/><span class="toggle-slider"></span></label>
-          </div>
+          <h4>Компактность</h4>
+          <div class="settings-toggle-row"><span>Компактный режим сообщений</span><label class="toggle-switch"><input type="checkbox" id="toggle-compact"/><span class="toggle-slider"></span></label></div>
         </div>
       </div>
-
       <div class="settings-page hidden" id="settings-notifications">
         <h2>Уведомления</h2>
         <div class="settings-card">
-          <h4>Уведомления на рабочем столе</h4>
-          <div class="settings-toggle-row">
-            <span>Включить уведомления</span>
-            <label class="toggle-switch"><input type="checkbox" id="toggle-notif-desktop" checked/><span class="toggle-slider"></span></label>
-          </div>
-          <div class="settings-toggle-row">
-            <span>Включить звук уведомлений</span>
-            <label class="toggle-switch"><input type="checkbox" id="toggle-notif-sound" checked/><span class="toggle-slider"></span></label>
-          </div>
+          <h4>Уведомления</h4>
+          <div class="settings-toggle-row"><span>Включить уведомления</span><label class="toggle-switch"><input type="checkbox" id="toggle-notif-desktop" checked/><span class="toggle-slider"></span></label></div>
+          <div class="settings-toggle-row"><span>Звук уведомлений</span><label class="toggle-switch"><input type="checkbox" id="toggle-notif-sound" checked/><span class="toggle-slider"></span></label></div>
         </div>
         <div class="settings-card" style="margin-top:20px">
-          <h4>Значок уведомлений</h4>
-          <div class="settings-toggle-row">
-            <span>Показывать количество непрочитанных на иконке</span>
-            <label class="toggle-switch"><input type="checkbox" id="toggle-notif-badge" checked/><span class="toggle-slider"></span></label>
-          </div>
+          <h4>Значок</h4>
+          <div class="settings-toggle-row"><span>Показывать непрочитанные</span><label class="toggle-switch"><input type="checkbox" id="toggle-notif-badge" checked/><span class="toggle-slider"></span></label></div>
         </div>
       </div>
-
       <div class="settings-page hidden" id="settings-voice">
         <h2>Голос и видео</h2>
         <div class="settings-card">
@@ -547,39 +470,22 @@
           </div>
         </div>
         <div class="settings-card" style="margin-top:20px">
-          <h4>Видео</h4>
-          <div class="settings-toggle-row">
-            <span>Всегда показывать предпросмотр видео</span>
-            <label class="toggle-switch"><input type="checkbox" id="toggle-video-preview" checked/><span class="toggle-slider"></span></label>
-          </div>
-        </div>
-        <div class="settings-card" style="margin-top:20px">
           <h4>Подавление шума</h4>
-          <p class="settings-hint">Улучшенное подавление фонового шума с помощью цифровой обработки. Фильтрует низкочастотные шумы, гул, свист и шипение.</p>
-          <div class="settings-toggle-row">
-            <span>Подавление шума</span>
-            <label class="toggle-switch"><input type="checkbox" id="toggle-noise-suppression" checked/><span class="toggle-slider"></span></label>
-          </div>
-          <div class="settings-toggle-row">
-            <span>Автоматическая регулировка усиления</span>
-            <label class="toggle-switch"><input type="checkbox" id="toggle-auto-gain" checked/><span class="toggle-slider"></span></label>
-          </div>
+          <div class="settings-toggle-row"><span>Подавление шума</span><label class="toggle-switch"><input type="checkbox" id="toggle-noise-suppression" checked/><span class="toggle-slider"></span></label></div>
+          <div class="settings-toggle-row"><span>Авто-усиление</span><label class="toggle-switch"><input type="checkbox" id="toggle-auto-gain" checked/><span class="toggle-slider"></span></label></div>
         </div>
       </div>
-
       <div class="settings-page hidden" id="settings-keybinds">
         <h2>Горячие клавиши</h2>
         <div class="settings-card">
           <div class="keybind-list">
             <div class="keybind-row"><span>Отправить сообщение</span><kbd>Enter</kbd></div>
             <div class="keybind-row"><span>Новая строка</span><kbd>Shift + Enter</kbd></div>
-            <div class="keybind-row"><span>Загрузить файл</span><kbd>Прикрепить файл</kbd></div>
+            <div class="keybind-row"><span>Загрузить файл</span><kbd>Ctrl + V</kbd></div>
             <div class="keybind-row"><span>Закрыть настройки</span><kbd>Escape</kbd></div>
-            <div class="keybind-row"><span>Поиск</span><kbd>Ctrl + K</kbd></div>
           </div>
         </div>
       </div>
-
       <div class="settings-page hidden" id="settings-language">
         <h2>Язык</h2>
         <div class="settings-card">
@@ -588,40 +494,32 @@
             <option value="ru" selected>Русский</option>
             <option value="en">English</option>
             <option value="uk">Українська</option>
-            <option value="de">Deutsch</option>
-            <option value="fr">Français</option>
           </select>
-          <p class="settings-hint" style="margin-top:12px">Изменение языка вступит в силу после перезагрузки.</p>
         </div>
       </div>
-
       <div class="settings-page hidden" id="settings-about">
         <h2>О Shadow Messenger</h2>
         <div class="settings-card about-card">
           <div class="about-logo"><svg class="ghost-icon" viewBox="0 0 100 130" fill="currentColor"><path d="M50 5C28 5 10 23 10 45v55c0 3 2 5 4 3l8-8c2-2 5-2 7 0l6 6c2 2 5 2 7 0l6-6c2-2 5-2 7 0l6 6c2 2 5 2 7 0l6-6c2-2 5-2 7 0l8 8c2 2 4 0 4-3V45C90 23 72 5 50 5z"/><ellipse cx="35" cy="40" rx="9" ry="11" fill="#000" opacity=".9"/><ellipse cx="65" cy="40" rx="9" ry="11" fill="#000" opacity=".9"/><ellipse cx="33" cy="38" rx="4" ry="5" fill="#f00" opacity=".85"/><ellipse cx="63" cy="38" rx="4" ry="5" fill="#f00" opacity=".85"/><ellipse cx="35" cy="36" rx="1.5" ry="2" fill="#fff" opacity=".5"/><ellipse cx="65" cy="36" rx="1.5" ry="2" fill="#fff" opacity=".5"/><path d="M32 58 L36 66 L40 58 L44 66 L48 58 L52 66 L56 58 L60 66 L64 58 L68 66 L68 58" fill="#000" opacity=".85" stroke="#000" stroke-width="1"/><path d="M32 58 Q50 52 68 58" fill="none" stroke="#000" stroke-width="2.5" opacity=".8"/></svg></div>
           <h3>Shadow Messenger</h3>
-          <p class="about-version">Версия 1.0.0</p>
-          <p class="about-desc">Безопасный и стильный мессенджер для общения с друзьями. Создан с любовью.</p>
-          <div class="about-links">
-            <a href="#" class="about-link"><i class="fas fa-code-branch"></i> Исходный код</a>
-            <a href="#" class="about-link"><i class="fas fa-bug"></i> Сообщить об ошибке</a>
-          </div>
+          <p class="about-version">Версия 2.0.0</p>
+          <p class="about-desc">Безопасный мессенджер нового поколения.</p>
         </div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- Context menu -->
+<!-- ═══════ CONTEXT MENU ═══════ -->
 <div class="ctx-menu hidden" id="ctx-menu">
   <div class="ctx-item" data-action="reply"><i class="fas fa-reply"></i>Ответить</div>
-  <div class="ctx-item" data-action="react"><i class="fas fa-face-smile"></i>Добавить реакцию</div>
+  <div class="ctx-item" data-action="react"><i class="fas fa-face-smile"></i>Реакция</div>
   <div class="ctx-sep"></div>
   <div class="ctx-item" data-action="edit"><i class="fas fa-pen"></i>Редактировать</div>
-  <div class="ctx-item ctx-danger" data-action="delete"><i class="fas fa-trash"></i>Удалить сообщение</div>
+  <div class="ctx-item ctx-danger" data-action="delete"><i class="fas fa-trash"></i>Удалить</div>
 </div>
 
-<!-- Emoji picker -->
+<!-- ═══════ EMOJI PICKER ═══════ -->
 <div class="emoji-picker hidden" id="emoji-picker">
   <div class="ep-header">
     <input type="text" class="ep-search" id="ep-search" placeholder="Поиск эмодзи"/>
@@ -629,13 +527,13 @@
   <div class="ep-grid" id="ep-grid"></div>
 </div>
 
-<!-- Lightbox -->
+<!-- ═══════ LIGHTBOX ═══════ -->
 <div class="lightbox hidden" id="lightbox">
   <button class="lightbox-close" id="lightbox-close"><i class="fas fa-xmark"></i></button>
   <img id="lightbox-img" src="" alt=""/>
 </div>
 
-<!-- Toasts -->
+<!-- ═══════ TOASTS ═══════ -->
 <div id="toast-container" class="toast-container"></div>
 
 <!-- Hidden -->
