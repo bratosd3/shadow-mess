@@ -8,7 +8,7 @@ const S = {
   token: null, user: null, chats: [], activeChat: null, messages: [],
   socket: null, replyTo: null, editingMsgId: null,
   membersVisible: false, emojiOpen: false,
-  sidebarOpen: false, settingsOpen: false,
+  settingsOpen: false, _mobileScreen: 'chats',
 };
 window.State = S;
 
@@ -17,7 +17,7 @@ const $ = id => document.getElementById(id);
 const on = (el, ev, fn, opts) => { if (typeof el === 'string') el = $(el); if (el) el.addEventListener(ev, fn, opts); };
 const qsa = (sel, root) => (root || document).querySelectorAll(sel);
 const qs = (sel, root) => (root || document).querySelector(sel);
-const isMobile = () => window.innerWidth <= 768;
+const isMobile = () => window.innerWidth <= 1024;
 
 /* ── Toast ───────────────────────────────────────────── */
 function showToast(msg, type = 'info', ms = 4000) {
@@ -362,10 +362,12 @@ async function openChat(chatId) {
   $('chat-name').textContent = chat.displayName || chat.name || 'Чат';
   updateChatStatus(chat);
 
-  // Set header icon
-  const icon = $('ch-icon');
-  if (chat.type === 'private') icon.innerHTML = '<i class="fas fa-at"></i>';
-  else icon.innerHTML = '<i class="fas fa-hashtag"></i>';
+  // Set header avatar
+  const chAv = $('ch-avatar');
+  if (chAv) {
+    if (chat.displayAvatar) { chAv.style.backgroundImage = `url(${chat.displayAvatar})`; chAv.textContent = ''; }
+    else { chAv.style.backgroundImage = ''; chAv.style.backgroundColor = chat.displayAvatarColor || '#5865f2'; chAv.textContent = avatarText(chat.displayName || chat.name); }
+  }
 
   // Call buttons
   $('btn-call').classList.toggle('hidden', chat.type !== 'private');
@@ -386,12 +388,19 @@ async function openChat(chatId) {
   const ci = S.chats.findIndex(c => c.id === chatId);
   if (ci !== -1) { S.chats[ci].unreadCount = 0; renderChatList(); updateTabTitle(); }
 
-  if (isMobile()) closeSidebar();
+  // Mobile: show chat, hide bottom nav
+  if (isMobile()) {
+    $('bottom-nav').classList.add('hidden');
+    $('top-bar').style.display = 'none';
+  }
 
   $('msg-input').placeholder = `Написать @${chat.displayName || chat.name || 'чат'}`;
 
-  // Members
+  // Members / Right panel
   if (chat.type === 'group' && chat.membersInfo) renderMembers(chat.membersInfo);
+  if (chat.type === 'private') {
+    populateUserInfo(chat);
+  }
 }
 
 function updateChatStatus(chat) {
@@ -409,8 +418,100 @@ function updateChatStatus(chat) {
 function showWelcome() {
   $('active-chat').classList.add('hidden');
   $('welcome-screen').classList.remove('hidden');
+  $('right-col')?.classList.add('hidden');
   qsa('.chat-item').forEach(el => el.classList.remove('active'));
+  if (isMobile()) {
+    $('bottom-nav').classList.remove('hidden');
+    $('top-bar').style.display = 'flex';
+    $('top-bar-title').textContent = 'Друзья';
+    setMobileScreen('friends');
+  }
   loadFriends('online');
+}
+
+/* ── Populate user-info-card for private chat ───────── */
+function populateUserInfo(chat) {
+  const card = $('user-info-card');
+  if (!card) return;
+  const av = $('uic-avatar');
+  if (chat.displayAvatar) { av.style.backgroundImage = `url(${chat.displayAvatar})`; av.textContent = ''; }
+  else { av.style.backgroundImage = ''; av.style.backgroundColor = chat.displayAvatarColor || '#5865f2'; av.textContent = avatarText(chat.displayName || chat.name); }
+  $('uic-name').textContent = chat.displayName || chat.name || '';
+  $('uic-tag').textContent = '@' + (chat.otherUsername || '');
+  $('uic-status').textContent = chat.online ? 'В сети' : 'Не в сети';
+  card.classList.remove('hidden');
+  $('members-list').innerHTML = '';
+}
+
+/* ── Mobile screen switching ─────────────────────────── */
+function setMobileScreen(screen) {
+  S._mobileScreen = screen;
+  const bnChats = $('bnav-chats'), bnHubs = $('bnav-hubs'), bnFriends = $('bnav-friends');
+  qsa('.bnav-item').forEach(b => b.classList.remove('active'));
+
+  // Hide active chat when switching screens
+  $('active-chat').classList.add('hidden');
+  $('welcome-screen').classList.add('hidden');
+
+  if (screen === 'chats') {
+    bnChats?.classList.add('active');
+    $('welcome-screen').classList.remove('hidden');
+    // Show chat list in welcome screen area
+    $('friends-header').classList.add('hidden');
+    $('friends-body').classList.add('hidden');
+    showMobileChatList();
+    $('top-bar-title').textContent = 'Чаты';
+  } else if (screen === 'hubs') {
+    bnHubs?.classList.add('active');
+    $('welcome-screen').classList.remove('hidden');
+    $('friends-header').classList.add('hidden');
+    $('friends-body').classList.add('hidden');
+    showMobileHubList();
+    $('top-bar-title').textContent = 'Хабы';
+  } else if (screen === 'friends') {
+    bnFriends?.classList.add('active');
+    $('welcome-screen').classList.remove('hidden');
+    $('friends-header').classList.remove('hidden');
+    $('friends-body').classList.remove('hidden');
+    hideMobileLists();
+    $('top-bar-title').textContent = 'Друзья';
+    loadFriends('online');
+  }
+}
+
+/* Mobile chat list shown inline */
+let _mobileChatListEl = null;
+function showMobileChatList() {
+  hideMobileLists();
+  const ws = $('welcome-screen');
+  if (!_mobileChatListEl) {
+    _mobileChatListEl = document.createElement('div');
+    _mobileChatListEl.className = 'mobile-list-panel';
+    _mobileChatListEl.id = 'mobile-chat-list';
+  }
+  _mobileChatListEl.innerHTML = '';
+  const frag = document.createDocumentFragment();
+  S.chats.forEach(c => frag.appendChild(buildChatItem(c)));
+  _mobileChatListEl.appendChild(frag);
+  ws.appendChild(_mobileChatListEl);
+}
+
+let _mobileHubListEl = null;
+function showMobileHubList() {
+  hideMobileLists();
+  const ws = $('welcome-screen');
+  if (!_mobileHubListEl) {
+    _mobileHubListEl = document.createElement('div');
+    _mobileHubListEl.className = 'mobile-list-panel';
+    _mobileHubListEl.id = 'mobile-hub-list';
+    _mobileHubListEl.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:40px">Хабы скоро появятся</p>';
+  }
+  ws.appendChild(_mobileHubListEl);
+}
+
+function hideMobileLists() {
+  _mobileChatListEl?.remove();
+  _mobileHubListEl?.remove();
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -625,7 +726,7 @@ async function searchAndRenderUsers(q) {
    THEMES
    ══════════════════════════════════════════════════════════ */
 const THEMES = {
-  phantom:  { darkest:'#0a0a0a', dark:'#111111', primary:'#161616', secondary:'#121212', tertiary:'#0a0a0a', input:'#1c1c1c', brand:'#ffffff', accent:'linear-gradient(135deg,#fff,#ccc)', accentColor:'#ffffff' },
+  phantom:  { darkest:'#202225', dark:'#2f3136', primary:'#36393f', secondary:'#2f3136', tertiary:'#202225', input:'#40444b', brand:'#5865f2', accent:'linear-gradient(135deg,#5865f2,#7983f5)', accentColor:'#5865f2' },
   midnight: { darkest:'#000005', dark:'#080812', primary:'#0d0d1a', secondary:'#0a0a15', tertiary:'#000005', input:'#141428', brand:'#6366f1', accent:'linear-gradient(135deg,#6366f1,#818cf8)', accentColor:'#6366f1' },
   obsidian: { darkest:'#0e0e1a', dark:'#14142a', primary:'#1a1a2e', secondary:'#16162a', tertiary:'#0e0e1a', input:'#22223a', brand:'#7c83ff', accent:'linear-gradient(135deg,#7c83ff,#a5b4fc)', accentColor:'#7c83ff' },
   crimson:  { darkest:'#0a0000', dark:'#140000', primary:'#1a0000', secondary:'#120000', tertiary:'#0a0000', input:'#2d0000', brand:'#ef4444', accent:'linear-gradient(135deg,#ef4444,#f87171)', accentColor:'#ef4444' },
@@ -1395,39 +1496,16 @@ function toggleEmoji() {
 function openLightbox(url) { $('lightbox-img').src = url; $('lightbox').classList.remove('hidden'); }
 
 /* ══════════════════════════════════════════════════════════
-   MOBILE SIDEBAR
+   MOBILE BACK — return to previous screen
    ══════════════════════════════════════════════════════════ */
-function openSidebar() {
-  S.sidebarOpen = true;
-  $('channel-sidebar').classList.add('open');
-  $('sidebar-backdrop').classList.add('show');
-}
-function closeSidebar() {
-  S.sidebarOpen = false;
-  $('channel-sidebar').classList.remove('open');
-  $('sidebar-backdrop').classList.remove('show');
-}
-
-/* ── Swipe support ───────────────────────────────────── */
-let _touchStartX = 0, _touchStartY = 0, _swiping = false;
-function initSwipe() {
-  const main = $('main-area');
-  if (!main) return;
-  main.addEventListener('touchstart', e => {
-    const t = e.touches[0];
-    _touchStartX = t.clientX;
-    _touchStartY = t.clientY;
-    _swiping = false;
-  }, { passive: true });
-  main.addEventListener('touchmove', e => {
-    if (_swiping) return;
-    const dx = e.touches[0].clientX - _touchStartX;
-    const dy = e.touches[0].clientY - _touchStartY;
-    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 30) {
-      _swiping = true;
-      if (dx > 0 && !S.sidebarOpen) openSidebar();
-    }
-  }, { passive: true });
+function mobileBack() {
+  if (!isMobile()) { showWelcome(); return; }
+  S.activeChat = null;
+  $('active-chat').classList.add('hidden');
+  $('bottom-nav').classList.remove('hidden');
+  $('top-bar').style.display = 'flex';
+  const screen = S._mobileScreen || 'chats';
+  setMobileScreen(screen);
 }
 
 /* ══════════════════════════════════════════════════════════
@@ -1562,19 +1640,60 @@ document.addEventListener('DOMContentLoaded', () => {
   on('btn-search-open', 'click', () => openModal('modal-new-chat'));
   on('btn-new-group', 'click', () => openModal('modal-new-group'));
   on('btn-settings', 'click', openSettings);
-  on('guild-home', 'click', () => { if (isMobile()) { if (S.sidebarOpen) closeSidebar(); else openSidebar(); } else showWelcome(); });
 
-  // ── Members toggle ────────────────────────────────────
-  on('btn-members', 'click', () => {
-    S.membersVisible = !S.membersVisible;
-    $('members-sidebar').classList.toggle('hidden', !S.membersVisible);
+  // ── Left tab switching ────────────────────────────────
+  on('left-tab-chats', 'click', () => {
+    $('left-tab-chats').classList.add('active');
+    $('left-tab-hubs').classList.remove('active');
+    $('left-panel-chats').classList.remove('hidden');
+    $('left-panel-hubs').classList.add('hidden');
+  });
+  on('left-tab-hubs', 'click', () => {
+    $('left-tab-hubs').classList.add('active');
+    $('left-tab-chats').classList.remove('active');
+    $('left-panel-hubs').classList.remove('hidden');
+    $('left-panel-chats').classList.add('hidden');
   });
 
-  // ── Mobile back button ────────────────────────────────
-  on('btn-back', 'click', () => { if (isMobile()) openSidebar(); else showWelcome(); });
+  // ── Bottom nav (mobile) ──────────────────────────────
+  on('bnav-chats', 'click', () => setMobileScreen('chats'));
+  on('bnav-hubs', 'click', () => setMobileScreen('hubs'));
+  on('bnav-friends', 'click', () => setMobileScreen('friends'));
 
-  // ── Mobile burger button (friends screen) ─────────────
-  on('btn-burger', 'click', () => openSidebar());
+  // ── Members / Right col toggle ────────────────────────
+  on('btn-members', 'click', () => {
+    const rc = $('right-col');
+    if (!rc) return;
+    S.membersVisible = !S.membersVisible;
+    rc.classList.toggle('hidden', !S.membersVisible);
+    if (S.membersVisible && S.activeChat) {
+      if (S.activeChat.type === 'private') {
+        $('right-header-title').textContent = 'Информация';
+        populateUserInfo(S.activeChat);
+      } else {
+        $('right-header-title').textContent = 'Участники';
+        $('user-info-card')?.classList.add('hidden');
+      }
+    }
+  });
+  on('right-col-close', 'click', () => {
+    S.membersVisible = false;
+    $('right-col')?.classList.add('hidden');
+  });
+
+  // ── UIC call button ───────────────────────────────────
+  on('uic-call-btn', 'click', () => {
+    if (!S.activeChat || S.activeChat.type !== 'private') return;
+    const peerId = S.activeChat.members?.find(id => id !== S.user?.id);
+    if (peerId && window.callsModule?.startCall) {
+      window.callsModule.startCall(peerId, 'audio');
+      showActiveCall(S.activeChat.displayName || S.activeChat.name, S.activeChat.displayAvatar, S.activeChat.displayAvatarColor);
+    }
+  });
+
+  // ── Mobile back buttons ───────────────────────────────
+  on('btn-back', 'click', () => mobileBack());
+  on('btn-back-chat', 'click', () => mobileBack());
 
   // ── Close modals ──────────────────────────────────────
   on('modal-new-chat-close', 'click', () => closeModal('modal-new-chat'));
@@ -1602,9 +1721,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ── Search / filter ───────────────────────────────────
   /* Channel-header search opens new chat modal on mobile */
-
-  // ── Sidebar backdrop ──────────────────────────────────
-  on('sidebar-backdrop', 'click', closeSidebar);
 
   // ── Calls ─────────────────────────────────────────────
   on('btn-call', 'click', () => {
@@ -1718,7 +1834,4 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ── Service Worker ────────────────────────────────────
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {});
-
-  // ── Mobile swipe ──────────────────────────────────────
-  initSwipe();
 });
