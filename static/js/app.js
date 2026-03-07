@@ -1211,6 +1211,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // ── Mobile back button ────────────────────────────────
   on('btn-back', 'click', () => { if (isMobile()) openSidebar(); else showWelcome(); });
 
+  // ── Mobile burger button (friends screen) ─────────────
+  on('btn-burger', 'click', () => openSidebar());
+
   // ── Close modals ──────────────────────────────────────
   on('modal-new-chat-close', 'click', () => closeModal('modal-new-chat'));
   on('modal-new-group-close', 'click', () => closeModal('modal-new-group'));
@@ -1258,6 +1261,23 @@ document.addEventListener('DOMContentLoaded', () => {
   // ── Friends tab (no real server logic, just style) ────
   qsa('.fh-tab').forEach(btn => {
     btn.addEventListener('click', () => { qsa('.fh-tab').forEach(b => b.classList.remove('active')); btn.classList.add('active'); });
+  });
+
+  // ── Mic / Deaf toggles ────────────────────────────────
+  let micMuted = false, deafened = false;
+  on('btn-mic', 'click', () => {
+    micMuted = !micMuted;
+    const btn = $('btn-mic');
+    btn.innerHTML = micMuted ? '<i class="fas fa-microphone-slash"></i>' : '<i class="fas fa-microphone"></i>';
+    btn.style.color = micMuted ? 'var(--text-danger)' : '';
+    showToast(micMuted ? 'Микрофон выключен' : 'Микрофон включён', 'info', 2000);
+  });
+  on('btn-deaf', 'click', () => {
+    deafened = !deafened;
+    const btn = $('btn-deaf');
+    btn.innerHTML = deafened ? '<i class="fas fa-ear-deaf"></i>' : '<i class="fas fa-headphones"></i>';
+    btn.style.color = deafened ? 'var(--text-danger)' : '';
+    showToast(deafened ? 'Звук выключен' : 'Звук включён', 'info', 2000);
   });
 
   // ── ESC closes settings / emoji / lightbox ────────────
