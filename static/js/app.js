@@ -122,28 +122,33 @@ function initAuth() {
   on('show-login',    'click', e => { e.preventDefault(); $('register-form').classList.add('hidden'); $('login-form').classList.remove('hidden'); });
 
   on('btn-login', 'click', async () => {
-    $('login-error').textContent = '';
+    const errEl = $('login-error');
+    errEl.textContent = '';
+    const username = $('li-username').value.trim();
+    const password = $('li-password').value;
+    if (!username || !password) { errEl.textContent = 'Введите логин и пароль'; return; }
     try {
-      const d = await API.post('/api/login', {
-        username: $('li-username').value.trim(),
-        password: $('li-password').value,
-      });
+      const d = await API.post('/api/login', { username, password });
       await onLogin(d);
-    } catch (err) { $('login-error').textContent = err.message; }
+    } catch (err) {
+      errEl.textContent = err.message || 'Ошибка входа';
+      errEl.style.color = '#ed4245';
+    }
   });
   ['li-username', 'li-password'].forEach(id => on(id, 'keydown', e => { if (e.key === 'Enter') $('btn-login').click(); }));
 
   on('btn-register', 'click', async () => {
-    $('reg-error').textContent = '';
-    if ($('rg-password').value !== $('rg-password2').value) { $('reg-error').textContent = 'Пароли не совпадают'; return; }
+    const errEl = $('reg-error');
+    errEl.textContent = '';
+    if ($('rg-password').value !== $('rg-password2').value) { errEl.textContent = 'Пароли не совпадают'; return; }
+    const username = $('rg-username').value.trim();
+    const displayName = $('rg-displayname').value.trim();
+    const password = $('rg-password').value;
+    if (!username || !displayName || !password) { errEl.textContent = 'Заполните все поля'; return; }
     try {
-      const d = await API.post('/api/register', {
-        username:    $('rg-username').value.trim(),
-        displayName: $('rg-displayname').value.trim(),
-        password:    $('rg-password').value,
-      });
+      const d = await API.post('/api/register', { username, displayName, password });
       await onLogin(d);
-    } catch (err) { $('reg-error').textContent = err.message; }
+    } catch (err) { errEl.textContent = err.message || 'Ошибка регистрации'; }
   });
   ['rg-displayname', 'rg-username', 'rg-password', 'rg-password2'].forEach(id => on(id, 'keydown', e => { if (e.key === 'Enter') $('btn-register').click(); }));
 }
