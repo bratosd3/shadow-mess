@@ -994,8 +994,11 @@ function closeSettings() {
 }
 
 function showSettingsSection(sec) {
-  $('settings-profile').classList.toggle('hidden', sec !== 'profile');
-  $('settings-security').classList.toggle('hidden', sec !== 'security');
+  const sections = ['profile','security','profiles','privacy','appearance','notifications','voice','keybinds','language','about'];
+  sections.forEach(s => {
+    const el = $('settings-' + s);
+    if (el) el.classList.toggle('hidden', s !== sec);
+  });
   qsa('.settings-nav-item').forEach(b => b.classList.toggle('active', b.dataset.section === sec));
 }
 
@@ -1027,6 +1030,56 @@ function initSettings() {
     try { await API.put('/api/me/password', { currentPassword: cur, newPassword: nw }); showToast('Пароль изменён', 'success'); $('set-cur-pw').value = ''; $('set-new-pw').value = ''; }
     catch (e) { showToast(e.message, 'error'); }
   });
+
+  // Font size slider
+  on('font-size-slider', 'input', () => {
+    const v = $('font-size-slider').value;
+    $('font-size-preview').textContent = 'Текущий: ' + v + 'px';
+    document.documentElement.style.setProperty('--msg-font-size', v + 'px');
+    qsa('.msg-text').forEach(el => { el.style.fontSize = v + 'px'; });
+  });
+
+  // Theme selector
+  qsa('.theme-option input[name="theme"]').forEach(r => {
+    r.addEventListener('change', () => {
+      qsa('.theme-option').forEach(o => o.classList.remove('selected'));
+      r.closest('.theme-option').classList.add('selected');
+      showToast('Тема применена', 'success', 2000);
+    });
+  });
+
+  // Volume sliders
+  on('voice-input-vol', 'input', () => { const el = $('voice-input-val'); if (el) el.textContent = $('voice-input-vol').value + '%'; });
+  on('voice-output-vol', 'input', () => { const el = $('voice-output-val'); if (el) el.textContent = $('voice-output-vol').value + '%'; });
+
+  // About me counter
+  on('set-about-me', 'input', () => { const el = $('about-me-count'); if (el) el.textContent = $('set-about-me').value.length; });
+
+  // Revoke sessions
+  on('btn-revoke-sessions', 'click', async () => {
+    try { await API.del('/api/sessions'); showToast('Все сессии завершены', 'success'); }
+    catch { showToast('Не удалось завершить сессии', 'error'); }
+  });
+
+  // Avatar upload
+  const avatarFileInput = document.createElement('input');
+  avatarFileInput.type = 'file';
+  avatarFileInput.accept = 'image/*';
+  avatarFileInput.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const fd = new FormData();
+    fd.append('avatar', file);
+    try {
+      const user = await API.upload('/api/me/avatar', fd);
+      S.user = user;
+      localStorage.setItem('sm_user', JSON.stringify(user));
+      updateUserPanel();
+      showToast('Аватар обновлён', 'success');
+    } catch (err) { showToast(err.message, 'error'); }
+  });
+  on('btn-upload-avatar', 'click', () => avatarFileInput.click());
+  on('avatar-upload-preview', 'click', () => avatarFileInput.click());
 }
 
 /* ══════════════════════════════════════════════════════════

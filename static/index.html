@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
-  <meta name="theme-color" content="#202225"/>
+  <meta name="theme-color" content="#0a0a0f"/>
   <title>Shadow Messenger</title>
   <link rel="manifest" href="/manifest.json"/>
   <link rel="apple-touch-icon" href="/static/icons/icon-192.png"/>
@@ -56,7 +56,7 @@
     <div class="guild-pill-wrap">
       <div class="guild-pill"></div>
       <div class="guild-icon home active" id="guild-home" title="Личные сообщения">
-        <svg width="28" height="20" viewBox="0 0 28 20"><path fill="currentColor" d="M23.021 1.677A21.227 21.227 0 0 0 17.658 0c-.252.462-.497.96-.708 1.45a19.84 19.84 0 0 0-5.9 0C10.84.96 10.587.462 10.342 0c-1.89.327-3.685.856-5.36 1.677C1.567 6.78.65 11.754 1.11 16.652A21.36 21.36 0 0 0 7.69 20c.532-.726 1.004-1.5 1.407-2.31a13.77 13.77 0 0 1-2.218-1.07c.186-.137.368-.28.544-.42a15.232 15.232 0 0 0 13.154 0c.178.147.36.29.544.42a13.847 13.847 0 0 1-2.222 1.072c.403.81.875 1.582 1.407 2.309A21.3 21.3 0 0 0 26.89 16.66c.542-5.637-.922-10.564-3.869-14.982Z"/></svg>
+        <i class="fas fa-ghost" style="font-size:24px"></i>
       </div>
     </div>
     <div class="guild-separator"></div>
@@ -240,8 +240,20 @@
   <div class="settings-layout">
     <nav class="settings-nav">
       <div class="settings-nav-label">НАСТРОЙКИ ПОЛЬЗОВАТЕЛЯ</div>
-      <button class="settings-nav-item active" data-section="profile">Мой аккаунт</button>
-      <button class="settings-nav-item" data-section="security">Безопасность</button>
+      <button class="settings-nav-item active" data-section="profile"><i class="fas fa-user"></i> Мой аккаунт</button>
+      <button class="settings-nav-item" data-section="profiles"><i class="fas fa-id-card"></i> Профили</button>
+      <button class="settings-nav-item" data-section="security"><i class="fas fa-shield-halved"></i> Безопасность</button>
+      <button class="settings-nav-item" data-section="privacy"><i class="fas fa-lock"></i> Конфиденциальность</button>
+      <div class="settings-nav-sep"></div>
+      <div class="settings-nav-label">НАСТРОЙКИ ПРИЛОЖЕНИЯ</div>
+      <button class="settings-nav-item" data-section="appearance"><i class="fas fa-palette"></i> Внешний вид</button>
+      <button class="settings-nav-item" data-section="notifications"><i class="fas fa-bell"></i> Уведомления</button>
+      <button class="settings-nav-item" data-section="voice"><i class="fas fa-microphone"></i> Голос и видео</button>
+      <button class="settings-nav-item" data-section="keybinds"><i class="fas fa-keyboard"></i> Горячие клавиши</button>
+      <button class="settings-nav-item" data-section="language"><i class="fas fa-globe"></i> Язык</button>
+      <div class="settings-nav-sep"></div>
+      <div class="settings-nav-label">О ПРИЛОЖЕНИИ</div>
+      <button class="settings-nav-item" data-section="about"><i class="fas fa-circle-info"></i> О Shadow Messenger</button>
       <div class="settings-nav-sep"></div>
       <button class="settings-nav-item danger" id="btn-logout"><i class="fas fa-right-from-bracket"></i> Выйти</button>
     </nav>
@@ -299,6 +311,172 @@
           <label class="modal-label">НОВЫЙ ПАРОЛЬ</label>
           <input type="password" id="set-new-pw" class="modal-search"/>
           <button class="btn-primary btn-sm" id="btn-change-pw" style="margin-top:16px">Сменить пароль</button>
+        </div>
+        <div class="settings-card" style="margin-top:20px">
+          <h4>Активные сессии</h4>
+          <p class="settings-hint">Управляйте устройствами, на которых вы вошли.</p>
+          <button class="btn-primary btn-sm btn-danger-fill" id="btn-revoke-sessions">Завершить все остальные сессии</button>
+        </div>
+      </div>
+
+      <div class="settings-page hidden" id="settings-profiles">
+        <h2>Профили</h2>
+        <div class="settings-card">
+          <h4>Аватар профиля</h4>
+          <p class="settings-hint">Рекомендуемый размер: не менее 128×128 пикселей. Формат: PNG, JPG, GIF.</p>
+          <div class="avatar-upload-area">
+            <div class="avatar-upload-preview" id="avatar-upload-preview"><i class="fas fa-camera"></i></div>
+            <button class="btn-primary btn-sm" id="btn-upload-avatar">Загрузить аватар</button>
+            <button class="btn-secondary btn-sm" id="btn-remove-avatar">Удалить</button>
+          </div>
+        </div>
+        <div class="settings-card" style="margin-top:20px">
+          <h4>О себе</h4>
+          <p class="settings-hint">Расскажите другим о себе. Появится в вашем профиле.</p>
+          <textarea id="set-about-me" class="modal-search" rows="4" maxlength="190" placeholder="Расскажите о себе…"></textarea>
+          <div class="char-counter"><span id="about-me-count">0</span>/190</div>
+        </div>
+      </div>
+
+      <div class="settings-page hidden" id="settings-privacy">
+        <h2>Конфиденциальность</h2>
+        <div class="settings-card">
+          <h4>Личные сообщения</h4>
+          <div class="settings-toggle-row">
+            <span>Разрешить ЛС от участников сервера</span>
+            <label class="toggle-switch"><input type="checkbox" id="toggle-dm-server" checked/><span class="toggle-slider"></span></label>
+          </div>
+          <div class="settings-toggle-row">
+            <span>Разрешить ЛС от всех пользователей</span>
+            <label class="toggle-switch"><input type="checkbox" id="toggle-dm-all" checked/><span class="toggle-slider"></span></label>
+          </div>
+        </div>
+        <div class="settings-card" style="margin-top:20px">
+          <h4>Активность</h4>
+          <div class="settings-toggle-row">
+            <span>Показывать текущую активность в статусе</span>
+            <label class="toggle-switch"><input type="checkbox" id="toggle-activity" checked/><span class="toggle-slider"></span></label>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-page hidden" id="settings-appearance">
+        <h2>Внешний вид</h2>
+        <div class="settings-card">
+          <h4>Тема</h4>
+          <div class="theme-options">
+            <label class="theme-option selected"><input type="radio" name="theme" value="dark" checked/><div class="theme-preview dark-preview"></div><span>Тёмная</span></label>
+            <label class="theme-option"><input type="radio" name="theme" value="midnight"/><div class="theme-preview midnight-preview"></div><span>Полночь</span></label>
+          </div>
+        </div>
+        <div class="settings-card" style="margin-top:20px">
+          <h4>Размер текста сообщений</h4>
+          <div class="slider-row">
+            <span class="slider-label">12px</span>
+            <input type="range" id="font-size-slider" min="12" max="24" value="16" class="settings-slider"/>
+            <span class="slider-label">24px</span>
+          </div>
+          <p class="settings-hint" id="font-size-preview">Текущий: 16px</p>
+        </div>
+        <div class="settings-card" style="margin-top:20px">
+          <h4>Масштаб интерфейса</h4>
+          <div class="settings-toggle-row">
+            <span>Компактный режим сообщений</span>
+            <label class="toggle-switch"><input type="checkbox" id="toggle-compact"/><span class="toggle-slider"></span></label>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-page hidden" id="settings-notifications">
+        <h2>Уведомления</h2>
+        <div class="settings-card">
+          <h4>Уведомления на рабочем столе</h4>
+          <div class="settings-toggle-row">
+            <span>Включить уведомления</span>
+            <label class="toggle-switch"><input type="checkbox" id="toggle-notif-desktop" checked/><span class="toggle-slider"></span></label>
+          </div>
+          <div class="settings-toggle-row">
+            <span>Включить звук уведомлений</span>
+            <label class="toggle-switch"><input type="checkbox" id="toggle-notif-sound" checked/><span class="toggle-slider"></span></label>
+          </div>
+        </div>
+        <div class="settings-card" style="margin-top:20px">
+          <h4>Значок уведомлений</h4>
+          <div class="settings-toggle-row">
+            <span>Показывать количество непрочитанных на иконке</span>
+            <label class="toggle-switch"><input type="checkbox" id="toggle-notif-badge" checked/><span class="toggle-slider"></span></label>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-page hidden" id="settings-voice">
+        <h2>Голос и видео</h2>
+        <div class="settings-card">
+          <h4>Устройство ввода</h4>
+          <select id="voice-input-device" class="settings-select"><option>По умолчанию</option></select>
+          <div class="slider-row" style="margin-top:12px">
+            <span class="slider-label"><i class="fas fa-microphone"></i></span>
+            <input type="range" id="voice-input-vol" min="0" max="200" value="100" class="settings-slider"/>
+            <span class="slider-label" id="voice-input-val">100%</span>
+          </div>
+        </div>
+        <div class="settings-card" style="margin-top:20px">
+          <h4>Устройство вывода</h4>
+          <select id="voice-output-device" class="settings-select"><option>По умолчанию</option></select>
+          <div class="slider-row" style="margin-top:12px">
+            <span class="slider-label"><i class="fas fa-volume-high"></i></span>
+            <input type="range" id="voice-output-vol" min="0" max="200" value="100" class="settings-slider"/>
+            <span class="slider-label" id="voice-output-val">100%</span>
+          </div>
+        </div>
+        <div class="settings-card" style="margin-top:20px">
+          <h4>Видео</h4>
+          <div class="settings-toggle-row">
+            <span>Всегда показывать предпросмотр видео</span>
+            <label class="toggle-switch"><input type="checkbox" id="toggle-video-preview" checked/><span class="toggle-slider"></span></label>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-page hidden" id="settings-keybinds">
+        <h2>Горячие клавиши</h2>
+        <div class="settings-card">
+          <div class="keybind-list">
+            <div class="keybind-row"><span>Отправить сообщение</span><kbd>Enter</kbd></div>
+            <div class="keybind-row"><span>Новая строка</span><kbd>Shift + Enter</kbd></div>
+            <div class="keybind-row"><span>Загрузить файл</span><kbd>Прикрепить файл</kbd></div>
+            <div class="keybind-row"><span>Закрыть настройки</span><kbd>Escape</kbd></div>
+            <div class="keybind-row"><span>Поиск</span><kbd>Ctrl + K</kbd></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-page hidden" id="settings-language">
+        <h2>Язык</h2>
+        <div class="settings-card">
+          <h4>Язык интерфейса</h4>
+          <select id="language-select" class="settings-select">
+            <option value="ru" selected>Русский</option>
+            <option value="en">English</option>
+            <option value="uk">Українська</option>
+            <option value="de">Deutsch</option>
+            <option value="fr">Français</option>
+          </select>
+          <p class="settings-hint" style="margin-top:12px">Изменение языка вступит в силу после перезагрузки.</p>
+        </div>
+      </div>
+
+      <div class="settings-page hidden" id="settings-about">
+        <h2>О Shadow Messenger</h2>
+        <div class="settings-card about-card">
+          <div class="about-logo"><i class="fas fa-ghost"></i></div>
+          <h3>Shadow Messenger</h3>
+          <p class="about-version">Версия 1.0.0</p>
+          <p class="about-desc">Безопасный и стильный мессенджер для общения с друзьями. Создан с любовью.</p>
+          <div class="about-links">
+            <a href="#" class="about-link"><i class="fas fa-code-branch"></i> Исходный код</a>
+            <a href="#" class="about-link"><i class="fas fa-bug"></i> Сообщить об ошибке</a>
+          </div>
         </div>
       </div>
     </div>
