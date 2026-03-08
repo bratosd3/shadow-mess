@@ -2628,12 +2628,20 @@ const PREMIUM_THEMES = {
   'golden':   { bg: '#1a1810', dark: '#121008', sec: '#252218', brand: '#ffd700' },
   'aurora':   { bg: '#0d1520', dark: '#060d15', sec: '#121d2e', brand: '#66ffcc' },
   'vampire':  { bg: '#1a0a0a', dark: '#100505', sec: '#250e0e', brand: '#ff3333' },
+  'lavender': { bg: '#1e1828', dark: '#140f1e', sec: '#261e35', brand: '#b388ff' },
+  'emerald':  { bg: '#0a1a14', dark: '#05120c', sec: '#0f2419', brand: '#00e676' },
+  'synthwave':{ bg: '#1a1028', dark: '#120a1e', sec: '#241638', brand: '#ff6ec7' },
+  'arctic':   { bg: '#0e1a24', dark: '#081018', sec: '#14242e', brand: '#80d8ff' },
+  'magma':    { bg: '#1c1008', dark: '#120a04', sec: '#281810', brand: '#ff6d00' },
+  'matrix':   { bg: '#050e05', dark: '#020802', sec: '#0a180a', brand: '#00e800' },
+  'cosmic':   { bg: '#140a22', dark: '#0a0518', sec: '#1e1030', brand: '#ea80fc' },
+  'midnight-blue':{ bg: '#0a0e2a', dark: '#06081c', sec: '#101438', brand: '#448aff' },
 };
 
 function initPremiumThemes() {
   const grid = $('premium-themes-grid');
   if (!grid) return;
-  const names = {neon:'Неон',sakura:'Сакура',cyber:'Кибер',golden:'Золото',aurora:'Аврора',vampire:'Вампир'};
+  const names = {neon:'Неон',sakura:'Сакура',cyber:'Кибер',golden:'Золото',aurora:'Аврора',vampire:'Вампир',lavender:'Лаванда',emerald:'Изумруд',synthwave:'Синтвейв',arctic:'Арктика',magma:'Магма',matrix:'Матрица',cosmic:'Космос','midnight-blue':'Индиго'};
   grid.innerHTML = Object.entries(PREMIUM_THEMES).map(([name, t]) =>
     `<div class="theme-swatch${name === (S.user?.settings?.theme || '') ? ' active' : ''}" data-theme="${name}" style="background:${t.bg}">
       <div class="ts-preview"><div class="ts-sb" style="background:${t.dark}"></div><div class="ts-pnl" style="background:${t.sec}"><div class="ts-pnl-item"></div><div class="ts-pnl-item"></div><div class="ts-pnl-item"></div></div><div class="ts-ch"><div class="ts-ch-header"></div><div class="ts-m1" style="background:${t.sec}"></div><div class="ts-m2" style="background:${t.brand}"></div></div></div>
@@ -2647,8 +2655,8 @@ function initPremiumThemes() {
     applyTheme(themeName);
     document.querySelectorAll('.theme-swatch').forEach(x => x.classList.remove('active'));
     s.classList.add('active');
-    const names = {neon:'Неон',sakura:'Сакура',cyber:'Кибер',golden:'Золото',aurora:'Аврора',vampire:'Вампир'};
-    showToast(`Тема «${names[themeName] || themeName}» применена`, 'success');
+    const names2 = {neon:'Неон',sakura:'Сакура',cyber:'Кибер',golden:'Золото',aurora:'Аврора',vampire:'Вампир',lavender:'Лаванда',emerald:'Изумруд',synthwave:'Синтвейв',arctic:'Арктика',magma:'Магма',matrix:'Матрица',cosmic:'Космос','midnight-blue':'Индиго'};
+    showToast(`Тема «${names2[themeName] || themeName}» применена`, 'success');
     try {
       S.user = await api('/api/me', { method: 'PUT', body: JSON.stringify({ settings: { theme: themeName } }) });
     } catch {}

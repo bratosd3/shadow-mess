@@ -178,12 +178,14 @@ class UsersPage(ScrollableContainer):
             for key, label in PREM_FEATURES.items():
                 with Horizontal(classes="switch-row"):
                     yield Switch(value=True, id=f"ufc-{key}")
-                    yield Label(label)            yield Rule()
+                    yield Label(label)
+            yield Rule()
             yield Static("[bold yellow]Super User функции[/]")
             for key, label in SUPER_FEATURES.items():
                 with Horizontal(classes="switch-row"):
                     yield Switch(value=True, id=f"ufc-s-{key}")
-                    yield Label(label)            yield Button("💾  Сохранить доступ", id="btn-save-feat-config", variant="success")
+                    yield Label(label)
+            yield Button("💾  Сохранить доступ", id="btn-save-feat-config", variant="success")
 
     def on_mount(self):
         t = self.query_one("#users-table", DataTable)
