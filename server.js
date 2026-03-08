@@ -2075,8 +2075,9 @@ io.on('connection', async (socket) => {
       const chat = await Chat.findById(chatId);
       if (chat && chat.members) {
         chat.members.forEach(memberId => {
-          if (memberId !== userId && !room.has(memberId)) {
-            const sockets = onlineUsers.get(memberId);
+          const mid = memberId.toString ? memberId.toString() : memberId;
+          if (mid !== userId && !room.has(mid)) {
+            const sockets = onlineUsers.get(mid);
             if (sockets) sockets.forEach(sid => io.to(sid).emit('group_call_incoming', {
               chatId,
               chatName: chat.name || 'Группа',
@@ -2084,6 +2085,17 @@ io.on('connection', async (socket) => {
               callerName: callerInfo.name,
               callerAvatarColor: callerInfo.avatarColor
             }));
+            // Push notification for group call
+            if (vapidReady) {
+              sendPushToUser(mid, {
+                title: chat.name || 'Группа',
+                body: `📞 ${callerInfo.name || 'Участник'} начал звонок`,
+                icon: '/static/icons/icon-192.png',
+                tag: `gcall-${chatId}`,
+                type: 'call',
+                url: '/'
+              }).catch(() => {});
+            }
           }
         });
       }

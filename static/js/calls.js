@@ -272,6 +272,7 @@ window.callsModule = (() => {
 
     pc.onconnectionstatechange = () => {
       const st = pc?.connectionState;
+      console.log('[calls] connectionState:', st);
       if (st === 'connected') {
         // Reset reconnect timer
         if (_reconnectTimer) { clearTimeout(_reconnectTimer); _reconnectTimer = null; }
@@ -287,16 +288,19 @@ window.callsModule = (() => {
         if (!_reconnectTimer) {
           _reconnectTimer = setTimeout(() => {
             if (pc?.connectionState === 'disconnected' || pc?.connectionState === 'failed') {
-              endCall();
+              if (_onConnectionLost) _onConnectionLost();
+              else endCall();
             }
             _reconnectTimer = null;
-          }, 8000); // wait 8 seconds before giving up
+          }, 10000); // wait 10 seconds before giving up
         }
       }
-      if (st === 'failed' || st === 'closed') {
+      if (st === 'failed') {
         if (_reconnectTimer) { clearTimeout(_reconnectTimer); _reconnectTimer = null; }
-        endCall();
+        if (_onConnectionLost) _onConnectionLost();
+        else endCall();
       }
+      // Ignore 'closed' — that's from our own endCall() cleanup
     };
 
     return pc;
@@ -490,15 +494,16 @@ window.callsModule = (() => {
     _updateCamIndicator('peer-cam-status', camOff);
   }
 
+  // Called when the remote peer ended the call
   function onEnded() {
     endCall(true);
-    window.showToast?.('Звонок завершён', 'info');
   }
 
+  // Called when connection itself fails/disconnects
+  let _onConnectionLost = null;
+
   function endCall(skipEmit = false) {
-    if (!skipEmit && currentPeer) {
-      getSocket()?.emit('call_end', { to: currentPeer });
-    }
+    const peerToNotify = currentPeer;
     if (pc) { try { pc.close(); } catch {} pc = null; }
     if (screenStream) { screenStream.getTracks().forEach(t => t.stop()); screenStream = null; }
     isScreenSharing = false;
@@ -508,7 +513,12 @@ window.callsModule = (() => {
     isMuted = false;
     isVideoOff = true;
 
-    $('active-call-overlay')?.classList.add('hidden');
+    // Emit call_end AFTER clearing currentPeer to prevent re-entry
+    if (!skipEmit && peerToNotify) {
+      getSocket()?.emit('call_end', { to: peerToNotify });
+    }
+
+    // Don't hide overlay here — let app.js handleCallEnded() control UI
     $('toggle-screen')?.classList.remove('sharing');
     $('toggle-mute')?.classList.remove('vk-ctrl-off');
     $('toggle-video')?.classList.remove('vk-ctrl-off');
@@ -631,6 +641,9 @@ window.callsModule = (() => {
       if (sender) await sender.replaceTrack(screenTrack);
       else pc.addTrack(screenTrack, screenStream);
 
+      // Signal peer about screen share via renegotiation
+      await _renegotiate();
+
       updateCallView();
       const lv = $('local-video');
       if (lv) lv.srcObject = screenStream;
@@ -660,6 +673,8 @@ window.callsModule = (() => {
       const lv = $('local-video');
       if (lv) lv.srcObject = localStream;
     }
+    // Renegotiate to signal peer about stop
+    await _renegotiate();
     updateCallView();
   }
 
@@ -680,6 +695,7 @@ window.callsModule = (() => {
     startCall, acceptCall, onAnswer, onIce, onEnded, endCall,
     toggleMute, toggleVideo, startScreenShare, stopScreenShare,
     onPeerStatus, onRenegotiate,
+    setOnConnectionLost: cb => { _onConnectionLost = cb; },
     isInCall: () => !!pc,
     isMuted: () => isMuted,
     isVideoOff: () => isVideoOff,

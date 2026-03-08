@@ -334,6 +334,12 @@ function initSocket() {
         const body = msg.text || (msg.file ? '📎 Файл' : '');
         window.electronAPI.showNotification(sender, body);
       }
+      // Native Android notification (heads-up popup)
+      if (window.ShadowNative?.showNotification) {
+        const sender = msg.senderName || 'Новое сообщение';
+        const body = msg.text || (msg.file ? '📎 Файл' : '');
+        window.ShadowNative.showNotification(sender, body, 'message');
+      }
     }
   });
 
@@ -421,6 +427,11 @@ function initSocket() {
   socket.on('friend_accepted', () => loadFriends());
 
   // Calls
+  // Wire up connection-lost callback so calls.js can notify app.js
+  window.callsModule.setOnConnectionLost?.(() => {
+    handleCallEnded();
+    showToast('Соединение потеряно', 'warning');
+  });
   socket.on('call_incoming', data => handleIncomingCall(data));
   socket.on('call_answered', data => {
     Sounds.ringStop();
@@ -428,8 +439,8 @@ function initSocket() {
     window.callsModule.onAnswer(data);
   });
   socket.on('call_ice', data => window.callsModule.onIce(data));
-  socket.on('call_ended', () => handleCallEnded());
-  socket.on('call_rejected', () => handleCallEnded());
+  socket.on('call_ended', () => handleCallEnded(true));
+  socket.on('call_rejected', () => handleCallEnded(true));
   socket.on('call_busy', () => { Sounds.ringStop(); showToast('Абонент занят', 'warning'); });
   socket.on('call_accepting', () => {
     Sounds.ringStop();
@@ -2853,6 +2864,11 @@ function handleIncomingCall(data) {
   av.style.background = data.fromAvatarColor || AVATARS[0];
   av.innerHTML = (data.fromName || '?')[0].toUpperCase() + (data.fromAvatar ? `<img src="${escHTML(data.fromAvatar)}">` : '');
   show(overlay);
+  // Native Android call notification (heads-up)
+  if (window.ShadowNative?.showNotification) {
+    const label = data.callType === 'video' ? '📹 Видеозвонок' : '📞 Входящий звонок';
+    window.ShadowNative.showNotification(data.fromName || 'Звонок', label, 'call');
+  }
 }
 
 let _incomingGroupCallData = null;
@@ -2868,9 +2884,15 @@ function handleIncomingGroupCall(data) {
   av.style.background = data.chatAvatarColor || AVATARS[0];
   av.innerHTML = (data.chatName || '?')[0].toUpperCase();
   show(overlay);
+  // Native Android call notification (heads-up)
+  if (window.ShadowNative?.showNotification) {
+    window.ShadowNative.showNotification(data.chatName || 'Группа', `📞 ${data.callerName || 'Участник'} звонит`, 'call');
+  }
 }
 
 function acceptIncoming() {
+  // Cancel native notification
+  window.ShadowNative?.cancelCallNotification?.();
   // Handle group call incoming
   if (_incomingGroupCallData) {
     Sounds.incomingStop();
@@ -2930,6 +2952,8 @@ function acceptIncoming() {
 }
 
 function rejectIncoming() {
+  // Cancel native notification
+  window.ShadowNative?.cancelCallNotification?.();
   if (_incomingGroupCallData) {
     Sounds.incomingStop();
     hide($('incoming-call-overlay'));
@@ -2943,34 +2967,39 @@ function rejectIncoming() {
   _incomingCallData = null;
 }
 
-function handleCallEnded() {
+let _callEndingInProgress = false;
+function handleCallEnded(remoteInitiated = false) {
+  if (_callEndingInProgress) return;
+  _callEndingInProgress = true;
+  // Cancel native call notification
+  window.ShadowNative?.cancelCallNotification?.();
   Sounds.ringStop();
   Sounds.incomingStop();
   Sounds.callEnd();
   if (_ringTimeoutId) { clearTimeout(_ringTimeoutId); _ringTimeoutId = null; }
   // End private or group call
+  // remoteInitiated=true means the other side already ended, so skip emitting call_end back
   if (window.groupCallModule?.isInGroupCall()) {
     window.groupCallModule.leaveGroupCall();
   } else {
-    window.callsModule.endCall();
+    window.callsModule.endCall(remoteInitiated); // skipEmit when remote-initiated
   }
   hide($('active-call-overlay'));
   hide($('incoming-call-overlay'));
   hide($('call-mini'));
   _incomingCallData = null;
+  _incomingGroupCallData = null;
   if (window._callTimerInterval) { clearInterval(window._callTimerInterval); window._callTimerInterval = null; }
   _callTimerStart = 0;
   // Reset call control states
-  $('toggle-mute').classList.remove('vk-ctrl-off');
-  $('toggle-mute').querySelector('i').className = 'fas fa-microphone';
-  $('toggle-video').classList.add('vk-ctrl-off');
-  $('toggle-video').querySelector('i').className = 'fas fa-video-slash';
-  $('toggle-screen').classList.remove('sharing');
-  // Emit end to peer (private call only)
-  if (S.socket && S.chatObj && S.chatObj.type === 'private') {
-    const peerId = getPartner()?.id;
-    if (peerId) S.socket.emit('call_end', { to: peerId });
-  }
+  $('toggle-mute')?.classList.remove('vk-ctrl-off');
+  const muteI = $('toggle-mute')?.querySelector('i');
+  if (muteI) muteI.className = 'fas fa-microphone';
+  $('toggle-video')?.classList.add('vk-ctrl-off');
+  const vidI = $('toggle-video')?.querySelector('i');
+  if (vidI) vidI.className = 'fas fa-video-slash';
+  $('toggle-screen')?.classList.remove('sharing');
+  setTimeout(() => { _callEndingInProgress = false; }, 500);
 }
 
 /* ── Call minimize/expand ──────────────────────────────────────────── */
