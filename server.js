@@ -77,7 +77,7 @@ const userSchema = new mongoose.Schema({
   createdAt:     { type: Date, default: Date.now },
   settings: {
     theme:            { type: String, default: 'light' },
-    fontSize:         { type: Number, default: 14 },
+    fontSize:         { type: String, default: 'normal' },
     notifications:    { type: Boolean, default: true },
     soundEnabled:     { type: Boolean, default: true },
     notifCalls:       { type: Boolean, default: true },

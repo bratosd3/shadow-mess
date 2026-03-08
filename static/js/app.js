@@ -237,6 +237,8 @@ async function boot() {
   registerSW();
   setupPWA();
   showSuperEntryAnimation();
+  // Ensure Saved/Favorites chat exists
+  ensureSavedChat();
   // Periodically refresh chat data to pick up avatar/name changes
   if (window._chatRefreshInterval) clearInterval(window._chatRefreshInterval);
   window._chatRefreshInterval = setInterval(() => { if (!document.hidden) loadChats(); }, 30000);
@@ -256,6 +258,10 @@ function initSocket() {
       S.messages.push(msg);
       renderMessages();
       scrollToBottom();
+      // Auto mark read when chat is open
+      if (msg.senderId !== S.user.id) {
+        S.socket?.emit('mark_read', { chatId: msg.chatId });
+      }
     }
     Sounds.message();
     updateChatInList(msg.chatId, msg);
@@ -1777,6 +1783,13 @@ async function revokeSessions() {
 
 /* ── Ghost mode ────────────────────────────────────────────────────── */
 async function toggleGhost() {
+  const canUse = S.user?.premium || S.user?.superUser || S.user?.premiumFree;
+  if (!canUse && !S.ghostMode) {
+    showToast('👻 Режим Призрака доступен только для Shadow+', 'warning');
+    $('set-ghost').checked = false;
+    if ($('mob-set-ghost')) $('mob-set-ghost').checked = false;
+    return;
+  }
   S.ghostMode = !S.ghostMode;
   document.body.classList.toggle('ghost-active', S.ghostMode);
   $('ghost-toggle').classList.toggle('ghost-active', S.ghostMode);
@@ -1975,6 +1988,8 @@ function updateCustomThemePreview() {
 }
 
 async function applyCustomTheme() {
+  const canUse = S.user?.premium || S.user?.superUser || S.user?.premiumFree;
+  if (!canUse) { showToast('Создание своей темы доступно только для Shadow+', 'warning'); return; }
   const bg = $('ct-bg')?.value;
   const dark = $('ct-dark')?.value;
   const sec = $('ct-sec')?.value;
@@ -2121,6 +2136,17 @@ function initPremiumThemes() {
 /* ══════════════════════════════════════════════════════════════════════
    SAVED MESSAGES / FAVOURITES
    ══════════════════════════════════════════════════════════════════════ */
+async function ensureSavedChat() {
+  try {
+    const chat = await api('/api/chats', { method: 'POST', body: JSON.stringify({ userId: S.user.id }) });
+    if (!chat.lastMessage) {
+      const intro = `⭐ Добро пожаловать в Shadow Messenger!\n\n📱 Возможности мессенджера:\n\n💬 Сообщения — текст, фото, файлы, голосовые, видеокружки\n📌 Закреп — закрепляйте важные сообщения\n↩️ Ответы — отвечайте на конкретные сообщения\n✏️ Редактирование — измените отправленное\n🗑 Удаление — удаляйте сообщения у всех\n⏩ Пересылка — пересылайте между чатами\n😄 Реакции — ставьте эмодзи-реакции\n\n📞 Звонки — аудио и видео, в т.ч. групповые\n👥 Группы — создавайте чаты с друзьями\n👻 Режим Призрака — полная невидимость\n🎨 Темы — 17+ тем оформления\n🔔 Уведомления — push и звуки\n🔒 Приватность — контроль видимости\n\n💎 Shadow+ — эксклюзивные темы, эмодзи профиля, значки, цвет имени, кастомный статус и многое другое!\n\n⭐ Это ваше Избранное — сохраняйте сюда важные сообщения, ссылки и заметки.`;
+      await api(`/api/chats/${chat.id}/messages`, { method: 'POST', body: JSON.stringify({ text: intro }) });
+    }
+    await loadChats();
+  } catch {}
+}
+
 async function openSavedChat() {
   try {
     const chat = await api('/api/chats', { method: 'POST', body: JSON.stringify({ userId: S.user.id }) });

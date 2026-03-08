@@ -132,7 +132,7 @@
         <div class="mob-sub-header"><button class="mob-back-btn" data-back="mob-sub-appearance"><i class="fas fa-arrow-left"></i></button><h3>Оформление</h3></div>
         <div class="mob-sub-body">
           <button class="mob-item" data-act="themes"><i class="fas fa-swatchbook"></i>Тема</button>
-          <button class="mob-item" data-act="ghost"><i class="fas fa-ghost"></i>Режим Призрака<span id="ghost-mob-badge" class="mob-badge off">Выкл</span></button>
+          <button class="mob-item" data-act="ghost"><i class="fas fa-ghost"></i>Режим Призрака <small style="color:var(--brand);font-size:10px">Shadow+</small><span id="ghost-mob-badge" class="mob-badge off">Выкл</span></button>
         </div>
       </div>
       <div class="mob-settings-sub hidden" id="mob-sub-notifications">
@@ -479,7 +479,7 @@
           <label class="toggle-card"><div class="tc-info"><i class="fas fa-keyboard"></i><div><span class="tc-title">Индикатор набора</span><span class="tc-desc">Показывать «печатает...» при наборе текста</span></div></div><div class="toggle"><input type="checkbox" id="set-show-typing" checked><span class="toggle-track"></span></div></label>
         </div>
         <div class="s-divider"></div>
-        <h3>Режим Призрака 👻</h3>
+        <h3>Режим Призрака 👻 <span class="pf-tag pf-gold" style="font-size:10px;vertical-align:middle">Shadow+</span></h3>
         <p class="s-hint">Скрыть статус, набор текста и отметки прочтения одной кнопкой</p>
         <label class="toggle-card ghost-card"><div class="tc-info"><i class="fas fa-ghost"></i><div><span class="tc-title">Режим Призрака</span><span class="tc-desc">Полная невидимость — скрывает всё сразу</span></div></div><div class="toggle"><input type="checkbox" id="set-ghost"><span class="toggle-track"></span></div></label>
         <div class="s-divider"></div>
@@ -501,25 +501,56 @@
         <div class="s-divider"></div>
         <h3>🆓 Бесплатно для всех</h3>
         <div class="premium-features-list">
-          <div class="pf-item"><i class="fas fa-message"></i><span>Сообщения, звонки, группы</span><span class="pf-tag pf-free">Все</span></div>
-          <div class="pf-item"><i class="fas fa-ghost"></i><span>Призрак, темы, реакции, пины</span><span class="pf-tag pf-free">Все</span></div>
+          <div class="pf-item"><i class="fas fa-message"></i><span>Текстовые сообщения</span><span class="pf-tag pf-free">Все</span></div>
+          <div class="pf-item"><i class="fas fa-image"></i><span>Отправка фото и файлов</span><span class="pf-tag pf-free">Все</span></div>
+          <div class="pf-item"><i class="fas fa-microphone"></i><span>Голосовые сообщения</span><span class="pf-tag pf-free">Все</span></div>
+          <div class="pf-item"><i class="fas fa-circle-dot"></i><span>Видео-кружки</span><span class="pf-tag pf-free">Все</span></div>
+          <div class="pf-item"><i class="fas fa-phone"></i><span>Аудио и видеозвонки</span><span class="pf-tag pf-free">Все</span></div>
+          <div class="pf-item"><i class="fas fa-users"></i><span>Групповые чаты</span><span class="pf-tag pf-free">Все</span></div>
+          <div class="pf-item"><i class="fas fa-phone-volume"></i><span>Групповые звонки</span><span class="pf-tag pf-free">Все</span></div>
+          <div class="pf-item"><i class="fas fa-reply"></i><span>Ответы и пересылка</span><span class="pf-tag pf-free">Все</span></div>
+          <div class="pf-item"><i class="fas fa-pen"></i><span>Редактирование сообщений</span><span class="pf-tag pf-free">Все</span></div>
+          <div class="pf-item"><i class="fas fa-trash"></i><span>Удаление сообщений</span><span class="pf-tag pf-free">Все</span></div>
+          <div class="pf-item"><i class="fas fa-thumbtack"></i><span>Закрепление сообщений</span><span class="pf-tag pf-free">Все</span></div>
+          <div class="pf-item"><i class="fas fa-face-smile"></i><span>Реакции на сообщения</span><span class="pf-tag pf-free">Все</span></div>
+          <div class="pf-item"><i class="fas fa-swatchbook"></i><span>17 тем оформления</span><span class="pf-tag pf-free">Все</span></div>
+          <div class="pf-item"><i class="fas fa-bookmark"></i><span>Избранное (заметки)</span><span class="pf-tag pf-free">Все</span></div>
+          <div class="pf-item"><i class="fas fa-bell"></i><span>Push-уведомления</span><span class="pf-tag pf-free">Все</span></div>
+          <div class="pf-item"><i class="fas fa-eye-slash"></i><span>Настройки приватности</span><span class="pf-tag pf-free">Все</span></div>
+          <div class="pf-item"><i class="fas fa-magnifying-glass"></i><span>Поиск чатов и контактов</span><span class="pf-tag pf-free">Все</span></div>
+          <div class="pf-item"><i class="fas fa-user-plus"></i><span>Друзья и контакты</span><span class="pf-tag pf-free">Все</span></div>
+          <div class="pf-item"><i class="fas fa-moon"></i><span>Режим «Не беспокоить»</span><span class="pf-tag pf-free">Все</span></div>
+          <div class="pf-item"><i class="fas fa-display"></i><span>Демонстрация экрана</span><span class="pf-tag pf-free">Все</span></div>
         </div>
         <div class="s-divider"></div>
         <h3>💎 Shadow+</h3>
         <div class="premium-features-list">
-          <div class="pf-item pf-premium"><i class="fas fa-star"></i><span>Эмодзи и значок профиля</span><span class="pf-tag pf-gold">Shadow+</span></div>
+          <div class="pf-item pf-premium"><i class="fas fa-ghost"></i><span>Режим Призрака 👻</span><span class="pf-tag pf-gold">Shadow+</span></div>
+          <div class="pf-item pf-premium"><i class="fas fa-star"></i><span>Эмодзи рядом с именем</span><span class="pf-tag pf-gold">Shadow+</span></div>
+          <div class="pf-item pf-premium"><i class="fas fa-id-badge"></i><span>Значок профиля</span><span class="pf-tag pf-gold">Shadow+</span></div>
           <div class="pf-item pf-premium"><i class="fas fa-droplet"></i><span>Цвет имени в чате</span><span class="pf-tag pf-gold">Shadow+</span></div>
-          <div class="pf-item pf-premium"><i class="fas fa-gem"></i><span>Эксклюзивные темы и реакции</span><span class="pf-tag pf-gold">Shadow+</span></div>
-          <div class="pf-item pf-premium"><i class="fas fa-comment-dots"></i><span>Кастомный статус и звуки</span><span class="pf-tag pf-gold">Shadow+</span></div>
+          <div class="pf-item pf-premium"><i class="fas fa-gem"></i><span>6 эксклюзивных тем</span><span class="pf-tag pf-gold">Shadow+</span></div>
+          <div class="pf-item pf-premium"><i class="fas fa-comment-dots"></i><span>Кастомный статус с эмодзи</span><span class="pf-tag pf-gold">Shadow+</span></div>
+          <div class="pf-item pf-premium"><i class="fas fa-music"></i><span>Выбор звука уведомлений</span><span class="pf-tag pf-gold">Shadow+</span></div>
+          <div class="pf-item pf-premium"><i class="fas fa-link"></i><span>Соц. сети в профиле</span><span class="pf-tag pf-gold">Shadow+</span></div>
+          <div class="pf-item pf-premium"><i class="fas fa-panorama"></i><span>Баннер профиля</span><span class="pf-tag pf-gold">Shadow+</span></div>
           <div class="pf-item pf-premium"><i class="fas fa-language"></i><span>Перевод сообщений</span><span class="pf-tag pf-gold">Shadow+</span></div>
-          <div class="pf-item pf-premium"><i class="fas fa-link"></i><span>Расширенный профиль с соц. сетями</span><span class="pf-tag pf-gold">Shadow+</span></div>
+          <div class="pf-item pf-premium"><i class="fas fa-palette"></i><span>Создание своей темы</span><span class="pf-tag pf-gold">Shadow+</span></div>
+          <div class="pf-item pf-premium"><i class="fas fa-clock"></i><span>Исчезающие сообщения</span><span class="pf-tag pf-gold">Shadow+</span></div>
+          <div class="pf-item pf-premium"><i class="fas fa-font"></i><span>Расширенные шрифты</span><span class="pf-tag pf-gold">Shadow+</span></div>
+          <div class="pf-item pf-premium"><i class="fas fa-upload"></i><span>Загрузка файлов до 100 МБ</span><span class="pf-tag pf-gold">Shadow+</span></div>
         </div>
         <div class="s-divider"></div>
         <h3>👑 Super User</h3>
         <div class="premium-features-list">
           <div class="pf-item pf-super"><i class="fas fa-crown"></i><span>Все возможности Shadow+</span><span class="pf-tag pf-diamond">Super</span></div>
-          <div class="pf-item pf-super"><i class="fas fa-bullhorn"></i><span>Рассылка и объявления</span><span class="pf-tag pf-diamond">Super</span></div>
-          <div class="pf-item pf-super"><i class="fas fa-bolt"></i><span>Приоритет и анимация входа</span><span class="pf-tag pf-diamond">Super</span></div>
+          <div class="pf-item pf-super"><i class="fas fa-bullhorn"></i><span>Массовая рассылка друзьям</span><span class="pf-tag pf-diamond">Super</span></div>
+          <div class="pf-item pf-super"><i class="fas fa-globe"></i><span>Глобальные объявления</span><span class="pf-tag pf-diamond">Super</span></div>
+          <div class="pf-item pf-super"><i class="fas fa-shield-halved"></i><span>Режим модерации</span><span class="pf-tag pf-diamond">Super</span></div>
+          <div class="pf-item pf-super"><i class="fas fa-eye"></i><span>Видеть скрытый онлайн</span><span class="pf-tag pf-diamond">Super</span></div>
+          <div class="pf-item pf-super"><i class="fas fa-bolt"></i><span>Анимация входа</span><span class="pf-tag pf-diamond">Super</span></div>
+          <div class="pf-item pf-super"><i class="fas fa-user-shield"></i><span>Приоритетная поддержка</span><span class="pf-tag pf-diamond">Super</span></div>
+          <div class="pf-item pf-super"><i class="fas fa-infinity"></i><span>Без ограничений</span><span class="pf-tag pf-diamond">Super</span></div>
         </div>
       </div>
 
