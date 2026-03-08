@@ -250,6 +250,10 @@ function initAuth() {
 function logout() {
   S.token = null; S.user = null;
   localStorage.removeItem('token');
+  // Stop Android background notification service
+  if (window.ShadowNative?.stopBackgroundService) {
+    try { window.ShadowNative.stopBackgroundService(); } catch(e) {}
+  }
   S.socket?.disconnect();
   location.reload();
 }
@@ -294,6 +298,10 @@ async function boot() {
   applyTheme(S.user.settings?.theme || 'default');
   applyDesignPrefs();
   initSocket();
+  // Start Android background notification service
+  if (window.ShadowNative?.startBackgroundService && S.token && S.user) {
+    try { window.ShadowNative.startBackgroundService(S.token, S.user.id); } catch(e) {}
+  }
   initUI();
   loadChats();
   loadFriends();
@@ -889,6 +897,25 @@ function switchTab(tab) {
   $$('#bottom-tabs .btab').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
   // Desktop sidebar
   $('nav-dms').classList.toggle('active', tab === 'chats');
+
+  // Mobile: hide panel header/search when in settings, show otherwise
+  const isMob = window.innerWidth <= 768;
+  if (isMob) {
+    const ph = $('panel-header');
+    const ps = $('panel-search');
+    if (tab === 'settings') {
+      if (ph) ph.style.display = 'none';
+      if (ps) ps.style.display = 'none';
+      // Reset to main settings view
+      $$('.mob-settings-sub').forEach(s => s.classList.add('hidden'));
+      const msm = $('mob-settings-main');
+      if (msm) msm.classList.remove('hidden');
+      _syncMobToggles();
+    } else {
+      if (ph) ph.style.display = '';
+      if (ps) ps.style.display = '';
+    }
+  }
 
   if (tab === 'contacts') loadFriends();
   if (tab === 'chats') renderChatList();
@@ -1908,11 +1935,18 @@ function openSettings() {
   fillSettings();
   loadSessions();
   show($('modal-settings'));
-  // Reset to main list (Telegram-style)
   const main = $('tg-settings-main');
   const detail = $('tg-settings-detail');
-  if (main) main.classList.remove('slid-out');
-  if (detail) detail.classList.remove('open');
+  const isMob = window.innerWidth <= 768;
+  if (isMob) {
+    // Reset to main list (slide style)
+    if (main) main.classList.remove('slid-out');
+    if (detail) detail.classList.remove('open');
+  } else {
+    // Desktop: show both panels, open first section by default
+    if (detail) detail.classList.add('open');
+    switchSettingsSection('sec-profile');
+  }
 }
 
 function openMobSub(id) {
@@ -2011,11 +2045,19 @@ function closeMobSub(id, parentId) {
 
 function switchSettingsSection(secId) {
   const titles = {'sec-profile':'Аккаунт','sec-appearance':'Внешний вид','sec-notifications':'Уведомления','sec-privacy':'Конфиденциальность','sec-premium':'Shadow+','sec-sessions':'Устройства'};
-  // Slide main panel out, detail panel in
+  const isMob = window.innerWidth <= 768;
   const main = $('tg-settings-main');
   const detail = $('tg-settings-detail');
-  if (main) main.classList.add('slid-out');
-  if (detail) detail.classList.add('open');
+  if (isMob) {
+    // Mobile: slide panels
+    if (main) main.classList.add('slid-out');
+    if (detail) detail.classList.add('open');
+  } else {
+    // Desktop: always visible, just switch content
+    if (detail && !detail.classList.contains('open')) detail.classList.add('open');
+  }
+  // Highlight active item
+  $$('.tg-settings-item[data-sec]').forEach(b => b.classList.toggle('pc-active', b.dataset.sec === secId));
   const titleEl = $('tg-detail-title');
   if (titleEl) titleEl.textContent = titles[secId] || 'Настройки';
   $$('.settings-section').forEach(s => s.classList.toggle('active', s.id === secId));

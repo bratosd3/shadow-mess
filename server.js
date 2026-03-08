@@ -374,11 +374,11 @@ app.get('/', (req, res) => res.sendFile(path.join(STATIC_DIR, 'index.html')));
 
 // Desktop app version check
 app.get('/api/desktop-version', (req, res) => {
-  res.json({ version: '5.1.0', downloadUrl: 'https://shadow-mess.onrender.com/downloads/ShadowMessengerSetup.exe' });
+  res.json({ version: '5.3.0', downloadUrl: 'https://shadow-mess.onrender.com/downloads/ShadowMessengerSetup.exe' });
 });
 // Mobile APK version check
 app.get('/api/mobile-version', (req, res) => {
-  res.json({ version: '1.0.0', downloadUrl: 'https://shadow-mess.onrender.com/downloads/ShadowMessenger.apk' });
+  res.json({ version: '5.3.0', downloadUrl: 'https://shadow-mess.onrender.com/downloads/ShadowMessenger.apk' });
 });
 
 // Download links (configurable from admin panel)
@@ -412,6 +412,23 @@ app.get('/sw.js', (req, res) => {
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
   res.sendFile(path.join(STATIC_DIR, 'sw.js'));
+});
+
+// ── Mobile notification polling ───────────────────────────────────────────
+app.get('/api/notifications/poll', authMiddleware, async (req, res) => {
+  try {
+    const since = req.query.since ? new Date(req.query.since) : new Date(Date.now() - 60000);
+    const chats = await Chat.find({ members: req.user.id }).select('_id');
+    const chatIds = chats.map(c => c._id);
+    const messages = await Message.find({
+      chatId: { $in: chatIds },
+      senderId: { $ne: req.user.id },
+      timestamp: { $gt: since },
+    }).sort({ timestamp: -1 }).limit(50).lean();
+    res.json({ messages });
+  } catch (err) {
+    res.status(500).json({ error: 'Poll failed' });
+  }
 });
 
 // ── Call history ───────────────────────────────────────────────────────────

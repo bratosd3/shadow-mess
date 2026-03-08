@@ -387,13 +387,13 @@ img,video{max-width:100%;display:block}
 
 /* Telegram-style settings */
 .tg-settings{width:100%;height:100%;background:var(--bg-dark);display:flex;position:relative;overflow:hidden}
-.tg-settings-main{width:100%;max-width:450px;margin:0 auto;display:flex;flex-direction:column;height:100%;overflow-y:auto;transition:transform .3s ease,opacity .3s ease}
-.tg-settings-main.slid-out{transform:translateX(-100%);opacity:0;pointer-events:none;position:absolute}
+.tg-settings-main{width:320px;min-width:320px;display:flex;flex-direction:column;height:100%;overflow-y:auto;border-right:1px solid var(--bg-active);background:var(--bg-sec);flex-shrink:0}
+.tg-settings-main.slid-out{/* no-op on desktop: keep main visible */}
 .tg-settings-header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;border-bottom:1px solid var(--bg-active)}
 .tg-header-title{font-size:18px;font-weight:700;color:var(--head)}
 .tg-close-btn{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);background:var(--bg-active);transition:all .2s ease;font-size:15px}
 .tg-close-btn:hover{color:var(--red);background:rgba(242,63,67,.15);transform:scale(1.08)}
-.tg-profile-card{display:flex;align-items:center;gap:14px;padding:20px;margin:12px 16px;background:var(--bg-sec);border-radius:var(--r-lg);cursor:pointer;transition:background .2s ease}
+.tg-profile-card{display:flex;align-items:center;gap:14px;padding:20px;margin:12px 16px;background:var(--bg-pri);border-radius:var(--r-lg);cursor:pointer;transition:background .2s ease}
 .tg-profile-card:hover{background:var(--bg-hover)}
 .tg-profile-avatar{width:56px;height:56px;border-radius:50%;background:var(--brand);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:#fff;overflow:hidden;flex-shrink:0}
 .tg-profile-avatar img{width:100%;height:100%;object-fit:cover}
@@ -403,6 +403,7 @@ img,video{max-width:100%;display:block}
 .tg-settings-list{padding:4px 16px 20px;display:flex;flex-direction:column;gap:2px}
 .tg-settings-item{display:flex;align-items:center;gap:14px;width:100%;padding:12px 16px;border-radius:var(--r);color:var(--text);transition:background .15s ease;text-align:left;font-size:14px;background:none}
 .tg-settings-item:hover{background:var(--bg-hover)}
+.tg-settings-item.pc-active{background:var(--bg-active)}
 .tg-settings-item>i:first-child{width:22px;text-align:center;font-size:16px;color:var(--brand);flex-shrink:0}
 .tg-item-text{display:flex;flex-direction:column;gap:1px;flex:1;min-width:0}
 .tg-item-title{font-size:14px;color:var(--head);font-weight:500}
@@ -411,13 +412,12 @@ img,video{max-width:100%;display:block}
 .tg-settings-item.tg-danger>i:first-child{color:var(--red)}
 .tg-settings-item.tg-danger .tg-item-title{color:var(--red)}
 .tg-list-divider{height:1px;background:var(--bg-active);margin:8px 0}
-.tg-settings-detail{position:absolute;inset:0;width:100%;height:100%;display:flex;flex-direction:column;transform:translateX(100%);opacity:0;pointer-events:none;transition:transform .3s ease,opacity .3s ease;background:var(--bg-dark)}
-.tg-settings-detail.open{transform:translateX(0);opacity:1;pointer-events:all}
+.tg-settings-detail{flex:1;display:flex;flex-direction:column;height:100%;background:var(--bg-dark);overflow:hidden}
+.tg-settings-detail.open,.tg-settings-detail:not(.open){transform:none;opacity:1;pointer-events:all}
 .tg-detail-header{display:flex;align-items:center;gap:12px;padding:16px 20px;border-bottom:1px solid var(--bg-active)}
-.tg-back-btn{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;color:var(--text-muted);background:var(--bg-active);transition:all .2s ease;font-size:15px;flex-shrink:0}
-.tg-back-btn:hover{background:var(--bg-hover);color:var(--head)}
+.tg-back-btn{display:none}
 .tg-detail-title{font-size:18px;font-weight:700;color:var(--head);flex:1}
-.tg-detail-content{flex:1;overflow-y:auto;padding:20px 20px 40px;max-width:500px;margin:0 auto;width:100%}
+.tg-detail-content{flex:1;overflow-y:auto;padding:20px 32px 40px;max-width:700px;width:100%}
 .settings-section{display:none}.settings-section.active{display:block}
 .settings-section h2{display:none}
 .settings-section h3{color:var(--head);font-size:14px;font-weight:600;margin:16px 0 8px;text-transform:uppercase;letter-spacing:.5px}
@@ -598,8 +598,13 @@ body.ghost-active .sb-user{box-shadow:0 0 12px rgba(139,92,246,.4)}
   .btn-primary{min-height:44px}
   /* ── Telegram-style settings mobile ── */
   #modal-settings.modal-overlay{padding:0}
-  .tg-settings{border-radius:0}
-  .tg-settings-main{max-width:100%}
+  .tg-settings{border-radius:0;flex-direction:column}
+  .tg-settings-main{width:100%;min-width:100%;max-width:100%;border-right:none;transition:transform .3s ease,opacity .3s ease}
+  .tg-settings-main.slid-out{transform:translateX(-100%);opacity:0;pointer-events:none;position:absolute}
+  .tg-settings-detail{position:absolute;inset:0;transform:translateX(100%);opacity:0;pointer-events:none;transition:transform .3s ease,opacity .3s ease}
+  .tg-settings-detail.open{transform:translateX(0);opacity:1;pointer-events:all}
+  .tg-back-btn{display:flex;width:34px;height:34px;border-radius:10px;align-items:center;justify-content:center;color:var(--text-muted);background:var(--bg-active);transition:all .2s ease;font-size:15px;flex-shrink:0}
+  .tg-back-btn:hover{background:var(--bg-hover);color:var(--head)}
   .tg-detail-content{max-width:100%;padding:16px}
   .tg-profile-card{margin:8px 12px}
   .tg-settings-list{padding:4px 12px 20px}
@@ -658,6 +663,8 @@ body.ghost-active .sb-user{box-shadow:0 0 12px rgba(139,92,246,.4)}
   .settings-section h3{font-size:15px;margin-bottom:8px}
   .s-hint{font-size:12px;margin-bottom:10px}
   .s-divider{margin:16px 0}
+  /* ── Mobile settings tab fullscreen ── */
+  #tab-settings.active{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
   /* ── Mobile settings sub-pages (Telegram-style) ── */
   .tg-style{padding:0}
   .tg-mob-card{border-radius:0}

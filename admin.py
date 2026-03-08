@@ -1,6 +1,6 @@
 ﻿#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# Shadow Messenger — Admin Panel v4.1 (Complete Redesign)
+# Shadow Messenger — Admin Panel v5.3 (Complete Redesign)
 import os
 import sys
 import subprocess
@@ -58,7 +58,7 @@ FONT_MONO   = "Consolas"
 class AdminApp(ctk.CTk):
     def __init__(self):
         super().__init__()
-        self.title("Shadow Messenger \u2666 Admin Panel v4.1")
+        self.title("Shadow Messenger ♦ Admin Panel v5.3")
         self.geometry("1160x760")
         self.minsize(960, 600)
         self.configure(fg_color=BG_MAIN)
@@ -99,6 +99,14 @@ class AdminApp(ctk.CTk):
         except Exception as e:
             return {"_error": str(e)}
 
+    def api_post(self, path, data=None):
+        try:
+            r = requests.post(f"{self.server_url}{path}", headers=self.headers, json=data, timeout=15)
+            r.raise_for_status()
+            return r.json()
+        except Exception as e:
+            return {"_error": str(e)}
+
     def _run_async(self, func, callback):
         def worker():
             result = func()
@@ -119,7 +127,7 @@ class AdminApp(ctk.CTk):
                                         font=(FONT, 11), text_color=RED)
         self.status_pill.pack(side="right", padx=20)
 
-        ctk.CTkLabel(topbar, text="v4.0", font=(FONT, 10), text_color=TEXT_D).pack(side="right", padx=(0, 10))
+        ctk.CTkLabel(topbar, text="v5.3", font=(FONT, 10), text_color=TEXT_D).pack(side="right", padx=(0, 10))
 
         # Main layout
         main = ctk.CTkFrame(self, fg_color="transparent")
@@ -134,6 +142,7 @@ class AdminApp(ctk.CTk):
             ("dashboard", "\U0001f3e0", "\u0413\u043b\u0430\u0432\u043d\u0430\u044f"),
             ("users",     "\U0001f465", "\u041f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u0438"),
             ("premium",   "\u2b50",     "Premium"),
+            ("downloads", "\U0001f4e5", "\u0417\u0430\u0433\u0440\u0443\u0437\u043a\u0438"),
             ("tools",     "\U0001f527", "\u0418\u043d\u0441\u0442\u0440\u0443\u043c\u0435\u043d\u0442\u044b"),
             ("settings",  "\u2699\ufe0f", "\u041d\u0430\u0441\u0442\u0440\u043e\u0439\u043a\u0438"),
         ]
@@ -172,6 +181,7 @@ class AdminApp(ctk.CTk):
             "dashboard": self._page_dashboard,
             "users":     self._page_users,
             "premium":   self._page_premium,
+            "downloads": self._page_downloads,
             "tools":     self._page_tools,
             "settings":  self._page_settings,
         }
@@ -683,10 +693,143 @@ class AdminApp(ctk.CTk):
         self._run_async(do, done)
 
     # ====================================================================
+    #  DOWNLOADS (links management)
+    # ====================================================================
+    def _page_downloads(self):
+        self._header(self.content, "Ссылки для скачивания", "Настройте ссылки для кнопок скачивания на сайте")
+
+        card = self._card(self.content)
+        card.pack(fill="x", padx=24, pady=(12, 8))
+        inner = ctk.CTkFrame(card, fg_color="transparent")
+        inner.pack(fill="x", padx=20, pady=20)
+
+        # Android
+        ctk.CTkLabel(inner, text="🤖 Android APK", font=(FONT, 13, "bold"), text_color=TEXT_S).pack(anchor="w", pady=(0, 4))
+        self.dl_android_entry = ctk.CTkEntry(inner, width=500, height=38, font=(FONT_MONO, 12),
+                                             fg_color=BG_INPUT, border_color=BORDER, placeholder_text="https://...")
+        self.dl_android_entry.pack(anchor="w", pady=(0, 12))
+
+        # Windows
+        ctk.CTkLabel(inner, text="🖥  Windows EXE", font=(FONT, 13, "bold"), text_color=TEXT_S).pack(anchor="w", pady=(0, 4))
+        self.dl_windows_entry = ctk.CTkEntry(inner, width=500, height=38, font=(FONT_MONO, 12),
+                                             fg_color=BG_INPUT, border_color=BORDER, placeholder_text="https://...")
+        self.dl_windows_entry.pack(anchor="w", pady=(0, 16))
+
+        btn_row = ctk.CTkFrame(inner, fg_color="transparent")
+        btn_row.pack(anchor="w")
+        ctk.CTkButton(btn_row, text="💾 Сохранить", fg_color=BRAND, hover_color=BRAND_H,
+                      width=140, height=36, corner_radius=8, font=(FONT, 12, "bold"),
+                      command=self._save_dl).pack(side="left", padx=(0, 8))
+        ctk.CTkButton(btn_row, text="🔄 Загрузить", fg_color=BLUE, hover_color="#2563eb",
+                      width=140, height=36, corner_radius=8, font=(FONT, 12, "bold"),
+                      command=self._load_dl).pack(side="left")
+
+        info_card = self._card(self.content)
+        info_card.pack(fill="x", padx=24, pady=(8, 16))
+        ic_inner = ctk.CTkFrame(info_card, fg_color="transparent")
+        ic_inner.pack(fill="x", padx=20, pady=12)
+        ctk.CTkLabel(ic_inner, text="Эти ссылки будут отображаться на странице входа и в настройках",
+                     font=(FONT, 12), text_color=TEXT_D).pack(anchor="w")
+
+        self._load_dl()
+
+    def _load_dl(self):
+        def do():
+            return self.api_get("/api/admin/download-links")
+        def done(r):
+            if isinstance(r, dict) and "_error" not in r:
+                self.dl_android_entry.delete(0, "end")
+                self.dl_android_entry.insert(0, r.get("android", ""))
+                self.dl_windows_entry.delete(0, "end")
+                self.dl_windows_entry.insert(0, r.get("windows", ""))
+                self._toast("Ссылки загружены")
+            else:
+                self._toast("Используются ссылки по умолчанию", TEXT_D)
+        self._run_async(do, done)
+
+    def _save_dl(self):
+        data = {
+            "android": self.dl_android_entry.get().strip(),
+            "windows": self.dl_windows_entry.get().strip(),
+        }
+        def do():
+            return self.api_put("/api/admin/download-links", data)
+        def done(r):
+            if isinstance(r, dict) and "_error" not in r:
+                self._toast("Ссылки сохранены")
+            else:
+                self._toast(f"Ошибка: {r.get('_error', '?')}", RED)
+        self._run_async(do, done)
+
+    def _do_broadcast(self):
+        text = self.broadcast_entry.get().strip()
+        if not text:
+            self._toast("Введите текст рассылки", YELLOW)
+            return
+        def do():
+            return self.api_post("/api/broadcast", {"text": text})
+        def done(r):
+            if isinstance(r, dict) and "_error" not in r:
+                self._toast(f"Рассылка отправлена в {r.get('sentTo', 0)} чатов")
+                self.broadcast_entry.delete(0, "end")
+            else:
+                self._toast(f"Ошибка: {r.get('_error', '?')}", RED)
+        self._run_async(do, done)
+
+    def _do_announce(self):
+        text = self.announce_entry.get().strip()
+        if not text:
+            self._toast("Введите текст объявления", YELLOW)
+            return
+        def do():
+            return self.api_post("/api/announcement", {"text": text})
+        def done(r):
+            if isinstance(r, dict) and "_error" not in r:
+                self._toast("Объявление отправлено")
+                self.announce_entry.delete(0, "end")
+            else:
+                self._toast(f"Ошибка: {r.get('_error', '?')}", RED)
+        self._run_async(do, done)
+
+    # ====================================================================
     #  TOOLS (Cleanup + Reset)
     # ====================================================================
     def _page_tools(self):
-        self._header(self.content, "\u0418\u043d\u0441\u0442\u0440\u0443\u043c\u0435\u043d\u0442\u044b", "\u041e\u0447\u0438\u0441\u0442\u043a\u0430 \u0434\u0430\u043d\u043d\u044b\u0445 \u0438 \u0441\u0431\u0440\u043e\u0441 \u0431\u0430\u0437\u044b")
+        self._header(self.content, "\u0418\u043d\u0441\u0442\u0440\u0443\u043c\u0435\u043d\u0442\u044b", "\u0420\u0430\u0441\u0441\u044b\u043b\u043a\u0430, \u043e\u0447\u0438\u0441\u0442\u043a\u0430 \u0434\u0430\u043d\u043d\u044b\u0445 \u0438 \u0441\u0431\u0440\u043e\u0441 \u0431\u0430\u0437\u044b")
+
+        # Broadcast & Announce section
+        ba_header = ctk.CTkFrame(self.content, fg_color="transparent")
+        ba_header.pack(fill="x", padx=24, pady=(12, 4))
+        ctk.CTkLabel(ba_header, text="📢 Рассылка и объявления", font=(FONT, 15, "bold"), text_color=TEXT_W).pack(anchor="w")
+
+        # Broadcast
+        bc_card = self._card(self.content)
+        bc_card.pack(fill="x", padx=24, pady=4)
+        bc_inner = ctk.CTkFrame(bc_card, fg_color="transparent")
+        bc_inner.pack(fill="x", padx=16, pady=12)
+        ctk.CTkLabel(bc_inner, text="📢 Рассылка (текст во все чаты):", font=(FONT, 12), text_color=TEXT_S).pack(anchor="w", pady=(0, 4))
+        self.broadcast_entry = ctk.CTkEntry(bc_inner, height=36, font=(FONT, 12), fg_color=BG_INPUT, border_color=BORDER,
+                                            placeholder_text="Текст для всех пользователей...")
+        self.broadcast_entry.pack(fill="x", pady=(0, 6))
+        ctk.CTkButton(bc_inner, text="📢 Отправить рассылку", fg_color=BRAND, hover_color=BRAND_H,
+                      height=34, corner_radius=8, font=(FONT, 12, "bold"),
+                      command=self._do_broadcast).pack(anchor="w")
+
+        # Announce
+        an_card = self._card(self.content)
+        an_card.pack(fill="x", padx=24, pady=4)
+        an_inner = ctk.CTkFrame(an_card, fg_color="transparent")
+        an_inner.pack(fill="x", padx=16, pady=12)
+        ctk.CTkLabel(an_inner, text="📣 Объявление (глобальное уведомление):", font=(FONT, 12), text_color=TEXT_S).pack(anchor="w", pady=(0, 4))
+        self.announce_entry = ctk.CTkEntry(an_inner, height=36, font=(FONT, 12), fg_color=BG_INPUT, border_color=BORDER,
+                                           placeholder_text="Глобальное объявление...")
+        self.announce_entry.pack(fill="x", pady=(0, 6))
+        ctk.CTkButton(an_inner, text="📣 Отправить объявление", fg_color=ORANGE, hover_color="#ea580c",
+                      height=34, corner_radius=8, font=(FONT, 12, "bold"),
+                      command=self._do_announce).pack(anchor="w")
+
+        sep = ctk.CTkFrame(self.content, height=1, fg_color=BORDER)
+        sep.pack(fill="x", padx=24, pady=(12, 4))
 
         # Cleanup section
         cleanup_header = ctk.CTkFrame(self.content, fg_color="transparent")
@@ -854,7 +997,7 @@ class AdminApp(ctk.CTk):
         ab_inner.pack(fill="x", padx=20, pady=16)
 
         ctk.CTkLabel(ab_inner, text="\U0001f30c Shadow Messenger Admin Panel", font=(FONT, 14, "bold"), text_color=BRAND_L).pack(anchor="w")
-        ctk.CTkLabel(ab_inner, text="\u0412\u0435\u0440\u0441\u0438\u044f 4.0  \u2022  CustomTkinter  \u2022  Python",
+        ctk.CTkLabel(ab_inner, text="\u0412\u0435\u0440\u0441\u0438\u044f 5.3  \u2022  CustomTkinter  \u2022  Python",
                      font=(FONT, 11), text_color=TEXT_D).pack(anchor="w", pady=(4, 0))
 
 

@@ -1,6 +1,6 @@
 {
   "name": "shadow-messenger-desktop",
-  "version": "5.2.0",
+  "version": "5.3.0",
   "description": "Shadow Messenger — Desktop App",
   "main": "main.js",
   "scripts": {
@@ -40,7 +40,7 @@
       "uninstallerIcon": "../static/icons/icon.ico",
       "installerSidebar": null,
       "shortcutName": "Shadow Messenger",
-      "createDesktopShortcut": false,
+      "createDesktopShortcut": "always",
       "createStartMenuShortcut": true,
       "uninstallDisplayName": "Shadow Messenger v5.2",
       "deleteAppDataOnUninstall": true,

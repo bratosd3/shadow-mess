@@ -139,7 +139,7 @@ public class MainActivity extends Activity {
         settings.setDatabaseEnabled(true);
         settings.setCacheMode(WebSettings.LOAD_DEFAULT);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        settings.setUserAgentString(settings.getUserAgentString() + " ShadowMessengerAndroid/5.1.0");
+        settings.setUserAgentString(settings.getUserAgentString() + " ShadowMessengerAndroid/5.3.0");
 
         CookieManager.getInstance().setAcceptCookie(true);
         CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true);
@@ -229,6 +229,8 @@ public class MainActivity extends Activity {
     protected void onResume() {
         super.onResume();
         webView.onResume();
+        // Reset poll time so background service doesn't duplicate foreground notifications
+        NotificationService.clearLastPollTime(this);
     }
 
     @Override
@@ -239,6 +241,24 @@ public class MainActivity extends Activity {
 
     // ── JavaScript → Native notification bridge ──
     private class NotifBridge {
+        @JavascriptInterface
+        public void startBackgroundService(String token, String userId) {
+            Intent serviceIntent = new Intent(MainActivity.this, NotificationService.class);
+            serviceIntent.putExtra("token", token);
+            serviceIntent.putExtra("userId", userId);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                startForegroundService(serviceIntent);
+            } else {
+                startService(serviceIntent);
+            }
+        }
+
+        @JavascriptInterface
+        public void stopBackgroundService() {
+            NotificationService.clearCredentials(MainActivity.this);
+            stopService(new Intent(MainActivity.this, NotificationService.class));
+        }
+
         @JavascriptInterface
         public void showNotification(String title, String body, String type) {
             String channel = "call".equals(type) ? CHANNEL_CALL : CHANNEL_MSG;

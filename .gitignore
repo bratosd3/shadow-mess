@@ -49,3 +49,15 @@ admin.py
 
 full backup/
 
+# Mobile build artifacts
+mobile/jdk/
+mobile/.gradle/
+mobile/build/
+mobile/app/build/
+mobile/local.properties
+*.apk
+
+# Desktop build artifacts
+desktop/node_modules/
+desktop/dist/
+
