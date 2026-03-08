@@ -56,17 +56,19 @@
       </svg>
     </div>
     <h1>Shadow Messenger</h1>
+    <p class="auth-subtitle" id="auth-subtitle">Войдите, чтобы продолжить</p>
     <form id="login-form">
-      <input type="text" id="login-username" placeholder="Имя пользователя" autocomplete="username" required>
-      <input type="password" id="login-password" placeholder="Пароль" autocomplete="current-password" required>
+      <div class="form-field"><label for="login-username">Имя пользователя</label><input type="text" id="login-username" placeholder="Введите логин" autocomplete="username" required></div>
+      <div class="form-field"><label for="login-password">Пароль</label><input type="password" id="login-password" placeholder="Введите пароль" autocomplete="current-password" required></div>
       <button type="submit" class="btn-primary">Войти</button>
     </form>
     <form id="register-form" class="hidden">
-      <input type="text" id="reg-username" placeholder="Имя пользователя" autocomplete="username" required>
-      <input type="text" id="reg-displayname" placeholder="Отображаемое имя" autocomplete="name">
-      <input type="password" id="reg-password" placeholder="Пароль" autocomplete="new-password" required>
+      <div class="form-field"><label for="reg-username">Имя пользователя</label><input type="text" id="reg-username" placeholder="Придумайте логин" autocomplete="username" required></div>
+      <div class="form-field"><label for="reg-displayname">Отображаемое имя</label><input type="text" id="reg-displayname" placeholder="Как вас называть?" autocomplete="name"></div>
+      <div class="form-field"><label for="reg-password">Пароль</label><input type="password" id="reg-password" placeholder="Минимум 4 символа" autocomplete="new-password" required></div>
       <button type="submit" class="btn-primary">Создать аккаунт</button>
     </form>
+    <div id="auth-loading" class="auth-loading hidden"><div class="auth-spinner"></div><span>Загрузка...</span></div>
     <p class="auth-switch">
       <span id="to-register">Нет аккаунта? <b>Создать</b></span>
       <span id="to-login" class="hidden">Уже есть аккаунт? <b>Войти</b></span>
@@ -585,10 +587,15 @@
 <!-- ===== NEW GROUP MODAL ===== -->
 <div id="modal-group" class="modal-overlay hidden">
   <div class="modal-card">
-    <div class="modal-top"><h3>Новая группа</h3><button class="modal-x" data-close="modal-group"><i class="fas fa-xmark"></i></button></div>
+    <div class="modal-top"><h3 id="modal-group-title">Новая группа</h3><button class="modal-x" data-close="modal-group"><i class="fas fa-xmark"></i></button></div>
     <div class="modal-body">
+      <div class="s-option-row" id="group-type-opts" style="margin-bottom:12px">
+        <button class="s-opt-btn active" data-val="group"><i class="fas fa-users"></i> Группа</button>
+        <button class="s-opt-btn" data-val="channel"><i class="fas fa-bullhorn"></i> Канал</button>
+      </div>
       <input id="group-name" type="text" placeholder="Название группы">
-      <input id="group-search" type="text" placeholder="Добавить участников...">
+      <div class="s-field" style="margin-top:8px"><label>Описание</label><textarea id="group-description" rows="2" placeholder="Описание (необязательно)" style="width:100%;padding:8px 12px;border-radius:var(--r);background:var(--bg-input);color:var(--text);border:none;font-size:14px;resize:none"></textarea></div>
+      <input id="group-search" type="text" placeholder="Добавить участников..." style="margin-top:8px">
       <div id="group-chips"></div>
       <div id="group-results"></div>
       <button id="btn-create-group" class="btn-primary">Создать</button>
@@ -650,11 +657,19 @@
 </div>
 <!-- Edit Group Modal -->
 <div id="modal-edit-group" class="modal-overlay hidden">
-  <div class="modal-card">
+  <div class="modal-card" style="max-width:480px">
     <div class="modal-top"><h3>Редактировать группу</h3><button class="modal-x" data-close="modal-edit-group"><i class="fas fa-xmark"></i></button></div>
     <div class="modal-body">
       <div class="s-field"><label>Название группы</label><input id="edit-group-name" type="text" placeholder="Название..."></div>
-      <button class="btn-primary" onclick="submitEditGroup()">Сохранить</button>
+      <div class="s-field"><label>Описание</label><textarea id="edit-group-desc" rows="3" placeholder="Описание группы..." style="width:100%;padding:8px 12px;border-radius:var(--r);background:var(--bg-input);color:var(--text);border:none;font-size:14px;resize:none"></textarea></div>
+      <div id="edit-group-members-section" style="margin-top:12px">
+        <h4 style="font-size:14px;color:var(--head2);margin-bottom:8px">Участники</h4>
+        <div id="edit-group-members-list" style="max-height:200px;overflow-y:auto"></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button class="btn-primary" style="flex:1" onclick="submitEditGroup()">Сохранить</button>
+        <button class="btn-sm" style="flex:1" onclick="document.getElementById('modal-roles').classList.remove('hidden')"><i class="fas fa-shield-halved"></i> Роли</button>
+      </div>
     </div>
   </div>
 </div>
@@ -668,15 +683,19 @@
     </div>
   </div>
 </div>
-<!-- Chat Search Modal -->
-<div id="modal-chat-search" class="modal-overlay hidden">
-  <div class="modal-card">
-    <div class="modal-top"><h3>Поиск по чату</h3><button class="modal-x" data-close="modal-chat-search"><i class="fas fa-xmark"></i></button></div>
-    <div class="modal-body">
-      <div class="s-field"><input id="chat-search-input" type="text" placeholder="Введите текст для поиска..." onkeydown="if(event.key==='Enter')doChatSearch()"></div>
-      <button class="btn-primary" onclick="doChatSearch()">Найти</button>
-    </div>
+<!-- Chat Search Panel (slide-in) -->
+<div id="chat-search-panel" class="chat-search-panel hidden">
+  <div class="csp-header">
+    <button id="csp-close" class="csp-close-btn"><i class="fas fa-arrow-left"></i></button>
+    <input id="chat-search-input" type="text" placeholder="Поиск по чату..." class="csp-input">
+    <button id="csp-search-btn" class="csp-search-btn"><i class="fas fa-magnifying-glass"></i></button>
   </div>
+  <div class="csp-nav hidden" id="csp-nav">
+    <span id="csp-counter">0/0</span>
+    <button id="csp-prev"><i class="fas fa-chevron-up"></i></button>
+    <button id="csp-next"><i class="fas fa-chevron-down"></i></button>
+  </div>
+  <div id="csp-results" class="csp-results"></div>
 </div>
 <!-- Scheduled message Modal -->
 <div id="modal-schedule" class="modal-overlay hidden">
@@ -686,6 +705,37 @@
       <div class="s-field"><label>Текст</label><textarea id="schedule-text" rows="3" placeholder="Текст сообщения..."></textarea></div>
       <div class="s-field"><label>Дата и время</label><input type="datetime-local" id="schedule-datetime"></div>
       <button id="btn-schedule-send" class="btn-primary">Запланировать</button>
+    </div>
+  </div>
+</div>
+<!-- Send options popup (long-press send) -->
+<div id="send-options" class="send-options-popup hidden">
+  <button class="send-opt" id="send-opt-schedule"><i class="fas fa-clock"></i> Запланировать</button>
+  <button class="send-opt" id="send-opt-silent"><i class="fas fa-bell-slash"></i> Без звука</button>
+</div>
+<!-- Group Info Panel -->
+<div id="group-info-panel" class="group-info-panel hidden">
+  <div class="gip-header"><button id="gip-close"><i class="fas fa-arrow-left"></i></button><h3>Информация</h3></div>
+  <div class="gip-body">
+    <div class="gip-section">
+      <div class="gip-avatar" id="gip-avatar"></div>
+      <h2 id="gip-name"></h2>
+      <p id="gip-desc" class="gip-desc"></p>
+      <p id="gip-members-count" class="gip-meta"></p>
+    </div>
+    <div class="gip-section">
+      <h4><i class="fas fa-image"></i> Медиа</h4>
+      <div id="gip-media" class="gip-media-grid"></div>
+      <p id="gip-no-media" class="gip-empty">Нет медиа</p>
+    </div>
+    <div class="gip-section">
+      <h4><i class="fas fa-file"></i> Файлы</h4>
+      <div id="gip-files" class="gip-files-list"></div>
+      <p id="gip-no-files" class="gip-empty">Нет файлов</p>
+    </div>
+    <div class="gip-section">
+      <h4><i class="fas fa-users"></i> Участники</h4>
+      <div id="gip-members-list"></div>
     </div>
   </div>
 </div>

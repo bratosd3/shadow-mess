@@ -1175,7 +1175,7 @@ app.get('/api/chats', authMiddleware, async (req, res) => {
         muted: userMutedChats.includes(c._id),
         lastMessage: lastMsg,
         unreadCount: unread,
-        membersInfo: c.type === 'group'
+        membersInfo: (c.type === 'group' || c.type === 'channel')
           ? c.members.map(mid => {
               const u = userMap[mid];
               return u ? { id: u._id, displayName: u.displayName, avatar: u.avatar, avatarColor: u.avatarColor, online: isOnline(u._id), superUser: !!u.superUser, premium: !!u.premium, premiumEmoji: u.premiumEmoji || '', premiumBadge: u.premiumBadge || '', premiumNameColor: u.premiumNameColor || '' } : null;

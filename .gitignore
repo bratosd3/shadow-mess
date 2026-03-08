@@ -46,3 +46,6 @@ _test_temp/
 # Admin tools with secret key (local only)
 admin.bat
 admin.py
+
+full backup/
+

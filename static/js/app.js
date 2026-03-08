@@ -217,8 +217,8 @@ const Sounds = {
    ══════════════════════════════════════════════════════════════════════ */
 function initAuth() {
   const loginForm = $('login-form'), regForm = $('register-form');
-  $('to-register').onclick = () => { hide(loginForm); show(regForm); hide($('to-register')); show($('to-login')); };
-  $('to-login').onclick = () => { show(loginForm); hide(regForm); show($('to-register')); hide($('to-login')); };
+  $('to-register').onclick = () => { hide(loginForm); show(regForm); hide($('to-register')); show($('to-login')); $('auth-subtitle').textContent = 'Создайте аккаунт'; };
+  $('to-login').onclick = () => { show(loginForm); hide(regForm); show($('to-register')); hide($('to-login')); $('auth-subtitle').textContent = 'Войдите, чтобы продолжить'; };
 
   loginForm.onsubmit = async e => {
     e.preventDefault();
@@ -252,11 +252,37 @@ function logout() {
    BOOT
    ══════════════════════════════════════════════════════════════════════ */
 async function boot() {
+  // Show loading spinner
+  const authLoading = $('auth-loading');
+  const loginForm = $('login-form');
+  const regForm = $('register-form');
+  const authSwitch = document.querySelector('.auth-switch');
+  if (loginForm) hide(loginForm);
+  if (regForm) hide(regForm);
+  if (authSwitch) authSwitch.style.display = 'none';
+  if (authLoading) show(authLoading);
+  if ($('auth-subtitle')) $('auth-subtitle').textContent = 'Подключение к серверу...';
+
   try {
-    S.user = await api('/api/me');
-  } catch {
-    logout(); return;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    S.user = await api('/api/me', { signal: controller.signal });
+    clearTimeout(timeout);
+  } catch (err) {
+    // Restore auth forms
+    if (authLoading) hide(authLoading);
+    if (loginForm) show(loginForm);
+    if (authSwitch) authSwitch.style.display = '';
+    if ($('auth-subtitle')) $('auth-subtitle').textContent = 'Войдите, чтобы продолжить';
+    if (err.name === 'AbortError') {
+      showToast('Сервер не отвечает — попробуйте позже', 'error');
+      return;
+    }
+    localStorage.removeItem('token');
+    S.token = null;
+    return;
   }
+  if (authLoading) hide(authLoading);
   hide($('auth-screen'));
   show($('app'));
   applyTheme(S.user.settings?.theme || 'default');
@@ -268,9 +294,7 @@ async function boot() {
   registerSW();
   setupPWA();
   showSuperEntryAnimation();
-  // Ensure Saved/Favorites chat exists
   ensureSavedChat();
-  // Periodically refresh chat data to pick up avatar/name changes
   if (window._chatRefreshInterval) clearInterval(window._chatRefreshInterval);
   window._chatRefreshInterval = setInterval(() => { if (!document.hidden) loadChats(); }, 30000);
 }
@@ -397,6 +421,7 @@ function initSocket() {
   socket.on('call_busy', () => { Sounds.ringStop(); showToast('Абонент занят', 'warning'); });
   socket.on('call_accepting', () => {
     Sounds.ringStop();
+    if (_ringTimeoutId) { clearTimeout(_ringTimeoutId); _ringTimeoutId = null; }
     // Reset timer from when call was accepted
     _callTimerStart = Date.now();
     $('call-audio-timer').textContent = '0:00';
@@ -468,7 +493,11 @@ function initUI() {
   $('btn-members').onclick = () => toggleMembers();
   $('btn-chat-menu').onclick = e => showChatMenu(e);
   $('members-close').onclick = () => toggleMembers(false);
-  $('ch-click').onclick = () => { if (S.chatObj) showProfile(getPartner()); };
+  $('ch-click').onclick = () => {
+    if (!S.chatObj) return;
+    if (S.chatObj.type === 'private') showProfile(getPartner());
+    else openGroupInfo();
+  };
 
   // Reply / Edit
   $('reply-cancel').onclick = () => cancelReply();
@@ -628,6 +657,44 @@ function initUI() {
   // New group
   $('group-search').oninput = () => searchGroupUsers();
   $('btn-create-group').onclick = () => createGroup();
+  // Group type selector
+  document.querySelectorAll('#group-type-opts .s-opt-btn').forEach(b => b.onclick = () => {
+    document.querySelectorAll('#group-type-opts .s-opt-btn').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    $('modal-group-title').textContent = b.dataset.val === 'channel' ? 'Новый канал' : 'Новая группа';
+    $('group-name').placeholder = b.dataset.val === 'channel' ? 'Название канала' : 'Название группы';
+  });
+  // Chat search panel
+  if ($('csp-close')) $('csp-close').onclick = () => closeChatSearchPanel();
+  if ($('csp-search-btn')) $('csp-search-btn').onclick = () => doChatSearch();
+  if ($('chat-search-input')) $('chat-search-input').onkeydown = e => { if (e.key === 'Enter') doChatSearch(); };
+  if ($('csp-prev')) $('csp-prev').onclick = () => { if (_cspResults.length && _cspIdx > 0) navigateCspTo(_cspIdx - 1); };
+  if ($('csp-next')) $('csp-next').onclick = () => { if (_cspResults.length && _cspIdx < _cspResults.length - 1) navigateCspTo(_cspIdx + 1); };
+  // Group info panel
+  if ($('gip-close')) $('gip-close').onclick = () => closeGroupInfo();
+  // Send options (long-press on send button)
+  {
+    let _sendPressTimer = null;
+    const sendBtn = $('btn-send');
+    const popup = $('send-options');
+    if (sendBtn && popup) {
+      const showSendOpts = () => {
+        if (!S.chatId) return;
+        const rect = sendBtn.getBoundingClientRect();
+        popup.style.left = rect.left + 'px';
+        popup.style.bottom = (window.innerHeight - rect.top + 4) + 'px';
+        popup.classList.remove('hidden');
+      };
+      sendBtn.addEventListener('mousedown', () => { _sendPressTimer = setTimeout(showSendOpts, 500); });
+      sendBtn.addEventListener('mouseup', () => clearTimeout(_sendPressTimer));
+      sendBtn.addEventListener('mouseleave', () => clearTimeout(_sendPressTimer));
+      sendBtn.addEventListener('touchstart', (e) => { _sendPressTimer = setTimeout(() => { e.preventDefault(); showSendOpts(); }, 500); }, { passive: false });
+      sendBtn.addEventListener('touchend', () => clearTimeout(_sendPressTimer));
+      if ($('send-opt-schedule')) $('send-opt-schedule').onclick = () => { hide(popup); showScheduleModal(); };
+      if ($('send-opt-silent')) $('send-opt-silent').onclick = () => { hide(popup); sendSilentMessage(); };
+      document.addEventListener('click', e => { if (!popup.contains(e.target) && !sendBtn.contains(e.target)) popup.classList.add('hidden'); });
+    }
+  }
 
   // Theme
   buildThemeGrid('theme-grid');
@@ -851,6 +918,10 @@ function closeChat() {
   $('app').classList.remove('chat-open');
   hide($('chat-view'));
   show($('welcome-screen'));
+  // Close side panels
+  if ($('chat-search-panel')) $('chat-search-panel').classList.add('hidden');
+  if ($('group-info-panel')) $('group-info-panel').classList.add('hidden');
+  if ($('send-options')) $('send-options').classList.add('hidden');
   renderChatList();
 }
 
@@ -881,6 +952,7 @@ function updateChatHeader() {
   avEl.innerHTML = name[0].toUpperCase() + ((c.displayAvatar || c.avatar) ? `<img src="${escHTML(c.displayAvatar || c.avatar)}">` : '');
 
   if (c.type === 'private') {
+    if ($('btn-members')) $('btn-members').style.display = 'none';
     if (c.online) {
       $('ch-status').textContent = 'в сети';
       $('ch-status').style.color = 'var(--green,#43b581)';
@@ -892,6 +964,7 @@ function updateChatHeader() {
       $('ch-status').style.color = '';
     }
   } else {
+    if ($('btn-members')) $('btn-members').style.display = '';
     $('ch-status').textContent = `${c.members?.length || 0} участников`;
     $('ch-status').style.color = '';
   }
@@ -973,7 +1046,15 @@ function renderMessages() {
       reactHtml += '</div>';
     }
 
-    html += `<div class="${cls}${announceClass}" data-id="${m.id}">${av}<div class="msg-body">${author}${forwardHtml}${replyHtml}${content}${reactHtml}</div></div>`;
+    // Auto-delete label
+    let autoDelHtml = '';
+    if (S.chatObj?.autoDeleteTimer && S.chatObj.autoDeleteTimer > 0) {
+      const t = S.chatObj.autoDeleteTimer;
+      const label = t < 3600 ? `${Math.floor(t / 60)}м` : t < 86400 ? `${Math.floor(t / 3600)}ч` : `${Math.floor(t / 86400)}д`;
+      autoDelHtml = `<span class="auto-delete-label" title="Авто-удаление: ${label}"><i class="fas fa-clock"></i> ${label}</span>`;
+    }
+
+    html += `<div class="${cls}${announceClass}" data-id="${m.id}">${av}<div class="msg-body">${author}${forwardHtml}${replyHtml}${content}${autoDelHtml}${reactHtml}</div></div>`;
   });
 
   area.innerHTML = html;
@@ -1062,6 +1143,22 @@ function playVoice(btn) {
 }
 
 /* ── Send message ──────────────────────────────────────────────────── */
+async function sendSilentMessage() {
+  const text = $('msg-input').value.trim();
+  if (!text || !S.chatId) { showToast('Введите сообщение', 'warning'); return; }
+  $('msg-input').value = '';
+  $('msg-input').style.height = 'auto';
+  toggleSendBtn();
+  try {
+    const msg = await api(`/api/chats/${S.chatId}/messages`, { method: 'POST', body: JSON.stringify({ text, silent: true }) });
+    S.messages.push(msg);
+    renderMessages();
+    scrollToBottom();
+    updateChatInList(S.chatId, msg);
+    showToast('Отправлено без звука', 'info');
+  } catch (e) { showToast(e.message, 'error'); }
+}
+
 async function sendMessage() {
   const text = $('msg-input').value.trim();
   if (!text || !S.chatId) return;
@@ -1258,7 +1355,8 @@ function showChatMenu(e) {
   items.push({ icon: 'fa-calendar', label: 'Запланировать', action: 'schedule' });
   items.push({ icon: 'fa-image', label: 'Медиафайлы', action: 'show-media' });
   items.push({ icon: 'fa-file-export', label: 'Экспорт чата', action: 'export-chat' });
-  if (S.chatObj.type === 'group') {
+  if (S.chatObj.type === 'group' || S.chatObj.type === 'channel') {
+    items.push({ icon: 'fa-circle-info', label: 'Информация', action: 'group-info' });
     items.push({ icon: 'fa-user-group', label: 'Участники', action: 'show-members' });
     items.push({ icon: 'fa-pen', label: 'Ред. группу', action: 'edit-group' });
     items.push({ icon: 'fa-user-plus', label: 'Пригласить', action: 'invite-member' });
@@ -1269,7 +1367,7 @@ function showChatMenu(e) {
     items.push({ icon: 'fa-ban', label: 'Заблокировать', action: 'block-user' });
   }
   items.push({ icon: 'fa-broom', label: 'Очистить историю', action: 'clear-history' });
-  items.push({ icon: 'fa-trash', label: S.chatObj.type === 'group' ? 'Покинуть группу' : 'Удалить чат', action: 'delete-chat', danger: true });
+  items.push({ icon: 'fa-trash', label: (S.chatObj.type === 'group' || S.chatObj.type === 'channel') ? 'Покинуть' : 'Удалить чат', action: 'delete-chat', danger: true });
 
   const menu = $('ctx-menu');
   $('ctx-items').innerHTML = items.map(it =>
@@ -1302,6 +1400,8 @@ async function handleChatMenuAction(action) {
     } catch {}
   } else if (action === 'search-chat') {
     showChatSearchModal();
+  } else if (action === 'group-info') {
+    openGroupInfo();
   } else if (action === 'show-members') {
     toggleMembers(true);
   } else if (action === 'edit-group') {
@@ -1561,14 +1661,22 @@ function searchGroupUsers() {
 async function createGroup() {
   const name = $('group-name').value.trim();
   if (!name) { showToast('Введите название', 'warning'); return; }
+  const typeBtn = document.querySelector('#group-type-opts .s-opt-btn.active');
+  const type = typeBtn ? typeBtn.dataset.val : 'group';
+  const description = $('group-description') ? $('group-description').value.trim() : '';
   try {
-    const chat = await api('/api/chats/group', { method: 'POST', body: JSON.stringify({ name, memberIds: _groupMembers }) });
+    const body = { name, memberIds: _groupMembers, type };
+    if (description) body.description = description;
+    const chat = await api('/api/chats/group', { method: 'POST', body: JSON.stringify(body) });
     hide($('modal-group'));
     _groupMembers = [];
     $('group-chips').innerHTML = '';
     $('group-name').value = '';
+    if ($('group-description')) $('group-description').value = '';
     $('group-search').value = '';
     $('group-results').innerHTML = '';
+    // Reset type selector
+    document.querySelectorAll('#group-type-opts .s-opt-btn').forEach(b => b.classList.toggle('active', b.dataset.val === 'group'));
     await loadChats();
     openChat(chat.id);
   } catch (e) { showToast(e.message, 'error'); }
@@ -1737,7 +1845,7 @@ function fillSettings() {
     const lockArea = $('premium-lock-area');
     if (lockArea) {
       if (!canUsePremium) {
-        lockArea.innerHTML = '<div class="premium-lock-notice"><i class="fas fa-lock"></i> Доступно для Shadow+. Все функции видны, но активируются с Shadow+.</div>';
+        lockArea.innerHTML = '<div class="premium-lock-notice"><i class="fas fa-lock"></i> Доступно для Shadow+</div>';
       } else {
         lockArea.innerHTML = '';
       }
@@ -2356,6 +2464,7 @@ function closeLightbox() {
    CALLS
    ══════════════════════════════════════════════════════════════════════ */
 let _incomingCallData = null;
+let _ringTimeoutId = null;
 
 function startCallAction(type) {
   if (!S.chatObj) return;
@@ -2395,11 +2504,21 @@ function startCallAction(type) {
   }, 1000);
   const overlay = $('active-call-overlay');
   show(overlay);
-  // Set name/avatar
   $('call-audio-name').textContent = S.chatObj.displayName || 'Звонок';
   const av = $('call-audio-avatar');
   av.style.background = S.chatObj.displayAvatarColor || AVATARS[0];
   av.innerHTML = (S.chatObj.displayName || '?')[0].toUpperCase() + (S.chatObj.displayAvatar ? `<img src="${escHTML(S.chatObj.displayAvatar)}">` : '');
+
+  // Ring timeout — auto-end call after 60 seconds if no answer
+  if (_ringTimeoutId) clearTimeout(_ringTimeoutId);
+  _ringTimeoutId = setTimeout(() => {
+    if (!window.callsModule.isInCall() || $('call-audio-timer')?.textContent === 'Подключение...') {
+      showToast('Абонент не отвечает', 'warning');
+      handleCallEnded();
+    }
+    _ringTimeoutId = null;
+  }, 60000);
+
   window.callsModule.startCall(peerId, type);
 }
 
@@ -2419,15 +2538,16 @@ function acceptIncoming() {
   if (!_incomingCallData) return;
   Sounds.incomingStop();
   Sounds.ringStop();
+  if (_ringTimeoutId) { clearTimeout(_ringTimeoutId); _ringTimeoutId = null; }
   hide($('incoming-call-overlay'));
   // Reset active call overlay controls visibility
   const overlay = $('active-call-overlay');
   show(overlay);
   // Ensure controls are visible
   const ctrls = overlay.querySelector('.vk-call-controls');
-  if (ctrls) ctrls.style.display = '';
+  if (ctrls) { ctrls.style.display = ''; ctrls.style.opacity = '1'; }
   const audioLayer = $('call-audio-layer');
-  if (audioLayer) { audioLayer.style.display = ''; audioLayer.classList.remove('hidden-layer'); }
+  if (audioLayer) { audioLayer.style.display = 'flex'; audioLayer.classList.remove('hidden-layer'); }
   const videoLayer = $('call-video-layer');
   if (videoLayer) videoLayer.classList.remove('active');
   // Reset control states
@@ -2441,7 +2561,7 @@ function acceptIncoming() {
   const myCam = $('my-cam-status');
   const peerMic = $('peer-mic-status');
   const peerCam = $('peer-cam-status');
-  [myMic, myCam, peerMic, peerCam].forEach(el => { if (el) { el.classList.remove('indicator-off'); el.style.display = ''; } });
+  [myMic, myCam, peerMic, peerCam].forEach(el => { if (el) { el.classList.remove('indicator-off'); el.style.display = 'flex'; } });
 
   $('call-audio-name').textContent = _incomingCallData.fromName || 'Звонок';
   const av = $('call-audio-avatar');
@@ -2449,6 +2569,11 @@ function acceptIncoming() {
   av.innerHTML = (_incomingCallData.fromName || '?')[0].toUpperCase() + (_incomingCallData.fromAvatar ? `<img src="${escHTML(_incomingCallData.fromAvatar)}">` : '');
   // Notify caller to stop ringing
   S.socket.emit('call_accepting', { to: _incomingCallData.from });
+  // Force user gesture audio unlock before accepting call
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    ctx.resume().then(() => ctx.close());
+  } catch {}
   window.callsModule.acceptCall(_incomingCallData.from, _incomingCallData.offer, _incomingCallData.callType);
   _callTimerStart = Date.now();
   if (window._callTimerInterval) clearInterval(window._callTimerInterval);
@@ -2458,8 +2583,6 @@ function acceptIncoming() {
     const m = Math.floor(sec / 60), s = sec % 60;
     $('call-audio-timer').textContent = `${m}:${String(s).padStart(2, '0')}`;
   }, 1000);
-  // Force a user gesture audio unlock for mobile
-  try { const ctx = new (window.AudioContext || window.webkitAudioContext)(); ctx.resume().then(() => ctx.close()); } catch {}
   _incomingCallData = null;
 }
 
@@ -2475,6 +2598,7 @@ function handleCallEnded() {
   Sounds.ringStop();
   Sounds.incomingStop();
   Sounds.callEnd();
+  if (_ringTimeoutId) { clearTimeout(_ringTimeoutId); _ringTimeoutId = null; }
   // End private or group call
   if (window.groupCallModule?.isInGroupCall()) {
     window.groupCallModule.leaveGroupCall();
@@ -2782,37 +2906,99 @@ function updatePinnedBar() {
 /* ══════════════════════════════════════════════════════════════════════
    CHAT SEARCH MODAL
    ══════════════════════════════════════════════════════════════════════ */
+let _cspResults = [], _cspIdx = -1;
 function showChatSearchModal() {
   if (!S.chatId) return;
+  const panel = $('chat-search-panel');
+  panel.classList.remove('hidden');
   $('chat-search-input').value = '';
-  show($('modal-chat-search'));
-  $('chat-search-input').focus();
+  $('csp-results').innerHTML = '';
+  $('csp-nav').classList.add('hidden');
+  $('csp-counter').textContent = '0/0';
+  _cspResults = []; _cspIdx = -1;
+  // Clear old highlights
+  $('messages-area').querySelectorAll('.msg.csp-highlight').forEach(el => el.classList.remove('csp-highlight'));
+  setTimeout(() => $('chat-search-input').focus(), 100);
 }
-window.doChatSearch = function() {
+function closeChatSearchPanel() {
+  $('chat-search-panel').classList.add('hidden');
+  $('messages-area').querySelectorAll('.msg.csp-highlight').forEach(el => el.classList.remove('csp-highlight'));
+  _cspResults = []; _cspIdx = -1;
+}
+function doChatSearch() {
   const q = $('chat-search-input').value.trim().toLowerCase();
   if (!q) return;
-  const found = S.messages.filter(m => m.text && m.text.toLowerCase().includes(q));
-  if (!found.length) { showToast('Ничего не найдено', 'info'); return; }
-  hide($('modal-chat-search'));
-  const target = $('messages-area').querySelector(`.msg[data-id="${found[found.length - 1].id}"]`);
-  if (target) { target.scrollIntoView({ behavior: 'smooth', block: 'center' }); target.style.outline = '2px solid var(--brand)'; setTimeout(() => target.style.outline = '', 2000); }
-  showToast(`Найдено: ${found.length}`, 'info');
-};
+  _cspResults = S.messages.filter(m => m.text && m.text.toLowerCase().includes(q));
+  $('messages-area').querySelectorAll('.msg.csp-highlight').forEach(el => el.classList.remove('csp-highlight'));
+  if (!_cspResults.length) {
+    $('csp-results').innerHTML = '<p style="padding:12px;color:var(--muted);text-align:center">Ничего не найдено</p>';
+    $('csp-nav').classList.add('hidden');
+    $('csp-counter').textContent = '0/0';
+    return;
+  }
+  // Render results list
+  $('csp-results').innerHTML = _cspResults.map((m, i) =>
+    `<div class="csp-item" data-idx="${i}"><b>${escHTML(m.senderName)}</b> <span class="csp-time">${fmtTime(m.timestamp)}</span><br><span class="csp-text">${escHTML((m.text || '').slice(0, 80))}</span></div>`
+  ).join('');
+  $('csp-results').querySelectorAll('.csp-item').forEach(el => el.onclick = () => navigateCspTo(parseInt(el.dataset.idx)));
+  $('csp-nav').classList.remove('hidden');
+  _cspIdx = _cspResults.length - 1;
+  navigateCspTo(_cspIdx);
+}
+function navigateCspTo(idx) {
+  if (!_cspResults.length) return;
+  _cspIdx = idx;
+  $('csp-counter').textContent = `${idx + 1}/${_cspResults.length}`;
+  $('messages-area').querySelectorAll('.msg.csp-highlight').forEach(el => el.classList.remove('csp-highlight'));
+  const m = _cspResults[idx];
+  const target = $('messages-area').querySelector(`.msg[data-id="${m.id}"]`);
+  if (target) {
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    target.classList.add('csp-highlight');
+  }
+}
+window.doChatSearch = doChatSearch;
 
 /* ══════════════════════════════════════════════════════════════════════
    EDIT GROUP MODAL
    ══════════════════════════════════════════════════════════════════════ */
 function showEditGroupModal() {
-  if (!S.chatId || S.chatObj?.type !== 'group') return;
+  if (!S.chatId || (S.chatObj?.type !== 'group' && S.chatObj?.type !== 'channel')) return;
   $('edit-group-name').value = S.chatObj.displayName || S.chatObj.name || '';
+  if ($('edit-group-desc')) $('edit-group-desc').value = S.chatObj.description || '';
+  // Render members list
+  const membersEl = $('edit-group-members-list');
+  if (membersEl && S.chatObj.membersInfo) {
+    membersEl.innerHTML = S.chatObj.membersInfo.map(m => {
+      const isAdmin = S.chatObj.admins?.includes(m.id);
+      const isOwner = S.chatObj.owner === m.id;
+      const canKick = (S.chatObj.admins?.includes(S.user.id) || S.chatObj.owner === S.user.id) && m.id !== S.user.id;
+      const badge = isOwner ? '<span class="egm-badge owner">Владелец</span>' : isAdmin ? '<span class="egm-badge admin">Админ</span>' : '';
+      const kickBtn = canKick ? `<button class="egm-kick" data-uid="${m.id}" title="Исключить"><i class="fas fa-user-minus"></i></button>` : '';
+      const color = m.avatarColor || '#5865f2';
+      return `<div class="egm-member"><div class="egm-av" style="background:${color}">${(m.displayName || m.username || '?')[0].toUpperCase()}${m.avatar ? `<img src="${escHTML(m.avatar)}">` : ''}</div><div class="egm-info"><span class="egm-name">${escHTML(m.displayName || m.username)}</span>${badge}</div>${kickBtn}</div>`;
+    }).join('');
+    membersEl.querySelectorAll('.egm-kick').forEach(btn => btn.onclick = async () => {
+      try {
+        await api(`/api/chats/${S.chatId}/members/${btn.dataset.uid}`, { method: 'DELETE' });
+        showToast('Участник исключён', 'success');
+        btn.closest('.egm-member').remove();
+      } catch (e) { showToast(e.message, 'error'); }
+    });
+  } else if (membersEl) {
+    membersEl.innerHTML = '<p class="s-hint">Загрузка...</p>';
+  }
   show($('modal-edit-group'));
 }
 window.submitEditGroup = async function() {
   const name = $('edit-group-name').value.trim();
   if (!name) { showToast('Введите название', 'warning'); return; }
+  const description = $('edit-group-desc') ? $('edit-group-desc').value.trim() : undefined;
   try {
-    await api(`/api/chats/${S.chatId}`, { method: 'PUT', body: JSON.stringify({ name }) });
-    showToast('Название изменено', 'success');
+    const body = { name };
+    if (description !== undefined) body.description = description;
+    await api(`/api/chats/${S.chatId}`, { method: 'PUT', body: JSON.stringify(body) });
+    showToast('Группа обновлена', 'success');
     hide($('modal-edit-group'));
     loadChats();
   } catch (e) { showToast(e.message, 'error'); }
@@ -2872,7 +3058,7 @@ function showScheduleModal() {
    ROLES MODAL
    ══════════════════════════════════════════════════════════════════════ */
 function showRolesModal() {
-  if (!S.chatId || S.chatObj?.type !== 'group') return;
+  if (!S.chatId || (S.chatObj?.type !== 'group' && S.chatObj?.type !== 'channel')) return;
   const roles = S.chatObj.roles || {};
   const PERM_LABELS = { write: 'Писать', delete: 'Удалять', pin: 'Закреплять', invite: 'Приглашать', kick: 'Исключать', editGroup: 'Ред. группу', manageRoles: 'Управл. ролями' };
   const list = $('roles-list');
@@ -2905,6 +3091,65 @@ window.deleteRole = async function(name) {
     showToast('Роль удалена', 'success');
   } catch (e) { showToast(e.message, 'error'); }
 };
+
+/* ══════════════════════════════════════════════════════════════════════
+   GROUP INFO PANEL
+   ══════════════════════════════════════════════════════════════════════ */
+function openGroupInfo() {
+  const c = S.chatObj;
+  if (!c) return;
+  const panel = $('group-info-panel');
+  panel.classList.remove('hidden');
+  // Name & description
+  $('gip-name').textContent = c.displayName || c.name || 'Группа';
+  $('gip-desc').textContent = c.description || '';
+  if ($('gip-members-count')) $('gip-members-count').textContent = `${c.members?.length || 0} участников`;
+  // Avatar
+  const av = $('gip-avatar');
+  const name = c.displayName || c.name || '?';
+  const color = c.displayAvatarColor || c.avatarColor || '#5865f2';
+  av.style.background = color;
+  av.innerHTML = name[0].toUpperCase() + ((c.displayAvatar || c.avatar) ? `<img src="${escHTML(c.displayAvatar || c.avatar)}" style="width:100%;height:100%;border-radius:50%;object-fit:cover">` : '');
+  // Media
+  const media = S.messages.filter(m => m.type === 'image' || m.type === 'video');
+  const mediaEl = $('gip-media');
+  const noMedia = $('gip-no-media');
+  if (media.length) {
+    mediaEl.innerHTML = media.slice(-12).map(m => {
+      if (m.type === 'image') return `<img src="${escHTML(m.fileUrl)}" class="gip-media-thumb" onclick="openLightbox('${escHTML(m.fileUrl)}','image')">`;
+      return `<video src="${escHTML(m.fileUrl)}" class="gip-media-thumb" onclick="openLightbox('${escHTML(m.fileUrl)}','video')"></video>`;
+    }).join('');
+    hide(noMedia); show(mediaEl);
+  } else { hide(mediaEl); show(noMedia); }
+  // Files
+  const files = S.messages.filter(m => m.type === 'file');
+  const filesEl = $('gip-files');
+  const noFiles = $('gip-no-files');
+  if (files.length) {
+    filesEl.innerHTML = files.slice(-20).map(m =>
+      `<a href="${escHTML(m.fileUrl)}" target="_blank" class="gip-file-item"><i class="fas fa-file"></i> ${escHTML(m.fileName || 'Файл')}</a>`
+    ).join('');
+    hide(noFiles); show(filesEl);
+  } else { hide(filesEl); show(noFiles); }
+  // Members
+  const membersEl = $('gip-members-list');
+  if (c.membersInfo && c.membersInfo.length) {
+    membersEl.innerHTML = c.membersInfo.map(m => {
+      const isAdmin = c.admins?.includes(m.id);
+      const isOwner = c.owner === m.id;
+      const badge = isOwner ? '<span class="egm-badge owner">Владелец</span>' : isAdmin ? '<span class="egm-badge admin">Админ</span>' : '';
+      const onlineDot = m.online ? '<span class="gip-online-dot"></span>' : '';
+      const col = m.avatarColor || '#5865f2';
+      return `<div class="egm-member" data-uid="${m.id}" style="cursor:pointer"><div class="egm-av" style="background:${col}">${(m.displayName || '?')[0].toUpperCase()}${m.avatar ? `<img src="${escHTML(m.avatar)}">` : ''}</div><div class="egm-info"><span class="egm-name">${escHTML(m.displayName || 'Пользователь')}${onlineDot}</span>${badge}</div></div>`;
+    }).join('');
+    membersEl.querySelectorAll('.egm-member').forEach(el => el.onclick = () => showProfileById(el.dataset.uid));
+  } else {
+    membersEl.innerHTML = '<p class="s-hint">Нет данных</p>';
+  }
+}
+function closeGroupInfo() {
+  $('group-info-panel').classList.add('hidden');
+}
 
 /* ══════════════════════════════════════════════════════════════════════
    DND MODE

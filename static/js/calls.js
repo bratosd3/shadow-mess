@@ -187,23 +187,38 @@ window.callsModule = (() => {
           remoteAudio.autoplay = true;
           remoteAudio.playsInline = true;
           remoteAudio.setAttribute('playsinline', '');
+          remoteAudio.volume = 1.0;
           remoteAudio.style.display = 'none';
           document.body.appendChild(remoteAudio);
         }
         // Create new MediaStream with just audio track for reliable playback on mobile
         const audioOnlyStream = new MediaStream([event.track]);
         remoteAudio.srcObject = audioOnlyStream;
+        remoteAudio.volume = 1.0;
+        remoteAudio.muted = false;
 
         // Force play on mobile — user gesture may be needed
         const tryPlay = () => {
+          if (!remoteAudio.srcObject) return;
           remoteAudio.play().then(() => {
             remoteAudio.volume = 1.0;
-          }).catch(() => {
-            // Retry after short delay
+            console.log('[calls] Remote audio playing');
+          }).catch(e => {
+            console.warn('[calls] Audio play failed, retrying:', e.message);
             setTimeout(tryPlay, 500);
           });
         };
         tryPlay();
+
+        // Also try Web Audio API approach as fallback for mobile
+        try {
+          const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+          if (audioCtx.state === 'suspended') audioCtx.resume();
+          const source = audioCtx.createMediaStreamSource(audioOnlyStream);
+          source.connect(audioCtx.destination);
+        } catch (e) {
+          console.warn('[calls] Web Audio fallback failed:', e.message);
+        }
 
         // iOS: resume AudioContext if suspended
         if (_audioCtx?.state === 'suspended') {
