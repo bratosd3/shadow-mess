@@ -129,6 +129,14 @@ document.addEventListener('error', e => {
 }, true);
 
 /* ── API ────────────────────────────────────────────────────────────── */
+function _fallbackCopy(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text; ta.style.cssText = 'position:fixed;left:-9999px';
+  document.body.appendChild(ta); ta.select();
+  try { document.execCommand('copy'); } catch {}
+  document.body.removeChild(ta);
+}
+
 async function api(url, opts = {}) {
   const headers = { ...(opts.headers || {}) };
   if (S.token) headers['Authorization'] = `Bearer ${S.token}`;
@@ -343,9 +351,29 @@ function initSocket() {
   socket.on('call_ended', () => handleCallEnded());
   socket.on('call_rejected', () => handleCallEnded());
   socket.on('call_busy', () => { Sounds.ringStop(); showToast('Абонент занят', 'warning'); });
-  socket.on('call_accepting', () => { Sounds.ringStop(); });
+  socket.on('call_accepting', () => {
+    Sounds.ringStop();
+    // Reset timer from when call was accepted
+    _callTimerStart = Date.now();
+    $('call-audio-timer').textContent = '0:00';
+  });
   socket.on('call_renegotiate', data => window.callsModule.onRenegotiate ? window.callsModule.onRenegotiate(data) : null);
   socket.on('call_status', data => window.callsModule.onPeerStatus ? window.callsModule.onPeerStatus(data) : null);
+
+  // Group calls
+  socket.on('group_call_joined', data => window.groupCallModule?.onJoined?.(data));
+  socket.on('group_call_user_joined', data => window.groupCallModule?.onUserJoined?.(data));
+  socket.on('group_call_user_left', data => window.groupCallModule?.onUserLeft?.(data));
+  socket.on('group_call_offer', data => window.groupCallModule?.onGroupOffer?.(data));
+  socket.on('group_call_answer', data => window.groupCallModule?.onGroupAnswer?.(data));
+  socket.on('group_call_ice', data => window.groupCallModule?.onGroupIce?.(data));
+  socket.on('group_call_members', data => {
+    window.groupCallModule?.onMembersUpdate?.(data);
+    if (data.members && $('call-audio-timer')) {
+      $('call-audio-timer').textContent = `${data.members.length} участник(ов)`;
+    }
+  });
+  socket.on('group_call_mic_status', data => window.groupCallModule?.onMicStatus?.(data));
 }
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -408,7 +436,9 @@ function initUI() {
 
   // Active call controls
   $('toggle-mute').onclick = () => {
-    const muted = window.callsModule.toggleMute();
+    const muted = window.groupCallModule?.isInGroupCall()
+      ? window.groupCallModule.toggleMute()
+      : window.callsModule.toggleMute();
     $('toggle-mute').classList.toggle('vk-ctrl-off', muted);
     $('toggle-mute').querySelector('i').className = muted ? 'fas fa-microphone-slash' : 'fas fa-microphone';
   };
@@ -517,12 +547,26 @@ function initUI() {
   $$('.mob-item[data-act]').forEach(b => b.onclick = () => {
     const act = b.dataset.act;
     if (act === 'edit-profile') openSettings();
+    else if (act === 'appearance') openMobSub('mob-sub-appearance');
+    else if (act === 'notifications-page') openMobSub('mob-sub-notifications');
+    else if (act === 'privacy-page') openMobSub('mob-sub-privacy');
     else if (act === 'ghost') toggleGhost();
-    else if (act === 'notifications') openSettings();
     else if (act === 'themes') { buildThemeGrid('theme-grid-mob'); show($('modal-themes')); }
     else if (act === 'sessions') openSettings();
+    else if (act === 'shadow-plus') { openSettings(); setTimeout(() => switchSettingsSection('sec-premium'), 100); }
     else if (act === 'logout') logout();
   });
+
+  // Mobile settings back buttons
+  $$('.mob-back-btn[data-back]').forEach(b => b.onclick = () => closeMobSub(b.dataset.back));
+
+  // Mobile settings toggles
+  if ($('mob-set-notifications')) $('mob-set-notifications').onchange = () => saveSettingsToggle('notifications', $('mob-set-notifications').checked);
+  if ($('mob-set-sounds')) $('mob-set-sounds').onchange = () => saveSettingsToggle('soundEnabled', $('mob-set-sounds').checked);
+  if ($('mob-set-online')) $('mob-set-online').onchange = () => saveSettingsToggle('privShowOnline', $('mob-set-online').checked);
+  if ($('mob-set-read')) $('mob-set-read').onchange = () => saveSettingsToggle('privReadReceipts', $('mob-set-read').checked);
+  if ($('mob-set-typing')) $('mob-set-typing').onchange = () => saveSettingsToggle('privShowTyping', $('mob-set-typing').checked);
+  if ($('mob-set-ghost')) $('mob-set-ghost').onchange = () => toggleGhost();
 
   // Contact sub-tabs
   $$('.sub-tab').forEach(b => b.onclick = () => switchContactTab(b.dataset.ct));
@@ -1008,9 +1052,7 @@ function showContextMenu(e, msgId) {
   if (msg.text) items.push({ icon: 'fa-i-cursor', label: 'Выделить текст', action: 'select-text' });
   if (msg.type === 'image' || msg.type === 'file') items.push({ icon: 'fa-download', label: 'Скачать', action: 'download' });
   if (!mine) items.push({ icon: 'fa-flag', label: 'Пожаловаться', action: 'report', danger: true });
-  if (mine) {
-    items.push({ icon: 'fa-trash', label: 'Удалить', action: 'delete', danger: true });
-  }
+  items.push({ icon: 'fa-trash', label: 'Удалить', action: 'delete', danger: true });
 
   const menu = $('ctx-menu');
   $('ctx-items').innerHTML = items.map(it =>
@@ -1021,7 +1063,7 @@ function showContextMenu(e, msgId) {
   menu.style.top = Math.min(e.clientY, window.innerHeight - items.length * 40) + 'px';
   show(menu);
 
-  menu.querySelectorAll('.ctx-item').forEach(el => el.onclick = () => { handleCtxAction(el.dataset.action); hide(menu); });
+  menu.querySelectorAll('.ctx-item').forEach(el => el.onclick = () => { const act = el.dataset.action; handleCtxAction(act); if (act !== 'react') hide(menu); });
 }
 
 function handleCtxAction(action) {
@@ -1035,7 +1077,9 @@ function handleCtxAction(action) {
     show($('reply-bar'));
     $('msg-input').focus();
   } else if (action === 'copy') {
-    navigator.clipboard?.writeText(msg.text || '').then(() => showToast('Скопировано', 'success'));
+    const _txt = msg.text || '';
+    if (navigator.clipboard) { navigator.clipboard.writeText(_txt).then(() => showToast('Скопировано', 'success')).catch(() => { _fallbackCopy(_txt); showToast('Скопировано', 'success'); }); }
+    else { _fallbackCopy(_txt); showToast('Скопировано', 'success'); }
   } else if (action === 'edit') {
     if (msg.senderId !== S.user.id || msg.type !== 'text') return;
     S.editMsg = msg.id;
@@ -1043,7 +1087,6 @@ function handleCtxAction(action) {
     show($('edit-bar'));
     $('msg-input').focus();
   } else if (action === 'delete') {
-    if (msg.senderId !== S.user.id) return;
     api(`/api/messages/${msg.id}`, { method: 'DELETE' }).then(() => {
       S.messages = S.messages.filter(m => m.id !== msg.id);
       renderMessages();
@@ -1071,7 +1114,7 @@ function handleCtxAction(action) {
         .then(() => showToast('Сохранено в Избранное', 'success')).catch(() => showToast('Не удалось сохранить', 'error'));
     } else showToast('Сначала откройте Избранное', 'info');
   } else if (action === 'select-text') {
-    if (msg.text) { navigator.clipboard?.writeText(msg.text); showToast('Текст скопирован', 'success'); }
+    if (msg.text) { if (navigator.clipboard) navigator.clipboard.writeText(msg.text).catch(() => _fallbackCopy(msg.text)); else _fallbackCopy(msg.text); showToast('Текст скопирован', 'success'); }
   } else if (action === 'download') {
     const url = msg.fileUrl || msg.url;
     if (url) { const a = document.createElement('a'); a.href = url; a.download = msg.fileName || 'file'; a.click(); }
@@ -1532,8 +1575,27 @@ function openSettings() {
   fillSettings();
   loadSessions();
   show($('modal-settings'));
-  // Activate first section
   switchSettingsSection('sec-profile');
+}
+
+function openMobSub(id) {
+  $('mob-settings-main').classList.add('hidden');
+  const sub = $(id);
+  if (sub) sub.classList.remove('hidden');
+  // Sync toggle states
+  const s = S.user?.settings || {};
+  if ($('mob-set-notifications')) $('mob-set-notifications').checked = s.notifications !== false;
+  if ($('mob-set-sounds')) $('mob-set-sounds').checked = s.soundEnabled !== false;
+  if ($('mob-set-online')) $('mob-set-online').checked = s.privShowOnline !== false;
+  if ($('mob-set-read')) $('mob-set-read').checked = s.privReadReceipts !== false;
+  if ($('mob-set-typing')) $('mob-set-typing').checked = s.privShowTyping !== false;
+  if ($('mob-set-ghost')) $('mob-set-ghost').checked = S.ghostMode;
+}
+
+function closeMobSub(id) {
+  const sub = $(id);
+  if (sub) sub.classList.add('hidden');
+  $('mob-settings-main').classList.remove('hidden');
 }
 
 function switchSettingsSection(secId) {
@@ -1598,7 +1660,7 @@ function fillSettings() {
     const lockArea = $('premium-lock-area');
     if (lockArea) {
       if (!canUsePremium) {
-        lockArea.innerHTML = '<div class="premium-lock-notice"><i class="fas fa-lock"></i> Доступно для Premium-подписчиков. Все функции видны, но активируются с Premium.</div>';
+        lockArea.innerHTML = '<div class="premium-lock-notice"><i class="fas fa-lock"></i> Доступно для Shadow+. Все функции видны, но активируются с Shadow+.</div>';
       } else {
         lockArea.innerHTML = '';
       }
@@ -1611,17 +1673,17 @@ function fillSettings() {
     if (S.user?.superUser) {
       psc.querySelector('.psc-icon').textContent = '👑';
       psc.querySelector('.psc-role').textContent = 'Super User';
-      psc.querySelector('.psc-desc').textContent = 'У вас есть все Premium функции и эксклюзивные возможности';
+      psc.querySelector('.psc-desc').textContent = 'У вас есть все Shadow+ функции и эксклюзивные возможности';
       psc.className = 'premium-status-card psc-super';
     } else if (S.user?.premium || S.user?.premiumFree) {
-      psc.querySelector('.psc-icon').textContent = '⭐';
-      psc.querySelector('.psc-role').textContent = 'Premium';
-      psc.querySelector('.psc-desc').textContent = 'Вам доступны все Premium функции';
+      psc.querySelector('.psc-icon').textContent = '💎';
+      psc.querySelector('.psc-role').textContent = 'Shadow+';
+      psc.querySelector('.psc-desc').textContent = 'Вам доступны все Shadow+ функции';
       psc.className = 'premium-status-card psc-premium';
     } else {
-      psc.querySelector('.psc-icon').textContent = '👤';
+      psc.querySelector('.psc-icon').textContent = '👻';
       psc.querySelector('.psc-role').textContent = 'Обычный пользователь';
-      psc.querySelector('.psc-desc').textContent = 'Активируйте Premium для дополнительных функций';
+      psc.querySelector('.psc-desc').textContent = 'Активируйте Shadow+ для расширенных возможностей';
       psc.className = 'premium-status-card';
     }
   }
@@ -1737,7 +1799,7 @@ async function toggleGhost() {
 function applyTheme(theme) {
   document.body.className = document.body.className.replace(/theme-\S+/g, '');
   // Clear custom CSS variables
-  ['--bg-pri','--bg-dark','--bg-sec','--brand','--bg-hover','--bg-active','--bg-input'].forEach(v => document.documentElement.style.removeProperty(v));
+  ['--bg-pri','--bg-dark','--bg-sec','--brand','--bg-hover','--bg-active','--bg-input','--bg-float','--text','--text-muted','--head','--head2'].forEach(v => document.documentElement.style.removeProperty(v));
   if (theme === 'custom') {
     const ct = S.user?.settings?.customTheme;
     if (ct) {
@@ -1760,10 +1822,11 @@ function buildThemeGrid(containerId) {
   const grid = $(containerId);
   if (!grid) return;
   const isLarge = grid.classList.contains('theme-grid-large');
+  const names = {default:'По умолч.',midnight:'Полночь',forest:'Лес',crimson:'Кармин',purple:'Фиалка',ocean:'Океан',sunset:'Закат',nord:'Nord',monokai:'Monokai',dracula:'Dracula',solarized:'Solarized',onedark:'One Dark',gruvbox:'Gruvbox',tokyo:'Токио',material:'Material',catppuccin:'Catppuccin',light:'Светлая'};
   grid.innerHTML = Object.entries(THEMES).map(([name, t]) =>
     `<div class="theme-swatch${name === (S.user?.settings?.theme || 'default') ? ' active' : ''}" data-theme="${name}" style="background:${t.bg}">
-      ${isLarge ? `<div class="ts-preview"><div class="ts-sb" style="background:${t.dark}"></div><div class="ts-pnl" style="background:${t.sec}"></div><div class="ts-ch"><div class="ts-m1" style="background:${t.sec}"></div><div class="ts-m2" style="background:${t.brand}"></div></div></div>` : ''}
-      <span class="ts-name">${name}</span>
+      ${isLarge ? `<div class="ts-preview"><div class="ts-sb" style="background:${t.dark}"></div><div class="ts-pnl" style="background:${t.sec}"><div class="ts-pnl-item"></div><div class="ts-pnl-item"></div><div class="ts-pnl-item"></div></div><div class="ts-ch"><div class="ts-ch-header"></div><div class="ts-m1" style="background:${t.sec}"></div><div class="ts-m2" style="background:${t.brand}"></div></div></div>` : `<div class="ts-preview"><div class="ts-sb" style="background:${t.dark}"></div><div class="ts-pnl" style="background:${t.sec}"></div><div class="ts-ch"><div class="ts-m1" style="background:${t.sec}"></div><div class="ts-m2" style="background:${t.brand}"></div></div></div>`}
+      <span class="ts-name">${names[name] || name}</span>
     </div>`
   ).join('');
   grid.querySelectorAll('.theme-swatch').forEach(s => s.onclick = async () => {
@@ -2033,33 +2096,24 @@ const PREMIUM_THEMES = {
 function initPremiumThemes() {
   const grid = $('premium-themes-grid');
   if (!grid) return;
+  const names = {neon:'Неон',sakura:'Сакура',cyber:'Кибер',golden:'Золото',aurora:'Аврора',vampire:'Вампир'};
   grid.innerHTML = Object.entries(PREMIUM_THEMES).map(([name, t]) =>
     `<div class="theme-swatch${name === (S.user?.settings?.theme || '') ? ' active' : ''}" data-theme="${name}" style="background:${t.bg}">
-      <div class="ts-preview"><div class="ts-sb" style="background:${t.dark}"></div><div class="ts-pnl" style="background:${t.sec}"></div><div class="ts-ch"><div class="ts-m1" style="background:${t.sec}"></div><div class="ts-m2" style="background:${t.brand}"></div></div></div>
-      <span class="ts-name">💎 ${name}</span>
+      <div class="ts-preview"><div class="ts-sb" style="background:${t.dark}"></div><div class="ts-pnl" style="background:${t.sec}"><div class="ts-pnl-item"></div><div class="ts-pnl-item"></div><div class="ts-pnl-item"></div></div><div class="ts-ch"><div class="ts-ch-header"></div><div class="ts-m1" style="background:${t.sec}"></div><div class="ts-m2" style="background:${t.brand}"></div></div></div>
+      <span class="ts-name">💎 ${names[name] || name}</span>
     </div>`
   ).join('');
   grid.querySelectorAll('.theme-swatch').forEach(s => s.onclick = async () => {
     const canUse = S.user?.premium || S.user?.superUser || S.user?.premiumFree;
-    if (!canUse) { showToast('Эксклюзивная тема доступна только для Premium', 'warning'); return; }
-    // Apply as custom theme
-    const t = PREMIUM_THEMES[s.dataset.theme];
-    document.body.className = document.body.className.replace(/theme-\S+/g, '');
-    document.body.classList.add('theme-custom');
-    document.documentElement.style.setProperty('--bg-pri', t.bg);
-    document.documentElement.style.setProperty('--bg-dark', t.dark);
-    document.documentElement.style.setProperty('--bg-sec', t.sec);
-    document.documentElement.style.setProperty('--brand', t.brand);
-    document.documentElement.style.setProperty('--bg-hover', adjustColor(t.bg, 15));
-    document.documentElement.style.setProperty('--bg-active', adjustColor(t.bg, 30));
-    document.documentElement.style.setProperty('--bg-input', adjustColor(t.dark, 15));
+    if (!canUse) { showToast('Эксклюзивная тема доступна только для Shadow+', 'warning'); return; }
+    const themeName = s.dataset.theme;
+    applyTheme(themeName);
     document.querySelectorAll('.theme-swatch').forEach(x => x.classList.remove('active'));
     s.classList.add('active');
-    showToast(`Тема "${s.dataset.theme}" применена`, 'success');
+    const names = {neon:'Неон',sakura:'Сакура',cyber:'Кибер',golden:'Золото',aurora:'Аврора',vampire:'Вампир'};
+    showToast(`Тема «${names[themeName] || themeName}» применена`, 'success');
     try {
-      await api('/api/me', { method: 'PUT', body: JSON.stringify({ settings: { theme: 'custom', customTheme: { bg: t.bg, dark: t.dark, sec: t.sec, brand: t.brand } } }) });
-      S.user.settings.theme = 'custom';
-      S.user.settings.customTheme = { bg: t.bg, dark: t.dark, sec: t.sec, brand: t.brand };
+      S.user = await api('/api/me', { method: 'PUT', body: JSON.stringify({ settings: { theme: themeName } }) });
     } catch {}
   });
 }
@@ -2181,7 +2235,31 @@ function closeLightbox() {
 let _incomingCallData = null;
 
 function startCallAction(type) {
-  if (!S.chatObj || S.chatObj.type !== 'private') { showToast('Звонки только в личных чатах', 'warning'); return; }
+  if (!S.chatObj) return;
+
+  if (S.chatObj.type === 'group') {
+    // Group call
+    Sounds.ringStart();
+    _callTimerStart = Date.now();
+    if (window._callTimerInterval) clearInterval(window._callTimerInterval);
+    window._callTimerInterval = setInterval(() => {
+      const sec = Math.floor((Date.now() - _callTimerStart) / 1000);
+      const m = Math.floor(sec / 60), s = sec % 60;
+      $('call-audio-timer').textContent = `${m}:${String(s).padStart(2, '0')}`;
+    }, 1000);
+    const overlay = $('active-call-overlay');
+    show(overlay);
+    $('call-audio-name').textContent = S.chatObj.name || 'Групповой звонок';
+    const av = $('call-audio-avatar');
+    av.style.background = S.chatObj.avatarColor || AVATARS[0];
+    av.innerHTML = (S.chatObj.name || '?')[0].toUpperCase();
+    $('call-audio-timer').textContent = 'Подключение...';
+    window.groupCallModule.joinGroupCall(S.chatId);
+    setTimeout(() => { Sounds.ringStop(); }, 3000);
+    return;
+  }
+
+  // Private call
   const peerId = getPartner()?.id;
   if (!peerId) return;
   Sounds.ringStart();
@@ -2219,7 +2297,21 @@ function acceptIncoming() {
   Sounds.incomingStop();
   Sounds.ringStop();
   hide($('incoming-call-overlay'));
-  show($('active-call-overlay'));
+  // Reset active call overlay controls visibility
+  const overlay = $('active-call-overlay');
+  show(overlay);
+  // Ensure controls are visible
+  const ctrls = overlay.querySelector('.vk-call-controls');
+  if (ctrls) ctrls.style.display = '';
+  const audioLayer = $('call-audio-layer');
+  if (audioLayer) audioLayer.style.display = '';
+  // Reset control states
+  $('toggle-mute').classList.remove('vk-ctrl-off');
+  $('toggle-mute').querySelector('i').className = 'fas fa-microphone';
+  $('toggle-video').classList.add('vk-ctrl-off');
+  $('toggle-video').querySelector('i').className = 'fas fa-video-slash';
+  $('toggle-screen').classList.remove('sharing');
+
   $('call-audio-name').textContent = _incomingCallData.fromName || 'Звонок';
   const av = $('call-audio-avatar');
   av.style.background = _incomingCallData.fromAvatarColor || AVATARS[0];
@@ -2229,6 +2321,7 @@ function acceptIncoming() {
   window.callsModule.acceptCall(_incomingCallData.from, _incomingCallData.offer, _incomingCallData.callType);
   _callTimerStart = Date.now();
   if (window._callTimerInterval) clearInterval(window._callTimerInterval);
+  $('call-audio-timer').textContent = '0:00';
   window._callTimerInterval = setInterval(() => {
     const sec = Math.floor((Date.now() - _callTimerStart) / 1000);
     const m = Math.floor(sec / 60), s = sec % 60;
@@ -2249,12 +2342,29 @@ function handleCallEnded() {
   Sounds.ringStop();
   Sounds.incomingStop();
   Sounds.callEnd();
-  window.callsModule.endCall();
+  // End private or group call
+  if (window.groupCallModule?.isInGroupCall()) {
+    window.groupCallModule.leaveGroupCall();
+  } else {
+    window.callsModule.endCall();
+  }
   hide($('active-call-overlay'));
   hide($('incoming-call-overlay'));
   hide($('call-mini'));
   _incomingCallData = null;
   if (window._callTimerInterval) { clearInterval(window._callTimerInterval); window._callTimerInterval = null; }
+  _callTimerStart = 0;
+  // Reset call control states
+  $('toggle-mute').classList.remove('vk-ctrl-off');
+  $('toggle-mute').querySelector('i').className = 'fas fa-microphone';
+  $('toggle-video').classList.add('vk-ctrl-off');
+  $('toggle-video').querySelector('i').className = 'fas fa-video-slash';
+  $('toggle-screen').classList.remove('sharing');
+  // Emit end to peer (private call only)
+  if (S.socket && S.chatObj && S.chatObj.type === 'private') {
+    const peerId = getPartner()?.id;
+    if (peerId) S.socket.emit('call_end', { to: peerId });
+  }
 }
 
 /* ── Call minimize/expand ──────────────────────────────────────────── */

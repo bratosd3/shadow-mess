@@ -1491,8 +1491,11 @@ app.put('/api/messages/:id', authMiddleware, async (req, res) => {
 
 // ── Delete message ────────────────────────────────────────────────────────
 app.delete('/api/messages/:id', authMiddleware, async (req, res) => {
-  const msg = await Message.findOneAndDelete({ _id: req.params.id, senderId: req.user.id });
-  if (!msg) return res.status(404).json({ error: 'Not found or forbidden' });
+  const msg = await Message.findById(req.params.id);
+  if (!msg) return res.status(404).json({ error: 'Not found' });
+  const chat = await Chat.findById(msg.chatId);
+  if (!chat || !chat.members.map(String).includes(req.user.id)) return res.status(403).json({ error: 'Forbidden' });
+  await Message.deleteOne({ _id: req.params.id });
 
   io.to(msg.chatId).emit('message_deleted', { messageId: msg._id, chatId: msg.chatId });
   res.json({ ok: true });
