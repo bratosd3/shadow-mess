@@ -98,7 +98,7 @@ SUPER_FEATURES = {
     "noLimits":  "♾  Без ограничений",
 }
 
-NAV = ["dashboard", "users", "premium", "tools", "settings"]
+NAV = ["dashboard", "users", "premium", "downloads", "tools", "settings"]
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -165,12 +165,32 @@ class UsersPage(ScrollableContainer):
                     yield Label(f"{label}:")
                     yield Input(id=f"feat-{field}", placeholder="...")
             yield Button("💾  Сохранить функции", id="btn-save-feat", variant="success")
+        yield Rule()
+        yield Static(
+            "[bold]🎚️  Доступ к Premium-фич��м (per-user)[/]",
+            id="feat-config-title",
+        )
+        yield Static(
+            "[dim]← Выберите пользователя и нажмите «🎛️ Функции»[/]",
+            id="feat-config-hint",
+        )
+        with Container(id="feat-config-form"):
+            for key, label in PREM_FEATURES.items():
+                with Horizontal(classes="switch-row"):
+                    yield Switch(value=True, id=f"ufc-{key}")
+                    yield Label(label)            yield Rule()
+            yield Static("[bold yellow]Super User функции[/]")
+            for key, label in SUPER_FEATURES.items():
+                with Horizontal(classes="switch-row"):
+                    yield Switch(value=True, id=f"ufc-s-{key}")
+                    yield Label(label)            yield Button("💾  Сохранить доступ", id="btn-save-feat-config", variant="success")
 
     def on_mount(self):
         t = self.query_one("#users-table", DataTable)
         t.add_columns("#", "Имя", "@username", "Роль", "Био", "Дата")
         t.cursor_type = "row"
         self.query_one("#feat-form").display = False
+        self.query_one("#feat-config-form").display = False
         self._load()
 
     def _st(self, msg):
@@ -248,7 +268,21 @@ class UsersPage(ScrollableContainer):
             self.query_one(f"#feat-{field}", Input).value = u.get(field) or ""
         self.query_one("#feat-form").display = True
         self.query_one("#feat-hint").display = False
-        self._st(f"[cyan]Редактирование функций: @{u.get('username', '?')}[/]")
+        # Per-user feature config switches
+        cfg = u.get("premiumFeaturesConfig") or {}
+        for key in PREM_FEATURES:
+            try:
+                self.query_one(f"#ufc-{key}", Switch).value = cfg.get(key, True)
+            except Exception:
+                pass
+        for key in SUPER_FEATURES:
+            try:
+                self.query_one(f"#ufc-s-{key}", Switch).value = cfg.get(key, True)
+            except Exception:
+                pass
+        self.query_one("#feat-config-form").display = True
+        self.query_one("#feat-config-hint").display = False
+        self._st(f"[cyan]Редактирование: @{u.get('username', '?')}[/]")
 
     @on(Button.Pressed, "#btn-save-feat")
     def _on_save_feat(self):
@@ -260,6 +294,27 @@ class UsersPage(ScrollableContainer):
         r = api("PUT", f"/api/admin/users/{self._selected_user['_id']}/premium-features", data)
         if "_error" not in r:
             self._st(f"[green]✓ Функции сохранены для @{self._selected_user.get('username', '?')}[/]")
+        else:
+            self._st(f"[red]✗ {r['_error']}[/]")
+
+    @on(Button.Pressed, "#btn-save-feat-config")
+    def _on_save_feat_config(self):
+        if not self._selected_user:
+            return
+        data = {}
+        for key in PREM_FEATURES:
+            try:
+                data[key] = self.query_one(f"#ufc-{key}", Switch).value
+            except Exception:
+                pass
+        for key in SUPER_FEATURES:
+            try:
+                data[key] = self.query_one(f"#ufc-s-{key}", Switch).value
+            except Exception:
+                pass
+        r = api("PUT", f"/api/admin/users/{self._selected_user['_id']}/feature-config", data)
+        if "_error" not in r:
+            self._st(f"[green]✓ Доступ к функциям сохранён для @{self._selected_user.get('username', '?')}[/]")
         else:
             self._st(f"[red]✗ {r['_error']}[/]")
 
@@ -388,6 +443,59 @@ class PremiumPage(ScrollableContainer):
         r = api("PUT", "/api/admin/features", {"premium": prem, "super": sup})
         self._st("[green]✓ Настройки функций сохранены[/]" if "_error" not in r
                  else f"[red]✗ {r['_error']}[/]")
+
+
+# ═══════════════════════════════════════════════════════════════
+#  DOWNLOADS (links management)
+# ═══════════════════════════════════════════════════════════════
+
+class DownloadsPage(ScrollableContainer):
+    def compose(self) -> ComposeResult:
+        yield Static("📥  [bold]Ссылки для скачивания[/]", classes="page-title")
+        yield Static("", id="dl-status")
+        yield Static("[bold #b088ff]Настройте ссылки для кнопок скачивания на сайте[/]\n")
+        with Horizontal(classes="feature-row"):
+            yield Label("🤖 Android APK:")
+            yield Input(id="inp-dl-android", placeholder="https://...")
+        with Horizontal(classes="feature-row"):
+            yield Label("🖥  Windows EXE:")
+            yield Input(id="inp-dl-windows", placeholder="https://...")
+        with Horizontal(classes="btn-row"):
+            yield Button("💾  Сохранить ссылки", id="btn-save-dl", variant="primary")
+            yield Button("🔄  Загрузить", id="btn-load-dl", variant="success")
+        yield Rule()
+        yield Static("[dim]Эти ссылки будут отображаться на странице входа и в настройках[/]")
+
+    def on_mount(self):
+        self._load()
+
+    def _st(self, msg):
+        self.query_one("#dl-status", Static).update(msg)
+
+    def _load(self):
+        r = api("GET", "/api/admin/download-links")
+        if isinstance(r, dict) and "_error" not in r:
+            self.query_one("#inp-dl-android", Input).value = r.get("android", "")
+            self.query_one("#inp-dl-windows", Input).value = r.get("windows", "")
+            self._st("[green]✓ Загружено[/]")
+        else:
+            self._st("[dim]Используются ссылки по умолчанию[/]")
+
+    @on(Button.Pressed, "#btn-load-dl")
+    def _on_load(self):
+        self._load()
+
+    @on(Button.Pressed, "#btn-save-dl")
+    def _on_save(self):
+        data = {
+            "android": self.query_one("#inp-dl-android", Input).value.strip(),
+            "windows": self.query_one("#inp-dl-windows", Input).value.strip(),
+        }
+        r = api("PUT", "/api/admin/download-links", data)
+        if "_error" not in r:
+            self._st("[green]✓ Ссылки сохранены[/]")
+        else:
+            self._st(f"[red]✗ {r['_error']}[/]")
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -539,29 +647,85 @@ class SettingsPage(ScrollableContainer):
 
 class ShadowAdmin(App):
     TITLE = "Shadow Messenger — Admin Console"
-    SUB_TITLE = "v4.9 Interactive TUI"
+    SUB_TITLE = "v5.2 Interactive TUI"
 
     CSS = """
+    Screen {
+        background: #0a0a16;
+    }
+    Header {
+        background: #12102a;
+        color: #b088ff;
+        text-style: bold;
+    }
+    Footer {
+        background: #12102a;
+        color: #7c6aad;
+    }
     #main {
         height: 1fr;
     }
     #sidebar {
-        width: 30;
-        background: $surface;
-        border-right: solid $primary;
-        padding: 1;
+        width: 34;
+        background: #0e0c1e;
+        border-right: vkey #2a1f5e;
+        padding: 1 1;
     }
     .nav-btn {
         width: 100%;
         margin: 0 0 1 0;
+        background: #16133a;
+        color: #8a80c0;
+        border: none;
+        text-style: bold;
+    }
+    .nav-btn:hover {
+        background: #221e55;
+        color: #d0c8ff;
+    }
+    .nav-btn.-active {
+        background: #7c3aed;
+        color: #fff;
+        text-style: bold;
+    }
+    Button.-primary-variant {
+        background: #7c3aed;
+        color: #fff;
+    }
+    Button.-primary-variant:hover {
+        background: #9055ff;
+    }
+    Button.-success-variant {
+        background: #10b981;
+        color: #fff;
+    }
+    Button.-success-variant:hover {
+        background: #34d399;
+    }
+    Button.-warning-variant {
+        background: #f59e0b;
+        color: #1a1a2e;
+        text-style: bold;
+    }
+    Button.-error-variant {
+        background: #ef4444;
+        color: #fff;
+    }
+    Button.-error-variant:hover {
+        background: #f87171;
     }
     #pages {
         width: 1fr;
-        padding: 1 2;
+        padding: 1 3;
+        background: #0a0a16;
     }
     .page-title {
         text-style: bold;
+        color: #b088ff;
         margin-bottom: 1;
+        padding: 0 0 1 0;
+        border: none none heavy none;
+        border-subtitle-color: #2a1f5e;
     }
     .btn-row {
         height: auto;
@@ -572,23 +736,58 @@ class ShadowAdmin(App):
     }
     .switch-row {
         height: 3;
+        background: #13112a;
+        margin: 0 0 0 0;
+        padding: 0 1;
+        border: solid #1e1a40;
+    }
+    .switch-row:hover {
+        background: #1c1840;
     }
     .switch-row > Label {
         padding: 1 0 0 1;
+        color: #c0b8e8;
+    }
+    Switch {
+        border: none;
+    }
+    Switch.-on > .switch--slider {
+        color: #7c3aed;
     }
     .feature-row {
         height: 3;
+        margin: 0 0 0 0;
     }
     .feature-row > Label {
-        width: 22;
+        width: 24;
         padding: 1 0 0 0;
+        color: #9088c0;
     }
     .feature-row > Input {
         width: 1fr;
     }
+    Input {
+        background: #16133a;
+        border: tall #2a1f5e;
+        color: #e0d8ff;
+    }
+    Input:focus {
+        border: tall #7c3aed;
+    }
     DataTable {
-        height: 14;
+        height: 16;
         margin-bottom: 1;
+        background: #0e0c1e;
+        border: round #2a1f5e;
+    }
+    DataTable > .datatable--header {
+        background: #16133a;
+        color: #b088ff;
+        text-style: bold;
+    }
+    DataTable > .datatable--cursor {
+        background: #7c3aed;
+        color: #fff;
     }
     .tool-btn {
         margin: 0 0 1 0;
@@ -596,11 +795,25 @@ class ShadowAdmin(App):
     }
     Rule {
         margin: 1 0;
+        color: #2a1f5e;
     }
     #feat-form {
         margin-top: 1;
         padding: 1;
-        border: solid $primary;
+        background: #13112a;
+        border: round #2a1f5e;
+    }
+    #feat-config-form {
+        margin-top: 1;
+        padding: 1;
+        background: #13112a;
+        border: round #2a1f5e;
+    }
+    Static {
+        color: #c0b8e8;
+    }
+    Label {
+        color: #9088c0;
     }
     """
 
@@ -609,24 +822,27 @@ class ShadowAdmin(App):
         Binding("1", "go('dashboard')", "Панель", show=False),
         Binding("2", "go('users')", "Польз.", show=False),
         Binding("3", "go('premium')", "Premium", show=False),
-        Binding("4", "go('tools')", "Инстр.", show=False),
-        Binding("5", "go('settings')", "Настр.", show=False),
+        Binding("4", "go('downloads')", "Загр.", show=False),
+        Binding("5", "go('tools')", "Инстр.", show=False),
+        Binding("6", "go('settings')", "Настр.", show=False),
     ]
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
         with Horizontal(id="main"):
             with Vertical(id="sidebar"):
-                yield Static("[bold magenta]🌌 Shadow Admin[/]\n")
+                yield Static("[bold #b088ff]🌌 Shadow Admin[/]\n[dim #6c5aad]━━━━━━━━━━━━━━━━━━━━━━━━[/]\n")
                 yield Button("📊  Панель", id="nav-dashboard", classes="nav-btn", variant="primary")
                 yield Button("👥  Пользователи", id="nav-users", classes="nav-btn")
                 yield Button("⭐  Premium", id="nav-premium", classes="nav-btn")
+                yield Button("📥  Загрузки", id="nav-downloads", classes="nav-btn")
                 yield Button("🔧  Инструменты", id="nav-tools", classes="nav-btn")
                 yield Button("⚙️  Настройки", id="nav-settings", classes="nav-btn")
             with ContentSwitcher(id="pages", initial="page-dashboard"):
                 yield DashboardPage(id="page-dashboard")
                 yield UsersPage(id="page-users")
                 yield PremiumPage(id="page-premium")
+                yield DownloadsPage(id="page-downloads")
                 yield ToolsPage(id="page-tools")
                 yield SettingsPage(id="page-settings")
         yield Footer()
@@ -652,6 +868,10 @@ class ShadowAdmin(App):
     @on(Button.Pressed, "#nav-premium")
     def _n3(self):
         self._switch("premium")
+
+    @on(Button.Pressed, "#nav-downloads")
+    def _n3d(self):
+        self._switch("downloads")
 
     @on(Button.Pressed, "#nav-tools")
     def _n4(self):

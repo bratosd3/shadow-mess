@@ -68,6 +68,7 @@ const userSchema = new mongoose.Schema({
   customStatus:  { type: String, default: '' },
   customStatusEmoji: { type: String, default: '' },
   customStatusColor: { type: String, default: '' },
+  premiumFeaturesConfig: { type: mongoose.Schema.Types.Mixed, default: {} },
   dndMode:       { type: Boolean, default: false },
   dndAutoReply:  { type: String, default: '' },
   socialLinks:   { type: mongoose.Schema.Types.Mixed, default: {} },
@@ -370,6 +371,39 @@ async function sendPushForMessage(msg, chat) {
 
 // ── Root ──────────────────────────────────────────────────────────────────
 app.get('/', (req, res) => res.sendFile(path.join(STATIC_DIR, 'index.html')));
+
+// Desktop app version check
+app.get('/api/desktop-version', (req, res) => {
+  res.json({ version: '5.1.0', downloadUrl: 'https://shadow-mess.onrender.com/downloads/ShadowMessengerSetup.exe' });
+});
+// Mobile APK version check
+app.get('/api/mobile-version', (req, res) => {
+  res.json({ version: '1.0.0', downloadUrl: 'https://shadow-mess.onrender.com/downloads/ShadowMessenger.apk' });
+});
+
+// Download links (configurable from admin panel)
+app.get('/api/download-links', async (req, res) => {
+  const cfg = await Config.findById('downloadLinks');
+  const defaults = {
+    android: 'https://shadow-mess.onrender.com/downloads/ShadowMessenger.apk',
+    windows: 'https://shadow-mess.onrender.com/downloads/ShadowMessengerSetup.exe'
+  };
+  res.json(cfg?.value || defaults);
+});
+app.get('/api/admin/download-links', adminKeyMiddleware, async (req, res) => {
+  const cfg = await Config.findById('downloadLinks');
+  res.json(cfg?.value || { android: '', windows: '' });
+});
+app.put('/api/admin/download-links', adminKeyMiddleware, async (req, res) => {
+  const { android, windows } = req.body;
+  await Config.findOneAndUpdate(
+    { _id: 'downloadLinks' },
+    { value: { android: android || '', windows: windows || '' } },
+    { upsert: true }
+  );
+  res.json({ android, windows });
+});
+
 app.get('/manifest.json', (req, res) => res.sendFile(path.join(STATIC_DIR, 'manifest.json')));
 app.get('/sw.js', (req, res) => {
   res.setHeader('Service-Worker-Allowed', '/');
@@ -471,7 +505,7 @@ app.delete('/api/admin/users', adminKeyMiddleware, async (req, res) => {
 
 // Список пользователей (для admin panel)
 app.get('/api/admin/users', adminKeyMiddleware, async (req, res) => {
-  const users = await User.find({}, 'username displayName createdAt lastSeen bio superUser premium premiumEmoji premiumBadge premiumNameColor').sort({ createdAt: -1 });
+  const users = await User.find({}, 'username displayName createdAt lastSeen bio superUser premium premiumEmoji premiumBadge premiumNameColor premiumFeaturesConfig').sort({ createdAt: -1 });
   res.json(users);
 });
 
@@ -586,6 +620,21 @@ app.put('/api/admin/users/:id/premium-features', adminKeyMiddleware, async (req,
   }
   await user.save();
   res.json(user.toJSON());
+});
+
+// Per-user premium feature config (individual feature toggles)
+app.put('/api/admin/users/:id/feature-config', adminKeyMiddleware, async (req, res) => {
+  const user = await User.findById(req.params.id);
+  if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
+  const allowedFeatures = ['ghost','emoji','badge','nameColor','exclusiveThemes','customStatus','notifSounds','socialLinks','banner','translate','customTheme','disappearing','fonts','bigUpload','broadcast','announce','moderate','seeHidden','animation','priority','noLimits'];
+  const config = user.premiumFeaturesConfig || {};
+  for (const key of allowedFeatures) {
+    if (req.body[key] !== undefined) config[key] = !!req.body[key];
+  }
+  user.premiumFeaturesConfig = config;
+  user.markModified('premiumFeaturesConfig');
+  await user.save();
+  res.json({ id: user._id, username: user.username, premiumFeaturesConfig: user.premiumFeaturesConfig });
 });
 
 // Глобальная настройка Premium (включить/отключить для всего сервера)
@@ -2020,6 +2069,26 @@ io.on('connection', async (socket) => {
     room.add(userId);
     const caller = await User.findById(userId);
     const callerInfo = { id: userId, name: caller?.displayName || '', avatarColor: caller?.avatarColor || '#333' };
+
+    // Notify all chat members who are NOT in the call yet about the incoming group call
+    try {
+      const chat = await Chat.findById(chatId);
+      if (chat && chat.members) {
+        chat.members.forEach(memberId => {
+          if (memberId !== userId && !room.has(memberId)) {
+            const sockets = onlineUsers.get(memberId);
+            if (sockets) sockets.forEach(sid => io.to(sid).emit('group_call_incoming', {
+              chatId,
+              chatName: chat.name || 'Группа',
+              chatAvatarColor: chat.avatarColor || '#333',
+              callerName: callerInfo.name,
+              callerAvatarColor: callerInfo.avatarColor
+            }));
+          }
+        });
+      }
+    } catch (e) { console.error('group_call_incoming notify error:', e); }
+
     // Уведомляем всех существующих участников о новом
     existingMembers.forEach(memberId => {
       const sockets = onlineUsers.get(memberId);

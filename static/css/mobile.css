@@ -1,0 +1,603 @@
+/* ═══════════════════════════════════════════════════════
+   Shadow Messenger — Mobile Settings (Telegram-style)
+   Separate file for mobile settings overrides
+   ═══════════════════════════════════════════════════════ */
+
+/* Force Telegram colors only inside .tg-style on mobile */
+@media (max-width: 768px) {
+  .tg-style {
+    background: #17212B !important;
+    padding: 0 !important;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    min-height: 100%;
+  }
+
+  .tg-mob-header {
+    display: flex;
+    align-items: center;
+    height: 60px;
+    padding: 0 16px;
+    border-bottom: 1px solid #2B3A4A;
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    background: #17212B !important;
+  }
+
+  .tg-mob-title {
+    flex: 1;
+    text-align: center;
+    font-size: 18px;
+    font-weight: 700;
+    color: #fff !important;
+  }
+
+  .tg-mob-search {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff !important;
+    font-size: 22px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    border-radius: 50%;
+    transition: background .15s;
+  }
+
+  .tg-mob-search:active {
+    background: rgba(255,255,255,.08);
+  }
+
+  .tg-mob-card {
+    background: #1E2A3A !important;
+    margin-bottom: 24px;
+    overflow: hidden;
+    border-radius: 0 !important;
+  }
+
+  /* Profile row */
+  .tg-mob-profile {
+    display: flex;
+    align-items: center;
+    height: 80px;
+    padding: 0 16px;
+    cursor: pointer;
+    transition: background .15s;
+  }
+
+  .tg-mob-profile:active {
+    background: #253648;
+  }
+
+  .tg-mob-avatar {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: #3D4C5E !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    font-weight: 700;
+    color: #fff !important;
+    overflow: hidden;
+    flex-shrink: 0;
+    position: relative;
+  }
+
+  .tg-mob-avatar img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .tg-mob-pinfo {
+    display: flex;
+    flex-direction: column;
+    margin-left: 12px;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .tg-mob-pname {
+    font-size: 16px;
+    font-weight: 700;
+    color: #fff !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .tg-mob-pphone {
+    font-size: 14px;
+    color: #8E9AA6 !important;
+    margin-top: 2px;
+  }
+
+  .tg-mob-arr {
+    color: #8E9AA6 !important;
+    font-size: 16px;
+    flex-shrink: 0;
+    margin-left: 8px;
+  }
+
+  /* Menu rows */
+  .tg-mob-row {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    height: 50px;
+    padding: 0 16px;
+    background: none !important;
+    border: none;
+    cursor: pointer;
+    transition: background .15s;
+    position: relative;
+    color: #fff !important;
+    font-size: 16px;
+    text-align: left;
+  }
+
+  .tg-mob-row:active {
+    background: #253648 !important;
+  }
+
+  .tg-mob-row > i:first-child {
+    width: 22px;
+    text-align: center;
+    color: #8E9AA6 !important;
+    font-size: 22px;
+    flex-shrink: 0;
+    margin-right: 12px;
+  }
+
+  .tg-mob-row > span {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .tg-mob-row + .tg-mob-row::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 52px;
+    right: 0;
+    height: 1px;
+    background: #2B3A4A !important;
+  }
+
+  .tg-mob-value {
+    color: #8E9AA6 !important;
+    font-size: 14px;
+    margin-right: 8px;
+    flex-shrink: 0;
+  }
+
+  /* Logout */
+  .tg-mob-logout {
+    justify-content: center;
+  }
+
+  .tg-mob-logout > span {
+    flex: none;
+    color: #E95658 !important;
+    font-weight: 700;
+    font-size: 16px;
+  }
+
+  /* Toggle */
+  .tg-toggle {
+    position: relative;
+    width: 50px;
+    height: 28px;
+    flex-shrink: 0;
+  }
+
+  .tg-toggle input { display: none; }
+
+  .tg-toggle-track {
+    position: absolute;
+    inset: 0;
+    border-radius: 14px;
+    background: #3D4C5E !important;
+    transition: background .2s;
+    cursor: pointer;
+  }
+
+  .tg-toggle-track::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #fff !important;
+    transition: transform .2s;
+  }
+
+  .tg-toggle input:checked + .tg-toggle-track {
+    background: #50A2E9 !important;
+  }
+
+  .tg-toggle input:checked + .tg-toggle-track::after {
+    transform: translateX(22px);
+  }
+
+  /* Toggle & radio rows */
+  .tg-toggle-row { cursor: pointer; }
+  .tg-toggle-row .tg-mob-arr { display: none; }
+
+  .tg-r-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+    font-size: 16px;
+    color: #fff !important;
+  }
+
+  .tg-r-left i {
+    width: 22px;
+    text-align: center;
+    color: #8E9AA6 !important;
+    font-size: 22px;
+  }
+
+  /* Radio check */
+  .tg-radio-row { cursor: pointer; }
+  .tg-radio-row input { display: none; }
+
+  .tg-radio-check {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 2px solid #8E9AA6 !important;
+    position: relative;
+    flex-shrink: 0;
+    transition: border-color .2s;
+  }
+
+  .tg-radio-row input:checked ~ .tg-radio-check {
+    border-color: #50A2E9 !important;
+  }
+
+  .tg-radio-row input:checked ~ .tg-radio-check::after {
+    content: '';
+    position: absolute;
+    inset: 3px;
+    border-radius: 50%;
+    background: #50A2E9 !important;
+  }
+
+  /* Sub-page headers */
+  .tg-sub-header {
+    display: flex;
+    align-items: center;
+    height: 60px;
+    padding: 0 16px;
+    border-bottom: 1px solid #2B3A4A;
+    background: #1E2A3A !important;
+    gap: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 3;
+  }
+
+  .tg-sub-header h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+    color: #fff !important;
+  }
+
+  .tg-sub-back {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff !important;
+    font-size: 24px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    transition: background .15s;
+  }
+
+  .tg-sub-back:active {
+    background: rgba(255,255,255,.1);
+  }
+
+  .tg-sub-body {
+    background: #17212B !important;
+    padding: 16px 0;
+    overflow-y: auto;
+    flex: 1;
+  }
+
+  .mob-settings-sub {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    background: #17212B !important;
+    display: flex;
+    flex-direction: column;
+    animation: mobSlideIn .2s ease;
+  }
+
+  .mob-settings-sub.hidden { display: none; }
+
+  /* Section hints */
+  .tg-mob-section-hint {
+    font-size: 14px;
+    color: #8E9AA6 !important;
+    padding: 0 16px 8px;
+    margin: 0;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+  }
+
+  /* Fields */
+  .tg-mob-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px 16px;
+  }
+
+  .tg-mob-field span {
+    font-size: 12px;
+    color: #8E9AA6 !important;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+  }
+
+  .tg-mob-field input,
+  .tg-mob-field textarea {
+    padding: 10px 14px;
+    border-radius: 8px;
+    background: #253648 !important;
+    color: #fff !important;
+    border: 1px solid #2B3A4A;
+    font-size: 16px;
+    transition: border .2s;
+    min-height: 44px;
+  }
+
+  .tg-mob-field input:focus,
+  .tg-mob-field textarea:focus {
+    border-color: #50A2E9 !important;
+    outline: none;
+  }
+
+  .tg-mob-field + .tg-mob-field {
+    border-top: 1px solid #2B3A4A;
+  }
+
+  /* Action buttons */
+  .tg-mob-action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px 16px;
+    margin: 8px 16px;
+    border-radius: 8px;
+    background: #50A2E9 !important;
+    color: #fff !important;
+    font-size: 14px;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: opacity .15s;
+  }
+
+  .tg-mob-action-btn:active { opacity: .8; }
+
+  .tg-mob-action-btn.tg-secondary {
+    background: #253648 !important;
+    color: #8E9AA6 !important;
+  }
+
+  .tg-mob-card-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #8E9AA6 !important;
+    padding: 12px 16px 4px;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+  }
+
+  /* Avatar block */
+  .tg-mob-avatar-block {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+    gap: 8px;
+    position: relative;
+  }
+
+  .tg-mob-big-avatar {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: #3D4C5E !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 28px;
+    font-weight: 700;
+    color: #fff !important;
+    overflow: hidden;
+    position: relative;
+  }
+
+  .tg-mob-big-avatar img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  .tg-mob-cam-btn {
+    position: absolute;
+    bottom: 14px;
+    right: calc(50% - 54px);
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #50A2E9 !important;
+    color: #fff !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    border: none;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,.3);
+  }
+
+  /* Input row */
+  .tg-mob-input-wrap { padding: 0 16px 10px; }
+
+  .tg-mob-input {
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: 8px;
+    background: #253648 !important;
+    color: #fff !important;
+    border: 1px solid #2B3A4A;
+    font-size: 14px;
+  }
+
+  .tg-mob-input:focus {
+    border-color: #50A2E9 !important;
+    outline: none;
+  }
+
+  .tg-input-row { border-bottom: none !important; }
+
+  /* Features list */
+  .tg-mob-feat {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    font-size: 16px;
+    color: #fff !important;
+    position: relative;
+  }
+
+  .tg-mob-feat + .tg-mob-feat::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 52px;
+    right: 0;
+    height: 1px;
+    background: #2B3A4A;
+  }
+
+  .tg-mob-feat i {
+    width: 22px;
+    text-align: center;
+    color: #8E9AA6 !important;
+    font-size: 20px;
+  }
+
+  .tg-mob-feat.tg-premium i {
+    color: #50A2E9 !important;
+  }
+
+  /* Premium card */
+  .tg-mob-premium-card {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 16px;
+  }
+
+  .tg-mob-premium-icon { font-size: 36px; }
+
+  .tg-mob-premium-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .tg-mob-premium-role {
+    font-size: 16px;
+    font-weight: 700;
+    color: #fff !important;
+  }
+
+  .tg-mob-premium-desc {
+    font-size: 12px;
+    color: #8E9AA6 !important;
+  }
+
+  /* Session items */
+  .tg-mob-session {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    position: relative;
+  }
+
+  .tg-mob-session + .tg-mob-session::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 52px;
+    right: 0;
+    height: 1px;
+    background: #2B3A4A;
+  }
+
+  .tg-mob-session i {
+    width: 22px;
+    text-align: center;
+    color: #8E9AA6 !important;
+    font-size: 18px;
+  }
+
+  .tg-mob-session-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .tg-mob-session-device {
+    font-size: 14px;
+    color: #fff !important;
+  }
+
+  .tg-mob-session-device small {
+    color: #50A2E9 !important;
+  }
+
+  .tg-mob-session-date {
+    font-size: 12px;
+    color: #8E9AA6 !important;
+  }
+
+  .tg-mob-session.current {
+    background: rgba(80,162,233,.08);
+  }
+}

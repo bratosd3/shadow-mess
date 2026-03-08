@@ -220,6 +220,12 @@ function initAuth() {
   $('to-register').onclick = () => { hide(loginForm); show(regForm); hide($('to-register')); show($('to-login')); $('auth-subtitle').textContent = 'Создайте аккаунт'; };
   $('to-login').onclick = () => { show(loginForm); hide(regForm); show($('to-register')); hide($('to-login')); $('auth-subtitle').textContent = 'Войдите, чтобы продолжить'; };
 
+  // Load download links for auth page buttons
+  fetch('/api/download-links').then(r => r.json()).then(d => {
+    if (d.android) $('dl-android-btn').href = d.android;
+    if (d.windows) $('dl-windows-btn').href = d.windows;
+  }).catch(() => {});
+
   loginForm.onsubmit = async e => {
     e.preventDefault();
     try {
@@ -309,23 +315,25 @@ function initSocket() {
   socket.on('connect', () => console.log('Socket connected'));
 
   socket.on('new_message', msg => {
-    // Sender already adds message locally from HTTP response — skip duplicates
-    if (msg.senderId === S.user.id) {
-      const exists = S.messages.some(m => m.id === msg.id || m._id === msg._id);
-      if (exists) return;
-    }
+    // Sender adds own messages locally from HTTP response — skip all socket duplicates
+    if (msg.senderId === S.user.id) return;
+
     if (msg.chatId === S.chatId) {
       S.messages.push(msg);
       renderMessages();
       scrollToBottom();
-      if (msg.senderId !== S.user.id) {
-        S.socket?.emit('mark_read', { chatId: msg.chatId });
-      }
+      S.socket?.emit('mark_read', { chatId: msg.chatId });
     }
     Sounds.message();
     updateChatInList(msg.chatId, msg);
-    if (msg.senderId !== S.user.id && msg.chatId !== S.chatId) {
+    if (msg.chatId !== S.chatId) {
       showInAppNotif(msg);
+      // Native desktop notification
+      if (window.electronAPI && window.electronAPI.showNotification) {
+        const sender = msg.senderName || 'Новое сообщение';
+        const body = msg.text || (msg.file ? '📎 Файл' : '');
+        window.electronAPI.showNotification(sender, body);
+      }
     }
   });
 
@@ -414,14 +422,20 @@ function initSocket() {
 
   // Calls
   socket.on('call_incoming', data => handleIncomingCall(data));
-  socket.on('call_answered', data => window.callsModule.onAnswer(data));
+  socket.on('call_answered', data => {
+    Sounds.ringStop();
+    Sounds.incomingStop();
+    window.callsModule.onAnswer(data);
+  });
   socket.on('call_ice', data => window.callsModule.onIce(data));
   socket.on('call_ended', () => handleCallEnded());
   socket.on('call_rejected', () => handleCallEnded());
   socket.on('call_busy', () => { Sounds.ringStop(); showToast('Абонент занят', 'warning'); });
   socket.on('call_accepting', () => {
     Sounds.ringStop();
+    Sounds.incomingStop();
     if (_ringTimeoutId) { clearTimeout(_ringTimeoutId); _ringTimeoutId = null; }
+    _resetCallOverlayControls();
     // Reset timer from when call was accepted
     _callTimerStart = Date.now();
     $('call-audio-timer').textContent = '0:00';
@@ -436,6 +450,7 @@ function initSocket() {
   socket.on('group_call_offer', data => window.groupCallModule?.onGroupOffer?.(data));
   socket.on('group_call_answer', data => window.groupCallModule?.onGroupAnswer?.(data));
   socket.on('group_call_ice', data => window.groupCallModule?.onGroupIce?.(data));
+  socket.on('group_call_incoming', data => handleIncomingGroupCall(data));
   socket.on('group_call_members', data => {
     window.groupCallModule?.onMembersUpdate?.(data);
     if (data.members && $('call-audio-timer')) {
@@ -479,6 +494,58 @@ function initUI() {
   $('btn-attach').onclick = () => $('file-input').click();
   $('file-input').onchange = () => uploadFiles();
   $('btn-emoji').onclick = e => toggleEmojiPicker(e);
+
+  // Paste images/screenshots from clipboard into chat
+  inp.addEventListener('paste', e => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file && S.chatId) {
+          const fd = new FormData();
+          fd.append('file', file, 'screenshot.png');
+          api(`/api/chats/${S.chatId}/upload`, { method: 'POST', body: fd })
+            .then(msg => { S.messages.push(msg); renderMessages(); scrollToBottom(); updateChatInList(S.chatId, msg); })
+            .catch(err => showToast(err.message, 'error'));
+        }
+        return;
+      }
+    }
+  });
+
+  // Input context menu (right-click on textarea)
+  inp.addEventListener('contextmenu', e => {
+    e.preventDefault();
+    const menu = $('input-ctx-menu');
+    menu.style.left = Math.min(e.clientX, window.innerWidth - 200) + 'px';
+    menu.style.top = Math.min(e.clientY, window.innerHeight - 200) + 'px';
+    show(menu);
+  });
+  document.querySelectorAll('#input-ctx-menu .ctx-item').forEach(el => {
+    el.onclick = () => {
+      hide($('input-ctx-menu'));
+      const act = el.dataset.inputAction;
+      if (act === 'paste') { navigator.clipboard?.readText().then(t => { document.execCommand('insertText', false, t); }).catch(() => {}); }
+      else if (act === 'paste-screenshot') { navigator.clipboard?.read().then(items => { for (const item of items) { const img = item.types.find(t => t.startsWith('image/')); if (img) { item.getType(img).then(blob => { if (S.chatId) { const fd = new FormData(); fd.append('file', new File([blob], 'screenshot.png', { type: img })); api(`/api/chats/${S.chatId}/upload`, { method: 'POST', body: fd }).then(msg => { S.messages.push(msg); renderMessages(); scrollToBottom(); updateChatInList(S.chatId, msg); }).catch(err => showToast(err.message, 'error')); } }); break; } } }).catch(() => showToast('Нет изображения в буфере', 'info')); }
+      else if (act === 'cut') { document.execCommand('cut'); }
+      else if (act === 'copy') { document.execCommand('copy'); }
+      else if (act === 'select-all') { inp.select(); }
+    };
+  });
+  document.addEventListener('click', e => { if (!$('input-ctx-menu').contains(e.target)) hide($('input-ctx-menu')); });
+
+  // Auto-copy on text selection in messages
+  $('messages-area').addEventListener('mouseup', () => {
+    const sel = window.getSelection();
+    const text = sel?.toString();
+    if (text && text.length > 0) {
+      if (navigator.clipboard) navigator.clipboard.writeText(text).catch(() => _fallbackCopy(text));
+      else _fallbackCopy(text);
+      showToast('Текст скопирован', 'success');
+    }
+  });
 
   // Voice & video note
   $('btn-voice').onclick = () => startRecording('audio');
@@ -613,30 +680,43 @@ function initUI() {
   // Notification sounds
   buildNotifSoundsGrid();
 
-  $$('.settings-nav[data-sec]').forEach(b => b.onclick = () => switchSettingsSection(b.dataset.sec));
+  $$('.tg-settings-item[data-sec]').forEach(b => b.onclick = () => switchSettingsSection(b.dataset.sec));
+
+  // Telegram back button
+  const tgBack = $('tg-back-btn');
+  if (tgBack) tgBack.onclick = () => {
+    $('tg-settings-main').classList.remove('slid-out');
+    $('tg-settings-detail').classList.remove('open');
+  };
+
+  // Profile card clicks to account section
+  const tgPCard = $('tg-profile-card');
+  if (tgPCard) tgPCard.onclick = () => switchSettingsSection('sec-profile');
 
   // Modal close buttons
-  $$('[data-close]').forEach(b => b.onclick = () => hide($(b.dataset.close)));
+  $$('[data-close]').forEach(b => b.onclick = () => {
+    if (b.dataset.close === 'modal-settings' && _themeBackup) restoreThemeBackup();
+    hide($(b.dataset.close));
+  });
 
-  // Mobile settings items
-  $$('.mob-item[data-act]').forEach(b => b.onclick = () => {
+  // Mobile settings items (Telegram-style)
+  $$('.tg-mob-row[data-act],.tg-mob-profile[data-act]').forEach(b => b.onclick = () => {
     const act = b.dataset.act;
-    if (act === 'edit-profile') openSettings();
+    if (act === 'edit-profile') openMobSub('mob-sub-profile');
     else if (act === 'appearance') openMobSub('mob-sub-appearance');
     else if (act === 'notifications-page') openMobSub('mob-sub-notifications');
     else if (act === 'privacy-page') openMobSub('mob-sub-privacy');
-    else if (act === 'ghost') toggleGhost();
     else if (act === 'themes') { buildThemeGrid('theme-grid-mob'); show($('modal-themes')); }
-    else if (act === 'sessions') { openSettings(); setTimeout(() => switchSettingsSection('sec-sessions'), 100); }
-    else if (act === 'shadow-plus') { openSettings(); setTimeout(() => switchSettingsSection('sec-premium'), 100); }
-    else if (act === 'font-size') { openSettings(); setTimeout(() => switchSettingsSection('sec-appearance'), 100); }
-    else if (act === 'density') { openSettings(); setTimeout(() => switchSettingsSection('sec-appearance'), 100); }
-    else if (act === 'msg-style') { openSettings(); setTimeout(() => switchSettingsSection('sec-appearance'), 100); }
+    else if (act === 'sessions') openMobSub('mob-sub-sessions');
+    else if (act === 'shadow-plus') openMobSub('mob-sub-premium');
+    else if (act === 'font-size') openMobSub('mob-sub-fontsize');
+    else if (act === 'density') openMobSub('mob-sub-density');
+    else if (act === 'msg-style') openMobSub('mob-sub-msgstyle');
     else if (act === 'logout') logout();
   });
 
   // Mobile settings back buttons
-  $$('.mob-back-btn[data-back]').forEach(b => b.onclick = () => closeMobSub(b.dataset.back));
+  $$('.tg-sub-back[data-back]').forEach(b => b.onclick = () => closeMobSub(b.dataset.back, b.dataset.parent));
 
   // Mobile settings toggles
   if ($('mob-set-notifications')) $('mob-set-notifications').onchange = () => saveSettingsToggle('notifications', $('mob-set-notifications').checked);
@@ -645,9 +725,61 @@ function initUI() {
   if ($('mob-set-read')) $('mob-set-read').onchange = () => saveSettingsToggle('privReadReceipts', $('mob-set-read').checked);
   if ($('mob-set-typing')) $('mob-set-typing').onchange = () => saveSettingsToggle('privShowTyping', $('mob-set-typing').checked);
   if ($('mob-set-ghost')) $('mob-set-ghost').onchange = () => toggleGhost();
+  if ($('mob-set-ghost-app')) $('mob-set-ghost-app').onchange = () => toggleGhost();
   if ($('mob-set-dnd')) $('mob-set-dnd').onchange = () => saveSettingsToggle('dndMode', $('mob-set-dnd').checked);
   if ($('mob-set-dnd-reply')) $('mob-set-dnd-reply').onchange = () => saveSettingsToggle('dndAutoReply', $('mob-set-dnd-reply').value);
   if ($('mob-set-animations')) $('mob-set-animations').onchange = () => saveSettingsToggle('animations', $('mob-set-animations').checked);
+
+  // Mobile profile save
+  if ($('mob-btn-save-profile')) $('mob-btn-save-profile').onclick = async () => {
+    try {
+      const body = { displayName: $('mob-set-displayname').value.trim(), bio: $('mob-set-bio').value, username: $('mob-set-username').value.trim() };
+      S.user = await api('/api/me', { method: 'PUT', body: JSON.stringify(body) });
+      showToast('Профиль сохранён', 'success');
+      fillSettings();
+    } catch (e) { showToast(e.message, 'error'); }
+  };
+  // Mobile password change
+  if ($('mob-btn-change-pw')) $('mob-btn-change-pw').onclick = async () => {
+    const cur = $('mob-set-cur-password').value, nw = $('mob-set-new-password').value;
+    if (!cur || !nw) { showToast('Заполните оба поля', 'warning'); return; }
+    try {
+      await api('/api/me/password', { method: 'PUT', body: JSON.stringify({ currentPassword: cur, newPassword: nw }) });
+      showToast('Пароль изменён', 'success');
+      $('mob-set-cur-password').value = ''; $('mob-set-new-password').value = '';
+    } catch (e) { showToast(e.message, 'error'); }
+  };
+  // Mobile avatar change
+  if ($('mob-avatar-btn')) $('mob-avatar-btn').onclick = () => $('avatar-input').click();
+  // Mobile revoke sessions
+  if ($('mob-btn-revoke')) $('mob-btn-revoke').onclick = async () => {
+    try { await api('/api/me/sessions/revoke', { method: 'POST' }); showToast('Сессии завершены', 'success'); _loadMobSessions(); } catch (e) { showToast(e.message, 'error'); }
+  };
+
+  // Mobile radio options: font size
+  $$('input[name="mob-fontsize"]').forEach(r => r.onchange = () => {
+    document.body.classList.remove('font-small', 'font-large');
+    if (r.value !== 'normal') document.body.classList.add(`font-${r.value}`);
+    saveSettingsToggle('fontSize', r.value);
+  });
+  // Mobile radio options: density
+  $$('input[name="mob-density"]').forEach(r => r.onchange = () => {
+    document.body.classList.remove('density-compact', 'density-comfortable');
+    if (r.value !== 'cozy') document.body.classList.add(`density-${r.value}`);
+    saveSettingsToggle('msgDensity', r.value);
+  });
+  // Mobile radio options: msg style
+  $$('input[name="mob-msgstyle"]').forEach(r => r.onchange = () => {
+    document.body.classList.remove('style-bubbles');
+    if (r.value === 'bubbles') document.body.classList.add('style-bubbles');
+    saveSettingsToggle('bubbleStyle', r.value);
+  });
+  // Mobile radio options: border radius
+  $$('input[name="mob-radius"]').forEach(r => r.onchange = () => {
+    document.body.classList.remove('radius-none', 'radius-round');
+    if (r.value !== 'normal') document.body.classList.add(`radius-${r.value}`);
+    saveSettingsToggle('borderRadius', r.value);
+  });
 
   // Contact sub-tabs
   $$('.sub-tab').forEach(b => b.onclick = () => switchContactTab(b.dataset.ct));
@@ -724,7 +856,7 @@ function initUI() {
   // ESC to close settings & modals
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
-      if (!$('modal-settings').classList.contains('hidden')) { hide($('modal-settings')); return; }
+      if (!$('modal-settings').classList.contains('hidden')) { if (_themeBackup) restoreThemeBackup(); hide($('modal-settings')); return; }
       $$('.modal-overlay').forEach(m => { if (!m.classList.contains('hidden')) hide(m); });
     }
   });
@@ -877,6 +1009,10 @@ function updateBadge() {
   const total = S.chats.reduce((s, c) => s + (c.unreadCount || 0), 0);
   const badge = $('badge-chats');
   if (total > 0) { badge.textContent = total; show(badge); } else hide(badge);
+  // Desktop app badge
+  if (window.electronAPI && window.electronAPI.setBadge) {
+    window.electronAPI.setBadge(total);
+  }
 }
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -1248,6 +1384,7 @@ function showContextMenu(e, msgId) {
   items.push({ icon: 'fa-thumbtack', label: msg.id === S.chatObj?.pinnedMessage ? 'Открепить' : 'Закрепить', action: 'pin' });
   items.push({ icon: 'fa-share', label: 'Переслать', action: 'forward' });
   if (msg.text) items.push({ icon: 'fa-language', label: 'Перевести', action: 'translate' });
+  if (msg.text && $('messages-area').querySelector(`.msg[data-id="${msgId}"] .msg-translation`)) items.push({ icon: 'fa-xmark', label: 'Убрать перевод', action: 'remove-translate' });
   items.push({ icon: 'fa-bookmark', label: 'В избранное', action: 'save' });
   if (msg.text) items.push({ icon: 'fa-i-cursor', label: 'Выделить текст', action: 'select-text' });
   if (msg.type === 'image' || msg.type === 'file') items.push({ icon: 'fa-download', label: 'Скачать', action: 'download' });
@@ -1263,7 +1400,7 @@ function showContextMenu(e, msgId) {
   menu.style.top = Math.min(e.clientY, window.innerHeight - items.length * 40) + 'px';
   show(menu);
 
-  menu.querySelectorAll('.ctx-item').forEach(el => el.onclick = () => { const act = el.dataset.action; handleCtxAction(act); if (act !== 'react') hide(menu); });
+  menu.querySelectorAll('.ctx-item').forEach(el => el.onclick = (ev) => { ev.stopPropagation(); const act = el.dataset.action; handleCtxAction(act); if (act !== 'react') hide(menu); });
 }
 
 function handleCtxAction(action) {
@@ -1306,6 +1443,9 @@ function handleCtxAction(action) {
     showForwardModal(msg.id);
   } else if (action === 'translate') {
     translateMessage(msg.id);
+  } else if (action === 'remove-translate') {
+    const el = $('messages-area').querySelector(`.msg[data-id="${msg.id}"] .msg-translation`);
+    if (el) { el.remove(); showToast('Перевод удалён', 'success'); }
   } else if (action === 'save') {
     // Save to favourites (self-chat)
     const saveChatId = S.chats.find(c => c.type === 'private' && c.members?.length === 1)?.id;
@@ -1335,7 +1475,7 @@ function showQuickReact(msgId) {
 }
 
 async function reactToMessage(msgId, emoji) {
-  try { await api(`/api/messages/${msgId}/react`, { method: 'POST', body: JSON.stringify({ emoji }) }); } catch {}
+  try { await api(`/api/messages/${msgId}/react`, { method: 'POST', body: JSON.stringify({ emoji }) }); } catch (e) { showToast('Не удалось поставить реакцию', 'error'); }
 }
 
 function cancelReply() { S.replyTo = null; hide($('reply-bar')); }
@@ -1757,14 +1897,32 @@ function openSettings() {
   fillSettings();
   loadSessions();
   show($('modal-settings'));
-  switchSettingsSection('sec-profile');
+  // Reset to main list (Telegram-style)
+  const main = $('tg-settings-main');
+  const detail = $('tg-settings-detail');
+  if (main) main.classList.remove('slid-out');
+  if (detail) detail.classList.remove('open');
 }
 
 function openMobSub(id) {
+  // Hide all sub-pages and main
+  $$('.mob-settings-sub').forEach(s => s.classList.add('hidden'));
   $('mob-settings-main').classList.add('hidden');
   const sub = $(id);
   if (sub) sub.classList.remove('hidden');
   // Sync toggle states
+  _syncMobToggles();
+  // Sync radio states for nested pages
+  _syncMobRadios();
+  // Fill profile fields
+  if (id === 'mob-sub-profile') _fillMobProfile();
+  // Load sessions
+  if (id === 'mob-sub-sessions') _loadMobSessions();
+  // Fill premium status
+  if (id === 'mob-sub-premium') _fillMobPremium();
+}
+
+function _syncMobToggles() {
   const s = S.user?.settings || {};
   if ($('mob-set-notifications')) $('mob-set-notifications').checked = s.notifications !== false;
   if ($('mob-set-sounds')) $('mob-set-sounds').checked = s.soundEnabled !== false;
@@ -1777,14 +1935,78 @@ function openMobSub(id) {
   if ($('mob-set-animations')) $('mob-set-animations').checked = s.animations !== false;
 }
 
-function closeMobSub(id) {
+function _syncMobRadios() {
+  const s = S.user?.settings || {};
+  const fs = s.fontSize || 'normal';
+  const dn = s.msgDensity || 'cozy';
+  const bs = s.bubbleStyle || 'default';
+  const br = s.borderRadius || 'normal';
+  const fsEl = document.querySelector(`input[name="mob-fontsize"][value="${fs}"]`);
+  if (fsEl) fsEl.checked = true;
+  const dnEl = document.querySelector(`input[name="mob-density"][value="${dn}"]`);
+  if (dnEl) dnEl.checked = true;
+  const bsEl = document.querySelector(`input[name="mob-msgstyle"][value="${bs}"]`);
+  if (bsEl) bsEl.checked = true;
+  const brEl = document.querySelector(`input[name="mob-radius"][value="${br}"]`);
+  if (brEl) brEl.checked = true;
+}
+
+function _fillMobProfile() {
+  if ($('mob-set-username')) $('mob-set-username').value = S.user?.username || '';
+  if ($('mob-set-displayname')) $('mob-set-displayname').value = S.user?.displayName || '';
+  if ($('mob-set-bio')) $('mob-set-bio').value = S.user?.bio || '';
+  if ($('mob-set-cur-password')) $('mob-set-cur-password').value = '';
+  if ($('mob-set-new-password')) $('mob-set-new-password').value = '';
+  const av = $('mob-edit-avatar');
+  if (av) {
+    av.style.background = S.user?.avatarColor || AVATARS[0];
+    av.innerHTML = (S.user?.displayName || '?')[0].toUpperCase() + (S.user?.avatar ? `<img src="${escHTML(S.user.avatar)}">` : '');
+  }
+}
+
+async function _loadMobSessions() {
+  try {
+    const sessions = await api('/api/me/sessions');
+    const el = $('mob-sessions-list');
+    if (el) el.innerHTML = sessions.map(s =>
+      `<div class="tg-mob-session${s.current ? ' current' : ''}"><i class="fas ${s.device?.includes('Mobile') ? 'fa-mobile-screen' : 'fa-desktop'}"></i><div class="tg-mob-session-info"><span class="tg-mob-session-device">${escHTML(s.device)}${s.current ? ' <small>(текущая)</small>' : ''}</span><span class="tg-mob-session-date">${new Date(s.createdAt).toLocaleDateString('ru')}</span></div></div>`
+    ).join('');
+  } catch {}
+}
+
+function _fillMobPremium() {
+  const card = $('mob-premium-card');
+  if (!card) return;
+  const role = S.user?.role || 'user';
+  const icons = { user: '👻', premium: '💎', super_user: '⚡', admin: '🛡️' };
+  const names = { user: 'Обычный пользователь', premium: 'Shadow+', super_user: 'Super User', admin: 'Администратор' };
+  card.querySelector('.tg-mob-premium-icon').textContent = icons[role] || '👻';
+  card.querySelector('.tg-mob-premium-role').textContent = names[role] || 'Пользователь';
+  card.querySelector('.tg-mob-premium-desc').textContent = role === 'user' ? 'Активируйте Shadow+ для расширенных возможностей' : 'Все возможности активны';
+}
+
+function closeMobSub(id, parentId) {
   const sub = $(id);
   if (sub) sub.classList.add('hidden');
-  $('mob-settings-main').classList.remove('hidden');
+  if (parentId) {
+    // Navigate back to parent sub-page
+    const parent = $(parentId);
+    if (parent) parent.classList.remove('hidden');
+  } else {
+    // Navigate back to main settings
+    $('mob-settings-main').classList.remove('hidden');
+  }
 }
 
 function switchSettingsSection(secId) {
-  $$('.settings-nav').forEach(b => b.classList.toggle('active', b.dataset.sec === secId));
+  const titles = {'sec-profile':'Аккаунт','sec-appearance':'Внешний вид','sec-notifications':'Уведомления','sec-privacy':'Конфиденциальность','sec-premium':'Shadow+','sec-sessions':'Устройства'};
+  // Slide main panel out, detail panel in
+  const main = $('tg-settings-main');
+  const detail = $('tg-settings-detail');
+  if (main) main.classList.add('slid-out');
+  if (detail) detail.classList.add('open');
+  const titleEl = $('tg-detail-title');
+  if (titleEl) titleEl.textContent = titles[secId] || 'Настройки';
   $$('.settings-section').forEach(s => s.classList.toggle('active', s.id === secId));
 }
 
@@ -1812,11 +2034,21 @@ function fillSettings() {
   if ($('settings-preview-name')) $('settings-preview-name').textContent = S.user?.displayName || '';
   if ($('settings-preview-uname')) $('settings-preview-uname').textContent = '@' + (S.user?.username || '');
 
+  // Telegram settings profile card
+  const tgAv = $('tg-profile-avatar');
+  if (tgAv) {
+    tgAv.style.background = S.user?.avatarColor || AVATARS[0];
+    tgAv.innerHTML = (S.user?.displayName || '?')[0].toUpperCase() + (S.user?.avatar ? `<img src="${escHTML(S.user.avatar)}">` : '');
+  }
+  if ($('tg-profile-name')) $('tg-profile-name').textContent = S.user?.displayName || 'Пользователь';
+  if ($('tg-profile-status')) $('tg-profile-status').textContent = '@' + (S.user?.username || '');
+
   // Mobile settings badges
   const ghostBadge = $('ghost-mob-badge');
   if (ghostBadge) { ghostBadge.textContent = S.ghostMode ? 'Вкл' : 'Выкл'; ghostBadge.className = 'mob-badge ' + (S.ghostMode ? 'on' : 'off'); }
   const notifBadge = $('notif-mob-badge');
-  if (notifBadge) { notifBadge.textContent = s.notifications !== false ? 'Вкл' : 'Выкл'; notifBadge.className = 'mob-badge ' + (s.notifications !== false ? 'on' : 'off'); }
+  if (notifBadge) { notifBadge.textContent = s.notifications !== false ? 'Вкл' : 'Выкл'; notifBadge.className = 'tg-mob-value'; }
+  if ($('mob-set-ghost-app')) $('mob-set-ghost-app').checked = S.ghostMode;
 
   // Mobile profile
   $('mob-name') && ($('mob-name').textContent = S.user?.displayName || '');
@@ -2034,29 +2266,29 @@ function buildThemeGrid(containerId) {
     const themeName = s.dataset.theme;
     const t = THEMES[themeName];
     if (!t) return;
-    // Show preview modal
-    const modal = $('modal-theme-preview');
-    if (modal) {
-      const box = $('theme-preview-box');
+    // Show inline preview panel
+    const inl = $('theme-preview-inline');
+    if (inl) {
+      const box = $('theme-preview-box-inline');
       if (box) box.style.background = t.bg;
-      const sidebar = $('tp-sidebar');
+      const sidebar = $('tpi-sidebar');
       if (sidebar) sidebar.style.background = t.dark;
-      const panel = $('tp-panel');
+      const panel = $('tpi-panel');
       if (panel) panel.style.background = t.sec;
-      const chat = $('tp-chat');
+      const chat = $('tpi-chat');
       if (chat) chat.style.background = t.bg;
-      const header = $('tp-header');
+      const header = $('tpi-header');
       if (header) header.style.background = t.sec;
-      const msgBrand = $('tp-msg-brand');
+      const msgBrand = $('tpi-msg-brand');
       if (msgBrand) msgBrand.style.background = t.brand;
-      show(modal);
-      $('theme-preview-apply').onclick = async () => {
+      show(inl);
+      inl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      $('tpi-apply').onclick = async () => {
         applyTheme(themeName);
         try { S.user = await api('/api/me', { method: 'PUT', body: JSON.stringify({ settings: { theme: themeName } }) }); } catch {}
-        hide(modal);
+        hide(inl);
       };
-      $('theme-preview-cancel').onclick = () => hide(modal);
-      $('theme-preview-close').onclick = () => hide(modal);
+      $('tpi-cancel').onclick = () => hide(inl);
     } else {
       applyTheme(themeName);
       try { S.user = await api('/api/me', { method: 'PUT', body: JSON.stringify({ settings: { theme: themeName } }) }); } catch {}
@@ -2168,11 +2400,16 @@ function initDesignOptions() {
   initPremiumEmojiPicker();
 }
 
+let _themeBackup = null;
+
 function initCustomThemeCreator() {
   const inputs = ['ct-bg', 'ct-dark', 'ct-sec', 'ct-brand'];
   inputs.forEach(id => {
     const el = $(id);
-    if (el) el.oninput = () => updateCustomThemePreview();
+    if (el) el.oninput = () => {
+      if (!_themeBackup) _backupTheme();
+      updateCustomThemePreview();
+    };
   });
   const btnApply = $('btn-apply-custom-theme');
   if (btnApply) btnApply.onclick = () => applyCustomTheme();
@@ -2188,6 +2425,33 @@ function initCustomThemeCreator() {
   updateCustomThemePreview();
 }
 
+function _backupTheme() {
+  const cs = getComputedStyle(document.documentElement);
+  _themeBackup = {
+    className: document.body.className,
+    bgPri: cs.getPropertyValue('--bg-pri').trim(),
+    bgDark: cs.getPropertyValue('--bg-dark').trim(),
+    bgSec: cs.getPropertyValue('--bg-sec').trim(),
+    brand: cs.getPropertyValue('--brand').trim(),
+    bgHover: cs.getPropertyValue('--bg-hover').trim(),
+    bgActive: cs.getPropertyValue('--bg-active').trim(),
+    bgInput: cs.getPropertyValue('--bg-input').trim()
+  };
+}
+
+function restoreThemeBackup() {
+  if (!_themeBackup) return;
+  document.body.className = _themeBackup.className;
+  document.documentElement.style.setProperty('--bg-pri', _themeBackup.bgPri);
+  document.documentElement.style.setProperty('--bg-dark', _themeBackup.bgDark);
+  document.documentElement.style.setProperty('--bg-sec', _themeBackup.bgSec);
+  document.documentElement.style.setProperty('--brand', _themeBackup.brand);
+  document.documentElement.style.setProperty('--bg-hover', _themeBackup.bgHover);
+  document.documentElement.style.setProperty('--bg-active', _themeBackup.bgActive);
+  document.documentElement.style.setProperty('--bg-input', _themeBackup.bgInput);
+  _themeBackup = null;
+}
+
 function updateCustomThemePreview() {
   const bg = $('ct-bg')?.value || '#313338';
   const dark = $('ct-dark')?.value || '#1e1f22';
@@ -2199,28 +2463,30 @@ function updateCustomThemePreview() {
   if ($('ct-p-brand')) $('ct-p-brand').style.background = brand;
   const box = $('ct-preview-box');
   if (box) box.style.background = bg;
-}
 
-async function applyCustomTheme() {
-  const canUse = S.user?.premium || S.user?.superUser || S.user?.premiumFree;
-  if (!canUse) { showToast('Создание своей темы доступно только для Shadow+', 'warning'); return; }
-  const bg = $('ct-bg')?.value;
-  const dark = $('ct-dark')?.value;
-  const sec = $('ct-sec')?.value;
-  const brand = $('ct-brand')?.value;
-  if (!bg || !dark || !sec || !brand) return;
-
-  // Apply CSS variables directly
+  // Apply live to the whole app
   document.body.className = document.body.className.replace(/theme-\S+/g, '');
   document.body.classList.add('theme-custom');
   document.documentElement.style.setProperty('--bg-pri', bg);
   document.documentElement.style.setProperty('--bg-dark', dark);
   document.documentElement.style.setProperty('--bg-sec', sec);
   document.documentElement.style.setProperty('--brand', brand);
-  // Computed variants
   document.documentElement.style.setProperty('--bg-hover', adjustColor(bg, 15));
   document.documentElement.style.setProperty('--bg-active', adjustColor(bg, 30));
   document.documentElement.style.setProperty('--bg-input', adjustColor(dark, 15));
+}
+
+async function applyCustomTheme() {
+  const canUse = S.user?.premium || S.user?.superUser || S.user?.premiumFree;
+  if (!canUse) { restoreThemeBackup(); showToast('Создание своей темы доступно только для Shadow+', 'warning'); return; }
+  const bg = $('ct-bg')?.value;
+  const dark = $('ct-dark')?.value;
+  const sec = $('ct-sec')?.value;
+  const brand = $('ct-brand')?.value;
+  if (!bg || !dark || !sec || !brand) return;
+
+  // Theme is already applied live, just commit it
+  _themeBackup = null;
 
   document.querySelectorAll('.theme-swatch').forEach(s => s.classList.remove('active'));
   showToast('Кастомная тема применена', 'success');
@@ -2260,6 +2526,21 @@ function initPremiumEmojiPicker() {
     el.ontouchend = (ev) => { ev.preventDefault(); handler(); };
   });
 
+  // Custom emoji input
+  const btnCustomEmoji = $('btn-set-custom-emoji');
+  if (btnCustomEmoji) {
+    btnCustomEmoji.onclick = async () => {
+      const canUse = S.user?.premium || S.user?.superUser || S.user?.premiumFree;
+      if (!canUse) { showToast('Требуется Shadow+', 'warning'); return; }
+      const val = $('custom-emoji-input').value.trim();
+      grid.querySelectorAll('.pe-emoji').forEach(x => x.classList.remove('active'));
+      try {
+        S.user = await api('/api/me/emoji', { method: 'PUT', body: JSON.stringify({ emoji: val }) });
+        showToast(val ? `Эмодзи: ${val}` : 'Эмодзи убрано', 'success');
+      } catch (e) { showToast(e.message, 'error'); }
+    };
+  }
+
   // Premium badge picker
   initPremiumBadgePicker();
   // Premium name color picker
@@ -2287,6 +2568,22 @@ function initPremiumBadgePicker() {
     el.onclick = handler;
     el.ontouchend = (ev) => { ev.preventDefault(); handler(); };
   });
+
+  // Custom badge input
+  const btnCustomBadge = $('btn-set-custom-badge');
+  if (btnCustomBadge) {
+    btnCustomBadge.onclick = async () => {
+      const canUse = S.user?.premium || S.user?.superUser || S.user?.premiumFree;
+      if (!canUse) { showToast('Требуется Shadow+', 'warning'); return; }
+      const val = $('custom-badge-input').value.trim();
+      if (val.length > 12) { showToast('Макс. 12 символов', 'warning'); return; }
+      grid.querySelectorAll('.pe-badge').forEach(x => x.classList.remove('active'));
+      try {
+        S.user = await api('/api/me/badge', { method: 'PUT', body: JSON.stringify({ badge: val }) });
+        showToast(val ? `Значок: ${val}` : 'Значок убран', 'success');
+      } catch (e) { showToast(e.message, 'error'); }
+    };
+  }
 }
 
 function initPremiumColorPicker() {
@@ -2466,6 +2763,28 @@ function closeLightbox() {
 let _incomingCallData = null;
 let _ringTimeoutId = null;
 
+function _resetCallOverlayControls() {
+  const overlay = $('active-call-overlay');
+  const ctrls = overlay?.querySelector('.vk-call-controls');
+  if (ctrls) { ctrls.style.display = ''; ctrls.style.opacity = '1'; }
+  const audioLayer = $('call-audio-layer');
+  if (audioLayer) { audioLayer.style.display = 'flex'; audioLayer.classList.remove('hidden-layer'); }
+  const videoLayer = $('call-video-layer');
+  if (videoLayer) videoLayer.classList.remove('active');
+  // Reset control states
+  $('toggle-mute').classList.remove('vk-ctrl-off');
+  $('toggle-mute').querySelector('i').className = 'fas fa-microphone';
+  $('toggle-video').classList.add('vk-ctrl-off');
+  $('toggle-video').querySelector('i').className = 'fas fa-video-slash';
+  $('toggle-screen').classList.remove('sharing');
+  // Reset status indicators — show all as active
+  const myMic = $('my-mic-status');
+  const myCam = $('my-cam-status');
+  const peerMic = $('peer-mic-status');
+  const peerCam = $('peer-cam-status');
+  [myMic, myCam, peerMic, peerCam].forEach(el => { if (el) { el.classList.remove('indicator-off'); el.style.display = 'flex'; } });
+}
+
 function startCallAction(type) {
   if (!S.chatObj) return;
 
@@ -2481,6 +2800,7 @@ function startCallAction(type) {
     }, 1000);
     const overlay = $('active-call-overlay');
     show(overlay);
+    _resetCallOverlayControls();
     $('call-audio-name').textContent = S.chatObj.name || 'Групповой звонок';
     const av = $('call-audio-avatar');
     av.style.background = S.chatObj.avatarColor || AVATARS[0];
@@ -2504,6 +2824,7 @@ function startCallAction(type) {
   }, 1000);
   const overlay = $('active-call-overlay');
   show(overlay);
+  _resetCallOverlayControls();
   $('call-audio-name').textContent = S.chatObj.displayName || 'Звонок';
   const av = $('call-audio-avatar');
   av.style.background = S.chatObj.displayAvatarColor || AVATARS[0];
@@ -2534,34 +2855,56 @@ function handleIncomingCall(data) {
   show(overlay);
 }
 
+let _incomingGroupCallData = null;
+function handleIncomingGroupCall(data) {
+  // Don't show if already in a call
+  if (window.callsModule?.isInCall?.() || window.groupCallModule?.isInGroupCall?.()) return;
+  _incomingGroupCallData = data;
+  Sounds.incomingStart();
+  const overlay = $('incoming-call-overlay');
+  $('incoming-name').textContent = data.chatName || 'Групповой звонок';
+  $('incoming-type').textContent = `Звонит ${data.callerName || 'участник'}`;
+  const av = $('incoming-avatar');
+  av.style.background = data.chatAvatarColor || AVATARS[0];
+  av.innerHTML = (data.chatName || '?')[0].toUpperCase();
+  show(overlay);
+}
+
 function acceptIncoming() {
+  // Handle group call incoming
+  if (_incomingGroupCallData) {
+    Sounds.incomingStop();
+    hide($('incoming-call-overlay'));
+    const data = _incomingGroupCallData;
+    _incomingGroupCallData = null;
+    // Open the group chat and join the call
+    const overlay = $('active-call-overlay');
+    show(overlay);
+    _resetCallOverlayControls();
+    $('call-audio-name').textContent = data.chatName || 'Групповой звонок';
+    const av = $('call-audio-avatar');
+    av.style.background = data.chatAvatarColor || AVATARS[0];
+    av.innerHTML = (data.chatName || '?')[0].toUpperCase();
+    $('call-audio-timer').textContent = 'Подключение...';
+    _callTimerStart = Date.now();
+    if (window._callTimerInterval) clearInterval(window._callTimerInterval);
+    window._callTimerInterval = setInterval(() => {
+      const sec = Math.floor((Date.now() - _callTimerStart) / 1000);
+      const m = Math.floor(sec / 60), s = sec % 60;
+      $('call-audio-timer').textContent = `${m}:${String(s).padStart(2, '0')}`;
+    }, 1000);
+    window.groupCallModule.joinGroupCall(data.chatId);
+    return;
+  }
+
   if (!_incomingCallData) return;
   Sounds.incomingStop();
   Sounds.ringStop();
   if (_ringTimeoutId) { clearTimeout(_ringTimeoutId); _ringTimeoutId = null; }
   hide($('incoming-call-overlay'));
-  // Reset active call overlay controls visibility
   const overlay = $('active-call-overlay');
   show(overlay);
-  // Ensure controls are visible
-  const ctrls = overlay.querySelector('.vk-call-controls');
-  if (ctrls) { ctrls.style.display = ''; ctrls.style.opacity = '1'; }
-  const audioLayer = $('call-audio-layer');
-  if (audioLayer) { audioLayer.style.display = 'flex'; audioLayer.classList.remove('hidden-layer'); }
-  const videoLayer = $('call-video-layer');
-  if (videoLayer) videoLayer.classList.remove('active');
-  // Reset control states
-  $('toggle-mute').classList.remove('vk-ctrl-off');
-  $('toggle-mute').querySelector('i').className = 'fas fa-microphone';
-  $('toggle-video').classList.add('vk-ctrl-off');
-  $('toggle-video').querySelector('i').className = 'fas fa-video-slash';
-  $('toggle-screen').classList.remove('sharing');
-  // Reset status indicators — show all as active
-  const myMic = $('my-mic-status');
-  const myCam = $('my-cam-status');
-  const peerMic = $('peer-mic-status');
-  const peerCam = $('peer-cam-status');
-  [myMic, myCam, peerMic, peerCam].forEach(el => { if (el) { el.classList.remove('indicator-off'); el.style.display = 'flex'; } });
+  _resetCallOverlayControls();
 
   $('call-audio-name').textContent = _incomingCallData.fromName || 'Звонок';
   const av = $('call-audio-avatar');
@@ -2587,6 +2930,12 @@ function acceptIncoming() {
 }
 
 function rejectIncoming() {
+  if (_incomingGroupCallData) {
+    Sounds.incomingStop();
+    hide($('incoming-call-overlay'));
+    _incomingGroupCallData = null;
+    return;
+  }
   if (!_incomingCallData) return;
   Sounds.incomingStop();
   S.socket.emit('call_reject', { to: _incomingCallData.from });

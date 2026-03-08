@@ -53,34 +53,63 @@ window.callsModule = (() => {
       const source = _audioCtx.createMediaStreamSource(stream);
       const dest = _audioCtx.createMediaStreamDestination();
 
-      // Simple highpass — removes rumble below 80Hz
+      // Highpass — removes rumble below 120Hz (stronger than 80Hz)
       const highpass = _audioCtx.createBiquadFilter();
       highpass.type = 'highpass';
-      highpass.frequency.value = 80;
-      highpass.Q.value = 0.7;
+      highpass.frequency.value = 120;
+      highpass.Q.value = 0.8;
 
-      // Gentle lowpass — removes hiss above 14kHz
+      // Second highpass for steeper roll-off
+      const highpass2 = _audioCtx.createBiquadFilter();
+      highpass2.type = 'highpass';
+      highpass2.frequency.value = 80;
+      highpass2.Q.value = 0.5;
+
+      // Notch filter — removes 50Hz hum (power line)
+      const notch50 = _audioCtx.createBiquadFilter();
+      notch50.type = 'notch';
+      notch50.frequency.value = 50;
+      notch50.Q.value = 10;
+
+      // Notch filter — removes 60Hz hum (US power line)
+      const notch60 = _audioCtx.createBiquadFilter();
+      notch60.type = 'notch';
+      notch60.frequency.value = 60;
+      notch60.Q.value = 10;
+
+      // Lowpass — removes hiss above 12kHz
       const lowpass = _audioCtx.createBiquadFilter();
       lowpass.type = 'lowpass';
-      lowpass.frequency.value = 14000;
-      lowpass.Q.value = 0.5;
+      lowpass.frequency.value = 12000;
+      lowpass.Q.value = 0.7;
 
-      // Compressor — normalize levels
+      // Presence boost for voice clarity (2-4kHz)
+      const presence = _audioCtx.createBiquadFilter();
+      presence.type = 'peaking';
+      presence.frequency.value = 3000;
+      presence.gain.value = 3;
+      presence.Q.value = 1;
+
+      // Compressor — aggressive noise gate effect
       const compressor = _audioCtx.createDynamicsCompressor();
-      compressor.threshold.value = -30;
-      compressor.knee.value = 25;
-      compressor.ratio.value = 4;
-      compressor.attack.value = 0.003;
-      compressor.release.value = 0.25;
+      compressor.threshold.value = -35;
+      compressor.knee.value = 15;
+      compressor.ratio.value = 6;
+      compressor.attack.value = 0.002;
+      compressor.release.value = 0.15;
 
       // Gain
       const gain = _audioCtx.createGain();
-      gain.gain.value = 1.2;
+      gain.gain.value = 1.3;
 
-      // Simple chain: highpass → lowpass → compressor → gain
-      source.connect(highpass);
-      highpass.connect(lowpass);
-      lowpass.connect(compressor);
+      // Chain: highpass2 → highpass → notch50 → notch60 → lowpass → presence → compressor → gain
+      source.connect(highpass2);
+      highpass2.connect(highpass);
+      highpass.connect(notch50);
+      notch50.connect(notch60);
+      notch60.connect(lowpass);
+      lowpass.connect(presence);
+      presence.connect(compressor);
       compressor.connect(gain);
       gain.connect(dest);
 
@@ -91,7 +120,7 @@ window.callsModule = (() => {
       stream.addTrack(processedTrack);
 
       processedTrack._origTrack = origTrack;
-      _noiseNode = { source, highpass, lowpass, compressor, gain, dest };
+      _noiseNode = { source, highpass, highpass2, notch50, notch60, lowpass, presence, compressor, gain, dest };
     } catch (e) {
       console.warn('[calls] Noise suppression failed:', e);
     }
@@ -144,9 +173,14 @@ window.callsModule = (() => {
     if (!el) return;
     el.classList.toggle('indicator-off', muted);
     el.title = muted ? 'Микрофон выключен' : 'Микрофон включён';
-    el.innerHTML = muted
-      ? '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="1" y1="1" x2="23" y2="23"/><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"/><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2c0 .76-.13 1.49-.35 2.17"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>'
-      : '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>';
+    const icon = el.querySelector('i, svg');
+    if (icon) {
+      if (muted) {
+        icon.outerHTML = '<i class="fas fa-microphone-slash"></i>';
+      } else {
+        icon.outerHTML = '<i class="fas fa-microphone"></i>';
+      }
+    }
   }
 
   function _updateCamIndicator(id, off) {

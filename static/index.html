@@ -13,6 +13,7 @@
   <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
   <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="stylesheet" href="/static/css/mobile.css">
 </head>
 <body>
 
@@ -73,6 +74,13 @@
       <span id="to-register">Нет аккаунта? <b>Создать</b></span>
       <span id="to-login" class="hidden">Уже есть аккаунт? <b>Войти</b></span>
     </p>
+    <div class="auth-downloads">
+      <span class="auth-dl-title">Скачать приложение</span>
+      <div class="auth-dl-btns">
+        <a id="dl-android-btn" class="auth-dl-btn" href="#" target="_blank" rel="noopener"><i class="fab fa-android"></i> Android</a>
+        <a id="dl-windows-btn" class="auth-dl-btn" href="#" target="_blank" rel="noopener"><i class="fab fa-windows"></i> Windows</a>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -131,44 +139,182 @@
       <div class="empty-state" id="calls-empty"><i class="fas fa-phone-slash"></i><p>Нет звонков</p></div>
     </div>
     <div id="tab-settings" class="tab-pane">
-      <div class="mob-settings" id="mob-settings-main">
-        <div class="mob-profile" id="mob-profile"><div class="avatar-lg" id="mob-avatar"></div><div class="mob-info"><span id="mob-name"></span><span id="mob-status-text">В сети</span></div></div>
-        <button class="mob-item" data-act="edit-profile"><i class="fas fa-user-pen"></i>Редактировать профиль<i class="fas fa-chevron-right mob-arrow"></i></button>
-        <button class="mob-item" data-act="appearance"><i class="fas fa-palette"></i>Оформление<i class="fas fa-chevron-right mob-arrow"></i></button>
-        <button class="mob-item" data-act="notifications-page"><i class="fas fa-bell"></i>Уведомления<span id="notif-mob-badge" class="mob-badge off">Выкл</span><i class="fas fa-chevron-right mob-arrow"></i></button>
-        <button class="mob-item" data-act="privacy-page"><i class="fas fa-shield-halved"></i>Приватность<i class="fas fa-chevron-right mob-arrow"></i></button>
-        <button class="mob-item" data-act="sessions"><i class="fas fa-clock-rotate-left"></i>Сессии<i class="fas fa-chevron-right mob-arrow"></i></button>
-        <button class="mob-item" data-act="shadow-plus"><i class="fas fa-gem"></i>Shadow+<i class="fas fa-chevron-right mob-arrow"></i></button>
-        <button class="mob-item danger" data-act="logout"><i class="fas fa-right-from-bracket"></i>Выйти</button>
+      <div class="mob-settings tg-style" id="mob-settings-main">
+        <!-- Telegram-style header -->
+        <div class="tg-mob-header">
+          <span class="tg-mob-title">Настройки</span>
+          <button class="tg-mob-search" id="mob-settings-search"><i class="fas fa-search"></i></button>
+        </div>
+        <!-- Profile card -->
+        <div class="tg-mob-card">
+          <div class="tg-mob-profile" id="mob-profile" data-act="edit-profile">
+            <div class="tg-mob-avatar" id="mob-avatar"></div>
+            <div class="tg-mob-pinfo">
+              <span class="tg-mob-pname" id="mob-name"></span>
+              <span class="tg-mob-pphone" id="mob-status-text">В сети</span>
+            </div>
+            <i class="fas fa-chevron-right tg-mob-arr"></i>
+          </div>
+        </div>
+        <!-- Group 1: Main settings -->
+        <div class="tg-mob-card">
+          <button class="tg-mob-row" data-act="edit-profile"><i class="fas fa-user-pen"></i><span>Редактировать профиль</span><i class="fas fa-chevron-right tg-mob-arr"></i></button>
+          <button class="tg-mob-row" data-act="appearance"><i class="fas fa-palette"></i><span>Оформление</span><i class="fas fa-chevron-right tg-mob-arr"></i></button>
+          <button class="tg-mob-row" data-act="notifications-page"><i class="fas fa-bell"></i><span>Уведомления</span><span id="notif-mob-badge" class="tg-mob-value">Выкл</span><i class="fas fa-chevron-right tg-mob-arr"></i></button>
+          <button class="tg-mob-row" data-act="privacy-page"><i class="fas fa-shield-halved"></i><span>Приватность</span><i class="fas fa-chevron-right tg-mob-arr"></i></button>
+        </div>
+        <!-- Group 2: Extra -->
+        <div class="tg-mob-card">
+          <button class="tg-mob-row" data-act="sessions"><i class="fas fa-clock-rotate-left"></i><span>Сессии</span><i class="fas fa-chevron-right tg-mob-arr"></i></button>
+          <button class="tg-mob-row" data-act="shadow-plus"><i class="fas fa-gem"></i><span>Shadow+</span><i class="fas fa-chevron-right tg-mob-arr"></i></button>
+        </div>
+        <!-- Group 3: Logout -->
+        <div class="tg-mob-card">
+          <button class="tg-mob-row tg-mob-logout" data-act="logout"><span>Выйти из аккаунта</span></button>
+        </div>
       </div>
       <!-- Sub-pages for mobile settings -->
       <div class="mob-settings-sub hidden" id="mob-sub-appearance">
-        <div class="mob-sub-header"><button class="mob-back-btn" data-back="mob-sub-appearance"><i class="fas fa-arrow-left"></i></button><h3>Оформление</h3></div>
-        <div class="mob-sub-body">
-          <button class="mob-item" data-act="themes"><i class="fas fa-swatchbook"></i>Тема<i class="fas fa-chevron-right mob-arrow"></i></button>
-          <button class="mob-item" data-act="ghost"><i class="fas fa-ghost"></i>Режим Призрака <small style="color:var(--brand);font-size:10px">Shadow+</small><span id="ghost-mob-badge" class="mob-badge off">Выкл</span></button>
-          <button class="mob-item" data-act="font-size"><i class="fas fa-text-height"></i>Размер шрифта<i class="fas fa-chevron-right mob-arrow"></i></button>
-          <button class="mob-item" data-act="density"><i class="fas fa-grip-lines"></i>Плотность сообщений<i class="fas fa-chevron-right mob-arrow"></i></button>
-          <button class="mob-item" data-act="msg-style"><i class="fas fa-comment"></i>Стиль сообщений<i class="fas fa-chevron-right mob-arrow"></i></button>
-          <label class="mob-toggle-item"><span><i class="fas fa-wand-magic-sparkles"></i>Анимации</span><div class="toggle"><input type="checkbox" id="mob-set-animations" checked><span class="toggle-track"></span></div></label>
+        <div class="tg-sub-header"><button class="tg-sub-back" data-back="mob-sub-appearance"><i class="fas fa-arrow-left"></i></button><h3>Оформление</h3></div>
+        <div class="tg-sub-body">
+          <div class="tg-mob-card">
+            <button class="tg-mob-row" data-act="themes"><i class="fas fa-swatchbook"></i><span>Тема</span><i class="fas fa-chevron-right tg-mob-arr"></i></button>
+            <button class="tg-mob-row" data-act="font-size"><i class="fas fa-text-height"></i><span>Размер шрифта</span><i class="fas fa-chevron-right tg-mob-arr"></i></button>
+            <button class="tg-mob-row" data-act="density"><i class="fas fa-grip-lines"></i><span>Плотность сообщений</span><i class="fas fa-chevron-right tg-mob-arr"></i></button>
+            <button class="tg-mob-row" data-act="msg-style"><i class="fas fa-comment"></i><span>Стиль сообщений</span><i class="fas fa-chevron-right tg-mob-arr"></i></button>
+          </div>
+          <div class="tg-mob-card">
+            <label class="tg-mob-row tg-toggle-row"><span class="tg-r-left"><i class="fas fa-ghost"></i>Режим Призрака</span><div class="tg-toggle"><input type="checkbox" id="mob-set-ghost-app"><span class="tg-toggle-track"></span></div></label>
+            <label class="tg-mob-row tg-toggle-row"><span class="tg-r-left"><i class="fas fa-wand-magic-sparkles"></i>Анимации</span><div class="tg-toggle"><input type="checkbox" id="mob-set-animations" checked><span class="tg-toggle-track"></span></div></label>
+          </div>
         </div>
       </div>
       <div class="mob-settings-sub hidden" id="mob-sub-notifications">
-        <div class="mob-sub-header"><button class="mob-back-btn" data-back="mob-sub-notifications"><i class="fas fa-arrow-left"></i></button><h3>Уведомления</h3></div>
-        <div class="mob-sub-body">
-          <label class="mob-toggle-item"><span><i class="fas fa-bell"></i>Push-уведомления</span><div class="toggle"><input type="checkbox" id="mob-set-notifications" checked><span class="toggle-track"></span></div></label>
-          <label class="mob-toggle-item"><span><i class="fas fa-volume-high"></i>Звуки</span><div class="toggle"><input type="checkbox" id="mob-set-sounds" checked><span class="toggle-track"></span></div></label>
-          <label class="mob-toggle-item"><span><i class="fas fa-moon"></i>Не беспокоить</span><div class="toggle"><input type="checkbox" id="mob-set-dnd"><span class="toggle-track"></span></div></label>
-          <div class="mob-toggle-item" style="flex-direction:column;align-items:stretch"><span style="margin-bottom:6px"><i class="fas fa-reply"></i>Автоответ</span><input type="text" id="mob-set-dnd-reply" placeholder="Я сейчас занят, отвечу позже..." style="width:100%;padding:8px 12px;border-radius:var(--r);background:var(--bg-input);color:var(--text);border:none;font-size:14px"></div>
+        <div class="tg-sub-header"><button class="tg-sub-back" data-back="mob-sub-notifications"><i class="fas fa-arrow-left"></i></button><h3>Уведомления</h3></div>
+        <div class="tg-sub-body">
+          <div class="tg-mob-card">
+            <label class="tg-mob-row tg-toggle-row"><span class="tg-r-left"><i class="fas fa-bell"></i>Push-уведомления</span><div class="tg-toggle"><input type="checkbox" id="mob-set-notifications" checked><span class="tg-toggle-track"></span></div></label>
+            <label class="tg-mob-row tg-toggle-row"><span class="tg-r-left"><i class="fas fa-volume-high"></i>Звуки</span><div class="tg-toggle"><input type="checkbox" id="mob-set-sounds" checked><span class="tg-toggle-track"></span></div></label>
+            <label class="tg-mob-row tg-toggle-row"><span class="tg-r-left"><i class="fas fa-moon"></i>Не беспокоить</span><div class="tg-toggle"><input type="checkbox" id="mob-set-dnd"><span class="tg-toggle-track"></span></div></label>
+          </div>
+          <div class="tg-mob-card">
+            <div class="tg-mob-row tg-input-row"><span class="tg-r-left"><i class="fas fa-reply"></i>Автоответ</span></div>
+            <div class="tg-mob-input-wrap"><input type="text" id="mob-set-dnd-reply" class="tg-mob-input" placeholder="Я сейчас занят, отвечу позже..."></div>
+          </div>
         </div>
       </div>
       <div class="mob-settings-sub hidden" id="mob-sub-privacy">
-        <div class="mob-sub-header"><button class="mob-back-btn" data-back="mob-sub-privacy"><i class="fas fa-arrow-left"></i></button><h3>Приватность</h3></div>
-        <div class="mob-sub-body">
-          <label class="mob-toggle-item"><span><i class="fas fa-circle" style="color:var(--green)"></i>Статус онлайн</span><div class="toggle"><input type="checkbox" id="mob-set-online" checked><span class="toggle-track"></span></div></label>
-          <label class="mob-toggle-item"><span><i class="fas fa-check-double"></i>Отметки прочтения</span><div class="toggle"><input type="checkbox" id="mob-set-read" checked><span class="toggle-track"></span></div></label>
-          <label class="mob-toggle-item"><span><i class="fas fa-keyboard"></i>Индикатор набора</span><div class="toggle"><input type="checkbox" id="mob-set-typing" checked><span class="toggle-track"></span></div></label>
-          <label class="mob-toggle-item"><span><i class="fas fa-ghost"></i>Режим Призрака</span><div class="toggle"><input type="checkbox" id="mob-set-ghost"><span class="toggle-track"></span></div></label>
+        <div class="tg-sub-header"><button class="tg-sub-back" data-back="mob-sub-privacy"><i class="fas fa-arrow-left"></i></button><h3>Приватность</h3></div>
+        <div class="tg-sub-body">
+          <div class="tg-mob-card">
+            <label class="tg-mob-row tg-toggle-row"><span class="tg-r-left"><i class="fas fa-circle" style="color:#23a559"></i>Статус онлайн</span><div class="tg-toggle"><input type="checkbox" id="mob-set-online" checked><span class="tg-toggle-track"></span></div></label>
+            <label class="tg-mob-row tg-toggle-row"><span class="tg-r-left"><i class="fas fa-check-double"></i>Отметки прочтения</span><div class="tg-toggle"><input type="checkbox" id="mob-set-read" checked><span class="tg-toggle-track"></span></div></label>
+            <label class="tg-mob-row tg-toggle-row"><span class="tg-r-left"><i class="fas fa-keyboard"></i>Индикатор набора</span><div class="tg-toggle"><input type="checkbox" id="mob-set-typing" checked><span class="tg-toggle-track"></span></div></label>
+            <label class="tg-mob-row tg-toggle-row"><span class="tg-r-left"><i class="fas fa-ghost"></i>Режим Призрака</span><div class="tg-toggle"><input type="checkbox" id="mob-set-ghost"><span class="tg-toggle-track"></span></div></label>
+          </div>
+        </div>
+      </div>
+      <!-- Profile sub-page -->
+      <div class="mob-settings-sub hidden" id="mob-sub-profile">
+        <div class="tg-sub-header"><button class="tg-sub-back" data-back="mob-sub-profile"><i class="fas fa-arrow-left"></i></button><h3>Редактировать профиль</h3></div>
+        <div class="tg-sub-body">
+          <div class="tg-mob-avatar-block">
+            <div class="tg-mob-big-avatar" id="mob-edit-avatar"></div>
+            <button class="tg-mob-cam-btn" id="mob-avatar-btn"><i class="fas fa-camera"></i></button>
+          </div>
+          <div class="tg-mob-card">
+            <label class="tg-mob-field"><span>Имя пользователя</span><input id="mob-set-username" type="text"></label>
+            <label class="tg-mob-field"><span>Отображаемое имя</span><input id="mob-set-displayname" type="text"></label>
+            <label class="tg-mob-field"><span>О себе</span><textarea id="mob-set-bio" rows="3"></textarea></label>
+            <button class="tg-mob-action-btn" id="mob-btn-save-profile"><i class="fas fa-check"></i> Сохранить</button>
+          </div>
+          <div class="tg-mob-card">
+            <div class="tg-mob-card-title">Смена пароля</div>
+            <label class="tg-mob-field"><span>Текущий пароль</span><input id="mob-set-cur-password" type="password"></label>
+            <label class="tg-mob-field"><span>Новый пароль</span><input id="mob-set-new-password" type="password"></label>
+            <button class="tg-mob-action-btn tg-secondary" id="mob-btn-change-pw"><i class="fas fa-key"></i> Сменить пароль</button>
+          </div>
+        </div>
+      </div>
+      <!-- Sessions sub-page -->
+      <div class="mob-settings-sub hidden" id="mob-sub-sessions">
+        <div class="tg-sub-header"><button class="tg-sub-back" data-back="mob-sub-sessions"><i class="fas fa-arrow-left"></i></button><h3>Сессии</h3></div>
+        <div class="tg-sub-body">
+          <div class="tg-mob-section-hint">Устройства, на которых выполнен вход</div>
+          <div class="tg-mob-card" id="mob-sessions-list"></div>
+          <div class="tg-mob-card">
+            <button class="tg-mob-row tg-mob-logout" id="mob-btn-revoke"><span>Завершить все другие</span></button>
+          </div>
+        </div>
+      </div>
+      <!-- Shadow+ sub-page -->
+      <div class="mob-settings-sub hidden" id="mob-sub-premium">
+        <div class="tg-sub-header"><button class="tg-sub-back" data-back="mob-sub-premium"><i class="fas fa-arrow-left"></i></button><h3>Shadow+</h3></div>
+        <div class="tg-sub-body">
+          <div class="tg-mob-card tg-mob-premium-card" id="mob-premium-card">
+            <div class="tg-mob-premium-icon">👻</div>
+            <div class="tg-mob-premium-info">
+              <span class="tg-mob-premium-role">Обычный пользователь</span>
+              <span class="tg-mob-premium-desc">Активируйте Shadow+ для расширенных возможностей</span>
+            </div>
+          </div>
+          <div class="tg-mob-section-hint">🆓 Бесплатно</div>
+          <div class="tg-mob-card" id="mob-free-features">
+            <div class="tg-mob-feat"><i class="fas fa-message"></i><span>Текстовые сообщения</span></div>
+            <div class="tg-mob-feat"><i class="fas fa-image"></i><span>Фото и файлы</span></div>
+            <div class="tg-mob-feat"><i class="fas fa-microphone"></i><span>Голосовые сообщения</span></div>
+            <div class="tg-mob-feat"><i class="fas fa-phone"></i><span>Аудио и видеозвонки</span></div>
+            <div class="tg-mob-feat"><i class="fas fa-users"></i><span>Групповые чаты и звонки</span></div>
+            <div class="tg-mob-feat"><i class="fas fa-swatchbook"></i><span>17 тем оформления</span></div>
+          </div>
+          <div class="tg-mob-section-hint">💎 Shadow+</div>
+          <div class="tg-mob-card" id="mob-premium-features">
+            <div class="tg-mob-feat tg-premium"><i class="fas fa-ghost"></i><span>Режим Призрака</span></div>
+            <div class="tg-mob-feat tg-premium"><i class="fas fa-star"></i><span>Эмодзи и значок профиля</span></div>
+            <div class="tg-mob-feat tg-premium"><i class="fas fa-droplet"></i><span>Цвет имени в чате</span></div>
+            <div class="tg-mob-feat tg-premium"><i class="fas fa-gem"></i><span>Эксклюзивные темы</span></div>
+            <div class="tg-mob-feat tg-premium"><i class="fas fa-palette"></i><span>Создание своей темы</span></div>
+            <div class="tg-mob-feat tg-premium"><i class="fas fa-comment-dots"></i><span>Кастомный статус</span></div>
+            <div class="tg-mob-feat tg-premium"><i class="fas fa-music"></i><span>Звук уведомлений</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- Font size sub-page (nested under appearance) -->
+      <div class="mob-settings-sub hidden" id="mob-sub-fontsize">
+        <div class="tg-sub-header"><button class="tg-sub-back" data-back="mob-sub-fontsize" data-parent="mob-sub-appearance"><i class="fas fa-arrow-left"></i></button><h3>Размер шрифта</h3></div>
+        <div class="tg-sub-body">
+          <div class="tg-mob-card" id="mob-fontsize-opts">
+            <label class="tg-mob-row tg-radio-row"><span class="tg-r-left"><i class="fas fa-font" style="font-size:12px"></i>Маленький</span><input type="radio" name="mob-fontsize" value="small"><span class="tg-radio-check"></span></label>
+            <label class="tg-mob-row tg-radio-row"><span class="tg-r-left"><i class="fas fa-font"></i>Обычный</span><input type="radio" name="mob-fontsize" value="normal" checked><span class="tg-radio-check"></span></label>
+            <label class="tg-mob-row tg-radio-row"><span class="tg-r-left"><i class="fas fa-font" style="font-size:18px"></i>Большой</span><input type="radio" name="mob-fontsize" value="large"><span class="tg-radio-check"></span></label>
+          </div>
+        </div>
+      </div>
+      <!-- Density sub-page (nested under appearance) -->
+      <div class="mob-settings-sub hidden" id="mob-sub-density">
+        <div class="tg-sub-header"><button class="tg-sub-back" data-back="mob-sub-density" data-parent="mob-sub-appearance"><i class="fas fa-arrow-left"></i></button><h3>Плотность сообщений</h3></div>
+        <div class="tg-sub-body">
+          <div class="tg-mob-card" id="mob-density-opts">
+            <label class="tg-mob-row tg-radio-row"><span class="tg-r-left"><i class="fas fa-compress"></i>Компактный</span><input type="radio" name="mob-density" value="compact"><span class="tg-radio-check"></span></label>
+            <label class="tg-mob-row tg-radio-row"><span class="tg-r-left"><i class="fas fa-grip-lines"></i>Стандартный</span><input type="radio" name="mob-density" value="cozy" checked><span class="tg-radio-check"></span></label>
+            <label class="tg-mob-row tg-radio-row"><span class="tg-r-left"><i class="fas fa-expand"></i>Просторный</span><input type="radio" name="mob-density" value="comfortable"><span class="tg-radio-check"></span></label>
+          </div>
+        </div>
+      </div>
+      <!-- Message style sub-page (nested under appearance) -->
+      <div class="mob-settings-sub hidden" id="mob-sub-msgstyle">
+        <div class="tg-sub-header"><button class="tg-sub-back" data-back="mob-sub-msgstyle" data-parent="mob-sub-appearance"><i class="fas fa-arrow-left"></i></button><h3>Стиль сообщений</h3></div>
+        <div class="tg-sub-body">
+          <div class="tg-mob-card" id="mob-msgstyle-opts">
+            <label class="tg-mob-row tg-radio-row"><span class="tg-r-left"><i class="fas fa-align-left"></i>Обычный</span><input type="radio" name="mob-msgstyle" value="default" checked><span class="tg-radio-check"></span></label>
+            <label class="tg-mob-row tg-radio-row"><span class="tg-r-left"><i class="fas fa-comment"></i>Пузыри</span><input type="radio" name="mob-msgstyle" value="bubbles"><span class="tg-radio-check"></span></label>
+          </div>
+          <div class="tg-mob-section-hint">Скругление</div>
+          <div class="tg-mob-card" id="mob-radius-opts">
+            <label class="tg-mob-row tg-radio-row"><span class="tg-r-left"><i class="fas fa-square"></i>Без скругления</span><input type="radio" name="mob-radius" value="none"><span class="tg-radio-check"></span></label>
+            <label class="tg-mob-row tg-radio-row"><span class="tg-r-left"><i class="fas fa-square" style="border-radius:4px"></i>Обычный</span><input type="radio" name="mob-radius" value="normal" checked><span class="tg-radio-check"></span></label>
+            <label class="tg-mob-row tg-radio-row"><span class="tg-r-left"><i class="fas fa-circle"></i>Круглый</span><input type="radio" name="mob-radius" value="round"><span class="tg-radio-check"></span></label>
+          </div>
         </div>
       </div>
     </div>
@@ -317,20 +463,39 @@
 
 <!-- ===== SETTINGS MODAL ===== -->
 <div id="modal-settings" class="modal-overlay hidden">
-  <div class="settings-fullscreen">
-    <div class="settings-sidebar">
-      <div class="settings-sb-title">Настройки</div>
-      <button class="settings-nav active" data-sec="sec-profile"><i class="fas fa-user"></i>Мой аккаунт</button>
-      <button class="settings-nav" data-sec="sec-appearance"><i class="fas fa-palette"></i>Внешний вид</button>
-      <button class="settings-nav" data-sec="sec-notifications"><i class="fas fa-bell"></i>Уведомления</button>
-      <button class="settings-nav" data-sec="sec-privacy"><i class="fas fa-shield-halved"></i>Приватность</button>
-      <button class="settings-nav" data-sec="sec-premium"><i class="fas fa-gem"></i>Shadow+</button>
-      <button class="settings-nav" data-sec="sec-sessions"><i class="fas fa-clock-rotate-left"></i>Сессии</button>
-      <div class="settings-sb-sep"></div>
-      <button class="settings-nav danger" onclick="logout()"><i class="fas fa-right-from-bracket"></i>Выйти</button>
+  <div class="tg-settings">
+    <!-- Panel 1: Main settings list -->
+    <div class="tg-settings-main" id="tg-settings-main">
+      <div class="tg-settings-header">
+        <span class="tg-header-title">Настройки</span>
+        <button class="tg-close-btn" data-close="modal-settings"><i class="fas fa-xmark"></i></button>
+      </div>
+      <div class="tg-profile-card" id="tg-profile-card">
+        <div class="tg-profile-avatar" id="tg-profile-avatar"></div>
+        <div class="tg-profile-info">
+          <span class="tg-profile-name" id="tg-profile-name"></span>
+          <span class="tg-profile-status" id="tg-profile-status">В сети</span>
+        </div>
+      </div>
+      <div class="tg-settings-list">
+        <button class="tg-settings-item" data-sec="sec-profile"><i class="fas fa-user"></i><div class="tg-item-text"><span class="tg-item-title">Аккаунт</span><span class="tg-item-desc">Профиль, имя, аватар, пароль</span></div><i class="fas fa-chevron-right tg-arrow"></i></button>
+        <button class="tg-settings-item" data-sec="sec-notifications"><i class="fas fa-bell"></i><div class="tg-item-text"><span class="tg-item-title">Уведомления</span><span class="tg-item-desc">Push, звуки, мелодии</span></div><i class="fas fa-chevron-right tg-arrow"></i></button>
+        <button class="tg-settings-item" data-sec="sec-appearance"><i class="fas fa-palette"></i><div class="tg-item-text"><span class="tg-item-title">Внешний вид</span><span class="tg-item-desc">Тема, шрифт, обои, стиль</span></div><i class="fas fa-chevron-right tg-arrow"></i></button>
+        <button class="tg-settings-item" data-sec="sec-privacy"><i class="fas fa-shield-halved"></i><div class="tg-item-text"><span class="tg-item-title">Конфиденциальность</span><span class="tg-item-desc">Онлайн, прочтение, призрак</span></div><i class="fas fa-chevron-right tg-arrow"></i></button>
+        <button class="tg-settings-item" data-sec="sec-premium"><i class="fas fa-gem"></i><div class="tg-item-text"><span class="tg-item-title">Shadow+</span><span class="tg-item-desc">Премиум-возможности</span></div><i class="fas fa-chevron-right tg-arrow"></i></button>
+        <button class="tg-settings-item" data-sec="sec-sessions"><i class="fas fa-clock-rotate-left"></i><div class="tg-item-text"><span class="tg-item-title">Устройства</span><span class="tg-item-desc">Активные сессии</span></div><i class="fas fa-chevron-right tg-arrow"></i></button>
+        <div class="tg-list-divider"></div>
+        <button class="tg-settings-item tg-danger" onclick="logout()"><i class="fas fa-right-from-bracket"></i><div class="tg-item-text"><span class="tg-item-title">Выйти</span></div></button>
+      </div>
     </div>
-    <div class="settings-content">
-      <button class="settings-close-btn" data-close="modal-settings"><i class="fas fa-xmark"></i></button>
+    <!-- Panel 2: Section content (slides in) -->
+    <div class="tg-settings-detail" id="tg-settings-detail">
+      <div class="tg-detail-header">
+        <button class="tg-back-btn" id="tg-back-btn"><i class="fas fa-arrow-left"></i></button>
+        <span class="tg-detail-title" id="tg-detail-title">Настройки</span>
+        <button class="tg-close-btn" data-close="modal-settings"><i class="fas fa-xmark"></i></button>
+      </div>
+      <div class="tg-detail-content" id="tg-detail-content">
 
       <div class="settings-section active" id="sec-profile">
         <h2>Мой аккаунт</h2>
@@ -357,10 +522,12 @@
           <div id="premium-lock-area"></div>
           <p class="s-hint">Эмодзи рядом с именем</p>
           <div class="premium-emoji-picker" id="premium-emoji-grid"></div>
+          <div class="s-field" style="margin-top:8px"><label>Или введите свой эмодзи</label><input id="custom-emoji-input" type="text" placeholder="Вставьте эмодзи..." maxlength="4" style="width:80px;text-align:center;font-size:20px"><button class="btn-sm" id="btn-set-custom-emoji" style="margin-left:8px">Применить</button></div>
           <div class="s-divider"></div>
           <h3>Значок профиля</h3>
           <p class="s-hint">Текстовый значок рядом с именем в чате</p>
           <div class="premium-badge-picker" id="premium-badge-grid"></div>
+          <div class="s-field" style="margin-top:8px"><label>Или введите свой значок</label><input id="custom-badge-input" type="text" placeholder="Ваш значок..." maxlength="12"><button class="btn-sm" id="btn-set-custom-badge" style="margin-left:8px">Применить</button></div>
           <div class="s-divider"></div>
           <h3>Цвет имени в чате</h3>
           <p class="s-hint">Ваше имя будет выделено цветом в сообщениях</p>
@@ -396,10 +563,25 @@
         </div>
       </div>
 
+      </div><!-- /sec-profile -->
+
       <div class="settings-section" id="sec-appearance">
         <h2>Внешний вид</h2>
         <h3>Тема оформления</h3>
         <p class="s-hint">Выберите тему для интерфейса мессенджера</p>
+        <div id="theme-preview-inline" class="theme-preview-inline hidden">
+          <div id="theme-preview-box-inline" style="border-radius:12px;overflow:hidden;height:200px;position:relative">
+            <div style="display:grid;grid-template-columns:50px 120px 1fr;height:100%">
+              <div id="tpi-sidebar" style="display:flex;flex-direction:column;gap:8px;padding:8px;align-items:center"><div style="width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,.15)"></div><div style="width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,.1)"></div></div>
+              <div id="tpi-panel" style="display:flex;flex-direction:column;padding:10px;gap:6px"><div style="height:16px;border-radius:4px;background:rgba(255,255,255,.12);width:70%"></div><div style="height:40px;border-radius:8px;background:rgba(255,255,255,.08)"></div><div style="height:40px;border-radius:8px;background:rgba(255,255,255,.08)"></div></div>
+              <div id="tpi-chat" style="display:flex;flex-direction:column"><div id="tpi-header" style="height:36px;display:flex;align-items:center;padding:0 12px;border-bottom:1px solid rgba(255,255,255,.08)"><span style="color:rgba(255,255,255,.85);font-size:13px;font-weight:600">Чат</span></div><div style="flex:1;padding:12px;display:flex;flex-direction:column;gap:8px;justify-content:flex-end"><div style="align-self:flex-start;padding:8px 14px;border-radius:12px;background:rgba(255,255,255,.08);color:rgba(255,255,255,.7);font-size:12px">Привет! 👋</div><div id="tpi-msg-brand" style="align-self:flex-end;padding:8px 14px;border-radius:12px;color:#fff;font-size:12px">Как дела?</div></div></div>
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:12px">
+            <button id="tpi-cancel" class="btn-sm" style="flex:1">Отмена</button>
+            <button id="tpi-apply" class="btn-primary btn-sm" style="flex:1">Применить</button>
+          </div>
+        </div>
         <div id="theme-grid" class="theme-grid-large"></div>
         <div class="s-divider"></div>
         <h3>Создать свою тему</h3>
@@ -580,6 +762,7 @@
         <div id="sessions-list"></div>
         <button id="btn-revoke" class="btn-danger-sm" style="margin-top:12px"><i class="fas fa-right-from-bracket"></i> Завершить все другие сессии</button>
       </div>
+      </div>
     </div>
   </div>
 </div>
@@ -612,25 +795,6 @@
 </div>
 
 <!-- ===== THEME PREVIEW MODAL ===== -->
-<div id="modal-theme-preview" class="modal-overlay hidden">
-  <div class="modal-card" style="max-width:420px">
-    <div class="modal-top"><h3>Предпросмотр темы</h3><button class="modal-x" id="theme-preview-close"><i class="fas fa-xmark"></i></button></div>
-    <div class="modal-body" style="padding:16px">
-      <div id="theme-preview-box" style="border-radius:12px;overflow:hidden;height:260px;position:relative">
-        <div style="display:grid;grid-template-columns:50px 120px 1fr;height:100%">
-          <div id="tp-sidebar" style="display:flex;flex-direction:column;gap:8px;padding:8px;align-items:center"><div style="width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,.15)"></div><div style="width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,.1)"></div></div>
-          <div id="tp-panel" style="display:flex;flex-direction:column;padding:10px;gap:6px"><div style="height:16px;border-radius:4px;background:rgba(255,255,255,.12);width:70%"></div><div style="height:40px;border-radius:8px;background:rgba(255,255,255,.08)"></div><div style="height:40px;border-radius:8px;background:rgba(255,255,255,.08)"></div><div style="height:40px;border-radius:8px;background:rgba(255,255,255,.08)"></div></div>
-          <div id="tp-chat" style="display:flex;flex-direction:column"><div id="tp-header" style="height:40px;display:flex;align-items:center;padding:0 12px;border-bottom:1px solid rgba(255,255,255,.08)"><span style="color:rgba(255,255,255,.85);font-size:13px;font-weight:600">Чат</span></div><div style="flex:1;padding:12px;display:flex;flex-direction:column;gap:8px;justify-content:flex-end"><div style="align-self:flex-start;padding:8px 14px;border-radius:12px;background:rgba(255,255,255,.08);color:rgba(255,255,255,.7);font-size:12px">Привет! 👋</div><div id="tp-msg-brand" style="align-self:flex-end;padding:8px 14px;border-radius:12px;color:#fff;font-size:12px">Как дела?</div></div></div>
-        </div>
-      </div>
-      <div style="display:flex;gap:8px;margin-top:16px">
-        <button id="theme-preview-cancel" class="btn-sm" style="flex:1">Отмена</button>
-        <button id="theme-preview-apply" class="btn-primary btn-sm" style="flex:1">Применить</button>
-      </div>
-    </div>
-  </div>
-</div>
-
 <!-- Context Menu -->
 <div id="ctx-menu" class="hidden"><div id="ctx-items"></div></div>
 <!-- Forward Modal -->
@@ -770,6 +934,14 @@
 <div id="lightbox" class="hidden"><button id="lb-close"><i class="fas fa-xmark"></i></button><img id="lb-img" src="" alt=""><video id="lb-video" controls class="hidden"></video></div>
 <!-- Toasts -->
 <div id="toast-container"></div>
+<!-- Input Context Menu -->
+<div id="input-ctx-menu" class="hidden">
+  <div class="ctx-item" data-input-action="paste"><i class="fas fa-paste"></i>Вставить</div>
+  <div class="ctx-item" data-input-action="paste-screenshot"><i class="fas fa-image"></i>Вставить скриншот</div>
+  <div class="ctx-item" data-input-action="cut"><i class="fas fa-scissors"></i>Вырезать</div>
+  <div class="ctx-item" data-input-action="copy"><i class="fas fa-copy"></i>Копировать</div>
+  <div class="ctx-item" data-input-action="select-all"><i class="fas fa-object-group"></i>Выделить всё</div>
+</div>
 <!-- Hidden inputs -->
 <input type="file" id="file-input" class="hidden" multiple>
 <input type="file" id="avatar-input" class="hidden" accept="image/*">
