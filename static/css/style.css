@@ -131,7 +131,7 @@ img,video{max-width:100%;display:block}
 #welcome-screen h2{color:var(--head);font-size:20px}
 #chat-view{flex:1;display:flex;flex-direction:column;overflow:hidden}
 #chat-header{display:flex;align-items:center;padding:0 16px;height:48px;background:var(--bg-pri);border-bottom:1px solid rgba(0,0,0,.15);flex-shrink:0}
-#chat-back{display:none;width:32px;height:32px;border-radius:var(--r);color:var(--head2);font-size:16px;margin-right:8px;align-items:center;justify-content:center;flex-shrink:0}
+#chat-back{display:none;width:36px;height:36px;border-radius:var(--r);color:var(--head2);font-size:18px;margin-right:8px;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer}
 .ch-left{display:flex;align-items:center;gap:10px;cursor:pointer;flex:1;min-width:0}
 .ch-text{display:flex;flex-direction:column;min-width:0}
 #ch-name{font-weight:700;font-size:15px;color:var(--head);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -173,7 +173,7 @@ img,video{max-width:100%;display:block}
 .msg-voice .voice-dur{font-size:11px;color:var(--text-muted);flex-shrink:0}
 
 /* Video circle (кружок) */
-.msg-video-circle{width:200px;height:200px;border-radius:50%;overflow:hidden;cursor:pointer;margin-top:4px;border:3px solid var(--brand);position:relative}
+.msg-video-circle{width:280px;height:280px;border-radius:50%;overflow:hidden;cursor:pointer;margin-top:4px;border:3px solid var(--brand);position:relative;max-width:60vw;max-height:60vw}
 .msg-video-circle video{width:100%;height:100%;object-fit:cover}
 .msg-video-circle .vc-play{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.3);opacity:0;transition:var(--tr)}
 .msg-video-circle:hover .vc-play{opacity:1}
@@ -464,15 +464,15 @@ body.ghost-active .sb-user{box-shadow:0 0 12px rgba(139,92,246,.4)}
   .chat-item{margin:0 4px}
   #messages-container{padding:8px}
   /* ── Input panel fix: stick to the bottom reliably ── */
-  #chat-input{padding:8px 8px;padding-bottom:max(8px, env(safe-area-inset-bottom));position:sticky;bottom:0;z-index:10;background:var(--bg-sec);border-top:1px solid var(--bg-active)}
+  #chat-input{padding:8px 8px;padding-bottom:max(8px, env(safe-area-inset-bottom));position:fixed;bottom:0;left:0;right:0;z-index:10;background:var(--bg-sec);border-top:1px solid var(--bg-active)}
   #chat-view{display:flex;flex-direction:column;height:100%;position:relative}
-  #messages-container{flex:1;min-height:0;overflow-y:auto}
+  #messages-container{flex:1;min-height:0;overflow-y:auto;padding-bottom:60px}
   .incoming-avatar,.vk-call-avatar{width:100px;height:100px;font-size:40px}
   .vk-ctrl-btn{width:52px;height:52px;font-size:18px}
   .inc-btn{width:60px;height:60px;font-size:22px}
   #emoji-picker{width:280px;bottom:60px;right:8px}
   .msg-content img{max-width:260px}
-  .msg-video-circle{width:160px;height:160px}
+  .msg-video-circle{width:220px;height:220px}
   #install-banner{bottom:calc(var(--btab-h) + 8px)}
   #call-mini{bottom:calc(var(--btab-h) + 8px);right:8px;left:8px;min-width:auto}
   /* ── Auth mobile ── */
@@ -652,6 +652,8 @@ body.theme-light .btab.active{color:var(--brand)}
 .premium-lock-notice i{font-size:16px}
 .premium-locked .premium-emoji-picker,.premium-locked .premium-badge-picker,.premium-locked .premium-color-picker,.premium-locked .custom-status-editor,.premium-locked #premium-themes-grid,.premium-locked .custom-theme-creator,.premium-locked #notif-sounds-grid{opacity:.5;pointer-events:none;position:relative}
 .premium-locked .premium-emoji-picker::after,.premium-locked .premium-badge-picker::after,.premium-locked .premium-color-picker::after,.premium-locked .custom-status-editor::after,.premium-locked #premium-themes-grid::after{content:'🔒';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);font-size:28px;filter:drop-shadow(0 0 8px rgba(0,0,0,.5))}
+.premium-locked-inline{opacity:.5;pointer-events:none;position:relative}
+.premium-locked-inline::before{content:'🔒 Shadow+';position:absolute;top:4px;right:8px;font-size:11px;color:var(--brand);z-index:2;background:var(--bg-sec);padding:2px 8px;border-radius:var(--r-sm)}
 
 /* Premium badge picker */
 .premium-badge-picker{display:flex;flex-wrap:wrap;gap:6px;padding:8px 0}
@@ -745,6 +747,14 @@ body.no-animations,body.no-animations *{transition:none!important;animation:none
 .dnd-badge{font-size:14px;vertical-align:middle;margin-left:4px}
 
 /* ══════ NOTIFICATION SOUNDS GRID ══════ */
+/* ══════ CALL HISTORY ══════ */
+.call-item{display:flex;align-items:center;gap:12px;padding:10px 16px;cursor:pointer;transition:background .15s}
+.call-item:hover{background:var(--bg-hover)}
+.call-info{display:flex;flex-direction:column;flex:1;min-width:0}
+.call-name{font-size:14px;font-weight:600;color:var(--head);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.call-meta{font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:4px}
+.call-action{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--bg-hover);transition:var(--tr);flex-shrink:0}
+.call-action:hover{background:var(--bg-active)}
 .notif-sounds-grid,.notif-sounds{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:6px;margin-top:8px}
 .notif-sound-btn{background:var(--bg-dark);border:1px solid transparent;border-radius:var(--r-sm);padding:8px 6px;color:var(--text);font-size:12px;cursor:pointer;transition:all .15s;text-align:center}
 .notif-sound-btn:hover{background:var(--bg-hover);border-color:var(--brand)}

@@ -285,18 +285,21 @@ function initSocket() {
   socket.on('connect', () => console.log('Socket connected'));
 
   socket.on('new_message', msg => {
+    // Sender already adds message locally from HTTP response — skip duplicates
+    if (msg.senderId === S.user.id) {
+      const exists = S.messages.some(m => m.id === msg.id || m._id === msg._id);
+      if (exists) return;
+    }
     if (msg.chatId === S.chatId) {
       S.messages.push(msg);
       renderMessages();
       scrollToBottom();
-      // Auto mark read when chat is open
       if (msg.senderId !== S.user.id) {
         S.socket?.emit('mark_read', { chatId: msg.chatId });
       }
     }
     Sounds.message();
     updateChatInList(msg.chatId, msg);
-    // In-app notification popup for messages not in current chat
     if (msg.senderId !== S.user.id && msg.chatId !== S.chatId) {
       showInAppNotif(msg);
     }
@@ -595,8 +598,11 @@ function initUI() {
     else if (act === 'privacy-page') openMobSub('mob-sub-privacy');
     else if (act === 'ghost') toggleGhost();
     else if (act === 'themes') { buildThemeGrid('theme-grid-mob'); show($('modal-themes')); }
-    else if (act === 'sessions') openSettings();
+    else if (act === 'sessions') { openSettings(); setTimeout(() => switchSettingsSection('sec-sessions'), 100); }
     else if (act === 'shadow-plus') { openSettings(); setTimeout(() => switchSettingsSection('sec-premium'), 100); }
+    else if (act === 'font-size') { openSettings(); setTimeout(() => switchSettingsSection('sec-appearance'), 100); }
+    else if (act === 'density') { openSettings(); setTimeout(() => switchSettingsSection('sec-appearance'), 100); }
+    else if (act === 'msg-style') { openSettings(); setTimeout(() => switchSettingsSection('sec-appearance'), 100); }
     else if (act === 'logout') logout();
   });
 
@@ -610,6 +616,9 @@ function initUI() {
   if ($('mob-set-read')) $('mob-set-read').onchange = () => saveSettingsToggle('privReadReceipts', $('mob-set-read').checked);
   if ($('mob-set-typing')) $('mob-set-typing').onchange = () => saveSettingsToggle('privShowTyping', $('mob-set-typing').checked);
   if ($('mob-set-ghost')) $('mob-set-ghost').onchange = () => toggleGhost();
+  if ($('mob-set-dnd')) $('mob-set-dnd').onchange = () => saveSettingsToggle('dndMode', $('mob-set-dnd').checked);
+  if ($('mob-set-dnd-reply')) $('mob-set-dnd-reply').onchange = () => saveSettingsToggle('dndAutoReply', $('mob-set-dnd-reply').value);
+  if ($('mob-set-animations')) $('mob-set-animations').onchange = () => saveSettingsToggle('animations', $('mob-set-animations').checked);
 
   // Contact sub-tabs
   $$('.sub-tab').forEach(b => b.onclick = () => switchContactTab(b.dataset.ct));
@@ -673,12 +682,63 @@ function switchTab(tab) {
 
   if (tab === 'contacts') loadFriends();
   if (tab === 'chats') renderChatList();
+  if (tab === 'calls') loadCallHistory();
 }
 
 function switchContactTab(ct) {
   $$('.sub-tab').forEach(b => b.classList.toggle('active', b.dataset.ct === ct));
   if (ct === 'search') { show($('contacts-search-wrap')); } else { hide($('contacts-search-wrap')); }
   renderContacts(ct);
+}
+
+/* ── Call History ───────────────────────────────────────────────────── */
+async function loadCallHistory() {
+  const list = $('calls-list');
+  const empty = $('calls-empty');
+  if (!list) return;
+  try {
+    const calls = await api('/api/calls');
+    if (!calls.length) {
+      list.innerHTML = '';
+      if (empty) show(empty);
+      return;
+    }
+    if (empty) hide(empty);
+    list.innerHTML = calls.map(c => {
+      const isMe = c.callerId === S.user.id;
+      const name = isMe ? c.receiverName : c.callerName;
+      const avatar = isMe ? c.receiverAvatar : c.callerAvatar;
+      const peerId = isMe ? c.receiverId : c.callerId;
+      const icon = c.type === 'video' ? 'fa-video' : 'fa-phone';
+      const statusIcon = c.status === 'answered' ? 'fa-phone' : c.status === 'rejected' ? 'fa-phone-slash' : 'fa-phone-slash';
+      const statusColor = c.status === 'answered' ? 'var(--green)' : 'var(--red)';
+      const arrow = isMe ? '<i class="fas fa-arrow-up-right" style="color:var(--green);font-size:11px"></i>' : '<i class="fas fa-arrow-down-left" style="color:var(--brand);font-size:11px"></i>';
+      const durStr = c.status === 'answered' && c.duration ? fmtDuration(c.duration) : (c.status === 'rejected' ? 'Отклонён' : 'Пропущен');
+      const avHtml = avatar ? `<img src="${escHTML(avatar)}" style="width:100%;height:100%;object-fit:cover;border-radius:50%">` : (name || '?')[0].toUpperCase();
+      return `<div class="call-item" data-peer="${peerId}">
+        <div class="avatar-sm" style="flex-shrink:0">${avHtml}</div>
+        <div class="call-info"><span class="call-name">${escHTML(name || 'Пользователь')}</span><span class="call-meta">${arrow} ${durStr} · ${fmtTime(c.startedAt)}</span></div>
+        <button class="call-action" data-peer="${peerId}" data-type="${c.type}"><i class="fas ${icon}" style="color:${statusColor}"></i></button>
+      </div>`;
+    }).join('');
+    // Click to call back
+    list.querySelectorAll('.call-action').forEach(btn => {
+      btn.onclick = () => {
+        const peer = btn.dataset.peer;
+        const type = btn.dataset.type;
+        if (peer && window.startCallById) window.startCallById(peer, type);
+      };
+    });
+    // Click name to open profile
+    list.querySelectorAll('.call-item').forEach(el => {
+      el.onclick = (e) => {
+        if (e.target.closest('.call-action')) return;
+        showProfileById(el.dataset.peer);
+      };
+    });
+  } catch {
+    list.innerHTML = '<div style="padding:16px;color:var(--text-muted);text-align:center">Ошибка загрузки</div>';
+  }
 }
 
 /* ── Toggle send/voice/video buttons ────────────────────────────────── */
@@ -718,7 +778,7 @@ function renderChatList() {
     const pinIcon = c.pinned ? '<i class="fas fa-thumbtack ci-pin-icon"></i>' : '';
     const muteIcon = c.muted ? '<i class="fas fa-bell-slash ci-mute-icon"></i>' : '';
     const premiumEmoji = c.partnerPremiumEmoji ? `<span class="ci-premium-emoji">${c.partnerPremiumEmoji}</span>` : '';
-    const superIcon = c.partnerSuperUser ? '<span class="ci-super-icon">👑</span>' : '';
+    const superIcon = c.partnerSuperUser ? '<span class="ci-super-icon"><i class="fas fa-bolt" style="color:#ffd700;font-size:12px"></i></span>' : '';
     const premiumDot = (!c.partnerSuperUser && c.partnerPremium) ? '<span class="ci-premium-dot">⭐</span>' : '';
     return `<div class="chat-item${c.id === S.chatId ? ' active' : ''}${c.pinned ? ' pinned' : ''}" data-id="${c.id}">
       <div class="ci-avatar" style="background:${c.displayAvatarColor || c.avatarColor || AVATARS[0]}">${name[0]}${c.displayAvatar || c.avatar ? `<img src="${escHTML(c.displayAvatar || c.avatar)}">` : ''}${onlineDot}</div>
@@ -871,7 +931,7 @@ function renderMessages() {
     const color = m.senderAvatarColor || AVATARS[0];
     const av = sameAuthor ? '<div class="msg-av" style="visibility:hidden"></div>' : `<div class="msg-av" style="background:${color}" data-uid="${m.senderId}">${(m.senderName || '?')[0].toUpperCase()}${m.senderAvatar ? `<img src="${escHTML(m.senderAvatar)}">` : ''}</div>`;
     const nameColor = m.senderPremiumNameColor || (m.senderSuperUser ? '#ffd700' : color);
-    const superBadge = m.senderSuperUser ? '<span class="msg-super-badge" title="Super User">👑</span>' : '';
+    const superBadge = m.senderSuperUser ? '<span class="msg-super-badge" title="Super User"><i class="fas fa-bolt" style="color:#ffd700;font-size:11px"></i></span>' : '';
     const premiumBadge = m.senderPremiumEmoji ? `<span class="msg-premium-emoji">${m.senderPremiumEmoji}</span>` : (m.senderPremium ? '<span class="msg-premium-badge">⭐</span>' : '');
     const badgeTitle = m.senderPremiumBadge ? `<span class="msg-user-badge">${escHTML(m.senderPremiumBadge)}</span>` : '';
     const author = sameAuthor ? '' : `<div class="msg-top"><span class="msg-author" style="color:${nameColor}" data-uid="${m.senderId}">${escHTML(m.senderName)}${superBadge}${premiumBadge}${badgeTitle}</span><span class="msg-time">${fmtTime(m.timestamp)}</span>${m.editedAt ? '<span class="msg-edited">(ред.)</span>' : ''}</div>`;
@@ -895,7 +955,7 @@ function renderMessages() {
     } else if (m.type === 'voice') {
       content = `<div class="msg-voice" data-url="${escHTML(m.fileUrl)}"><button class="voice-play-btn"><i class="fas fa-play"></i></button><div class="voice-bar"><div class="voice-progress"></div></div><span class="voice-dur">${m.duration ? fmtDuration(m.duration) : '0:00'}</span></div>`;
     } else if (m.type === 'video') {
-      content = `<div class="msg-video-circle" data-src="${escHTML(m.fileUrl)}"><video src="${escHTML(m.fileUrl)}" preload="metadata" playsinline webkit-playsinline loop muted></video><div class="vc-play"><i class="fas fa-play"></i></div>${m.duration ? `<span class="vc-dur">${fmtDuration(m.duration)}</span>` : ''}</div>`;
+      content = `<div class="msg-video-circle" data-src="${escHTML(m.fileUrl)}"><video src="${escHTML(m.fileUrl)}" preload="metadata" playsinline webkit-playsinline muted></video><div class="vc-play"><i class="fas fa-play"></i></div>${m.duration ? `<span class="vc-dur">${fmtDuration(m.duration)}</span>` : ''}</div>`;
     } else if (m.type === 'file') {
       content = `<div class="msg-file"><i class="fas fa-file"></i><div><a href="${escHTML(m.fileUrl)}" target="_blank" download>${escHTML(m.fileName || 'Файл')}</a><br><small>${m.fileSize ? (m.fileSize / 1024).toFixed(1) + ' KB' : ''}</small></div></div>`;
     } else {
@@ -1604,6 +1664,9 @@ function openMobSub(id) {
   if ($('mob-set-read')) $('mob-set-read').checked = s.privReadReceipts !== false;
   if ($('mob-set-typing')) $('mob-set-typing').checked = s.privShowTyping !== false;
   if ($('mob-set-ghost')) $('mob-set-ghost').checked = S.ghostMode;
+  if ($('mob-set-dnd')) $('mob-set-dnd').checked = !!S.user?.dndMode;
+  if ($('mob-set-dnd-reply')) $('mob-set-dnd-reply').value = S.user?.dndAutoReply || '';
+  if ($('mob-set-animations')) $('mob-set-animations').checked = s.animations !== false;
 }
 
 function closeMobSub(id) {
@@ -1668,8 +1731,8 @@ function fillSettings() {
 
   // Premium features visibility — always visible, lock for non-premium
   const premiumSection = $('premium-emoji-section');
+  const canUsePremium = S.user?.premium || S.user?.superUser || S.user?.premiumFree;
   if (premiumSection) {
-    const canUsePremium = S.user?.premium || S.user?.superUser || S.user?.premiumFree;
     premiumSection.classList.toggle('premium-locked', !canUsePremium);
     const lockArea = $('premium-lock-area');
     if (lockArea) {
@@ -1680,12 +1743,21 @@ function fillSettings() {
       }
     }
   }
+  // Lock notification sounds for non-premium
+  const nsg = $('notif-sounds-grid');
+  if (nsg) nsg.classList.toggle('premium-locked-inline', !canUsePremium);
+  // Lock custom theme creator for non-premium
+  const ctc = $('custom-theme-creator');
+  if (ctc) ctc.classList.toggle('premium-locked-inline', !canUsePremium);
+  // Lock premium themes for non-premium
+  const ptg = $('premium-themes-grid');
+  if (ptg) ptg.classList.toggle('premium-locked-inline', !canUsePremium);
 
   // Premium status card
   const psc = $('premium-status-card');
   if (psc) {
     if (S.user?.superUser) {
-      psc.querySelector('.psc-icon').textContent = '👑';
+      psc.querySelector('.psc-icon').innerHTML = '<i class="fas fa-bolt" style="color:#ffd700;font-size:24px"></i>';
       psc.querySelector('.psc-role').textContent = 'Super User';
       psc.querySelector('.psc-desc').textContent = 'У вас есть все Shadow+ функции и эксклюзивные возможности';
       psc.className = 'premium-status-card psc-super';
@@ -1851,10 +1923,36 @@ function buildThemeGrid(containerId) {
     </div>`
   ).join('');
   grid.querySelectorAll('.theme-swatch').forEach(s => s.onclick = async () => {
-    applyTheme(s.dataset.theme);
-    try {
-      S.user = await api('/api/me', { method: 'PUT', body: JSON.stringify({ settings: { theme: s.dataset.theme } }) });
-    } catch {}
+    const themeName = s.dataset.theme;
+    const t = THEMES[themeName];
+    if (!t) return;
+    // Show preview modal
+    const modal = $('modal-theme-preview');
+    if (modal) {
+      const box = $('theme-preview-box');
+      if (box) box.style.background = t.bg;
+      const sidebar = $('tp-sidebar');
+      if (sidebar) sidebar.style.background = t.dark;
+      const panel = $('tp-panel');
+      if (panel) panel.style.background = t.sec;
+      const chat = $('tp-chat');
+      if (chat) chat.style.background = t.bg;
+      const header = $('tp-header');
+      if (header) header.style.background = t.sec;
+      const msgBrand = $('tp-msg-brand');
+      if (msgBrand) msgBrand.style.background = t.brand;
+      show(modal);
+      $('theme-preview-apply').onclick = async () => {
+        applyTheme(themeName);
+        try { S.user = await api('/api/me', { method: 'PUT', body: JSON.stringify({ settings: { theme: themeName } }) }); } catch {}
+        hide(modal);
+      };
+      $('theme-preview-cancel').onclick = () => hide(modal);
+      $('theme-preview-close').onclick = () => hide(modal);
+    } else {
+      applyTheme(themeName);
+      try { S.user = await api('/api/me', { method: 'PUT', body: JSON.stringify({ settings: { theme: themeName } }) }); } catch {}
+    }
   });
 }
 
@@ -1993,14 +2091,6 @@ function updateCustomThemePreview() {
   if ($('ct-p-brand')) $('ct-p-brand').style.background = brand;
   const box = $('ct-preview-box');
   if (box) box.style.background = bg;
-  // Live preview on the page
-  document.documentElement.style.setProperty('--bg-pri', bg);
-  document.documentElement.style.setProperty('--bg-dark', dark);
-  document.documentElement.style.setProperty('--bg-sec', sec);
-  document.documentElement.style.setProperty('--brand', brand);
-  document.documentElement.style.setProperty('--bg-hover', adjustColor(bg, 15));
-  document.documentElement.style.setProperty('--bg-active', adjustColor(bg, 30));
-  document.documentElement.style.setProperty('--bg-input', adjustColor(dark, 15));
 }
 
 async function applyCustomTheme() {
@@ -2990,10 +3080,10 @@ function showSuperEntryAnimation() {
   if (!S.user?.superUser) return;
   const overlay = document.createElement('div');
   overlay.className = 'super-entry-overlay';
-  // Central crown
+  // Central icon — lightning bolt instead of crown
   const crown = document.createElement('div');
   crown.className = 'super-entry-crown';
-  crown.textContent = '👑';
+  crown.innerHTML = '<i class="fas fa-bolt" style="font-size:60px;color:#ffd700"></i>';
   overlay.appendChild(crown);
   // Welcome text
   const txt = document.createElement('div');

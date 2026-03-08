@@ -213,6 +213,22 @@ const pushSubSchema = new mongoose.Schema({
 pushSubSchema.index({ userId: 1, endpoint: 1 }, { unique: true });
 const PushSub = mongoose.model('PushSub', pushSubSchema);
 
+// Call history
+const callRecordSchema = new mongoose.Schema({
+  _id:        { type: String, default: uuidv4 },
+  callerId:   { type: String, required: true, index: true },
+  receiverId: { type: String, required: true, index: true },
+  callerName: String,
+  receiverName: String,
+  callerAvatar: String,
+  receiverAvatar: String,
+  type:       { type: String, enum: ['audio', 'video'], default: 'audio' },
+  status:     { type: String, enum: ['answered', 'missed', 'rejected'], default: 'missed' },
+  duration:   { type: Number, default: 0 },
+  startedAt:  { type: Date, default: Date.now },
+});
+const CallRecord = mongoose.model('CallRecord', callRecordSchema);
+
 // ── Multer ────────────────────────────────────────────────────────────────
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, UPLOADS_DIR),
@@ -362,6 +378,14 @@ app.get('/sw.js', (req, res) => {
   res.setHeader('Pragma', 'no-cache');
   res.setHeader('Expires', '0');
   res.sendFile(path.join(STATIC_DIR, 'sw.js'));
+});
+
+// ── Call history ───────────────────────────────────────────────────────────
+app.get('/api/calls', authMiddleware, async (req, res) => {
+  const records = await CallRecord.find({
+    $or: [{ callerId: req.user.id }, { receiverId: req.user.id }]
+  }).sort({ startedAt: -1 }).limit(50).lean();
+  res.json(records);
 });
 
 // ── Push subscription endpoints ───────────────────────────────────────────
@@ -522,6 +546,34 @@ app.put('/api/admin/users/:id/premium', adminKeyMiddleware, async (req, res) => 
   }
   await user.save();
   res.json({ id: user._id, username: user.username, premium: user.premium });
+});
+
+// ── Granular premium feature config ───────────────────────────────────────
+app.get('/api/admin/features', adminKeyMiddleware, async (req, res) => {
+  const cfg = await Config.findById('premiumFeatures');
+  const defaults = {
+    premium: {
+      ghost: true, emoji: true, badge: true, nameColor: true,
+      exclusiveThemes: true, customStatus: true, notifSounds: true,
+      socialLinks: true, banner: true, translate: true,
+      customTheme: true, disappearing: true, fonts: true, bigUpload: true
+    },
+    super: {
+      broadcast: true, announce: true, moderate: true,
+      seeHidden: true, animation: true, priority: true, noLimits: true
+    }
+  };
+  res.json(cfg?.value || defaults);
+});
+
+app.put('/api/admin/features', adminKeyMiddleware, async (req, res) => {
+  const { premium, super: superFeatures } = req.body;
+  await Config.findOneAndUpdate(
+    { _id: 'premiumFeatures' },
+    { value: { premium, super: superFeatures } },
+    { upsert: true }
+  );
+  res.json({ ok: true });
 });
 
 // Гранулярное управление Premium-функциями пользователя
@@ -1395,17 +1447,8 @@ app.post('/api/chats/:id/messages', authMiddleware, async (req, res) => {
     readBy:       [req.user.id]
   });
 
-  // Отправляем через сокет ТОЛЬКО другим участникам (не отправителю)
-  const senderSockets = onlineUsers.get(req.user.id);
-  if (senderSockets) {
-    // broadcast to room except sender's sockets
-    for (const sid of senderSockets) {
-      io.sockets.sockets.get(sid)?.to(req.params.id).emit('new_message', msg.toJSON());
-      break; // достаточно одного broadcast
-    }
-  } else {
-    io.to(req.params.id).emit('new_message', msg.toJSON());
-  }
+  // Broadcast to all in room; sender's client deduplicates
+  io.to(req.params.id).emit('new_message', msg.toJSON());
   sendPushForMessage(msg, chat).catch(() => {});
 
   // DND auto-reply
@@ -1477,15 +1520,8 @@ app.post('/api/chats/:id/upload', authMiddleware, (req, res, next) => {
     if (req.body.duration) msgData.duration = parseFloat(req.body.duration);
     const msg = await Message.create(msgData);
 
-    const senderSockets = onlineUsers.get(req.user.id);
-    if (senderSockets) {
-      for (const sid of senderSockets) {
-        io.sockets.sockets.get(sid)?.to(req.params.id).emit('new_message', msg.toJSON());
-        break;
-      }
-    } else {
-      io.to(req.params.id).emit('new_message', msg.toJSON());
-    }
+    // Broadcast to all in room; sender's client deduplicates
+    io.to(req.params.id).emit('new_message', msg.toJSON());
     sendPushForMessage(msg, chat).catch(() => {});
     res.json(msg.toJSON());
   } catch (err) {
@@ -1866,13 +1902,24 @@ io.on('connection', async (socket) => {
 
   socket.on('call_offer', async ({ to, offer, callType, renegotiate }) => {
     const caller = await User.findById(userId);
+    const receiver = await User.findById(to);
     const targetSockets = onlineUsers.get(to);
 
     // If not renegotiation, check if target is busy
     if (!renegotiate && activeCalls.has(to)) {
-      // Target already in a call — send busy signal back to caller
       socket.emit('call_busy', { from: to });
       return;
+    }
+
+    // Track pending call for history
+    if (!renegotiate) {
+      if (!global._pendingCalls) global._pendingCalls = new Map();
+      global._pendingCalls.set(userId + ':' + to, {
+        callerId: userId, receiverId: to,
+        callerName: caller?.displayName || '', receiverName: receiver?.displayName || '',
+        callerAvatar: caller?.avatar || null, receiverAvatar: receiver?.avatar || null,
+        type: callType || 'audio', startedAt: new Date()
+      });
     }
 
     if (targetSockets) {
@@ -1904,9 +1951,13 @@ io.on('connection', async (socket) => {
   });
 
   socket.on('call_answer', ({ to, answer }) => {
-    // Both users are now in a call
     activeCalls.set(userId, to);
     activeCalls.set(to, userId);
+    // Mark call as answered
+    if (!global._pendingCalls) global._pendingCalls = new Map();
+    const key1 = to + ':' + userId;
+    const pending = global._pendingCalls.get(key1);
+    if (pending) pending.status = 'answered';
     const targetSockets = onlineUsers.get(to);
     if (targetSockets) targetSockets.forEach(sid => io.to(sid).emit('call_answered', { from: userId, answer }));
   });
@@ -1927,14 +1978,32 @@ io.on('connection', async (socket) => {
   socket.on('call_reject', ({ to }) => {
     const targetSockets = onlineUsers.get(to);
     if (targetSockets) targetSockets.forEach(sid => io.to(sid).emit('call_rejected', { from: userId }));
+    // Save rejected call record
+    if (!global._pendingCalls) global._pendingCalls = new Map();
+    const key = to + ':' + userId;
+    const pending = global._pendingCalls.get(key);
+    if (pending) {
+      CallRecord.create({ ...pending, status: 'rejected' }).catch(() => {});
+      global._pendingCalls.delete(key);
+    }
   });
 
   socket.on('call_end', ({ to }) => {
-    // Clear busy state for both users
     activeCalls.delete(userId);
     activeCalls.delete(to);
     const targetSockets = onlineUsers.get(to);
     if (targetSockets) targetSockets.forEach(sid => io.to(sid).emit('call_ended', { from: userId }));
+    // Save call record
+    if (!global._pendingCalls) global._pendingCalls = new Map();
+    const key1 = userId + ':' + to;
+    const key2 = to + ':' + userId;
+    const pending = global._pendingCalls.get(key1) || global._pendingCalls.get(key2);
+    if (pending) {
+      const duration = Math.round((Date.now() - pending.startedAt.getTime()) / 1000);
+      CallRecord.create({ ...pending, status: pending.status || 'missed', duration }).catch(() => {});
+      global._pendingCalls.delete(key1);
+      global._pendingCalls.delete(key2);
+    }
   });
 
   // Mic/cam status relay

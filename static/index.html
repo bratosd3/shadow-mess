@@ -23,38 +23,36 @@
       <svg viewBox="0 0 100 130" width="72" height="94">
         <defs>
           <linearGradient id="gGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" style="stop-color:#6c2bd9"/>
-            <stop offset="50%" style="stop-color:#5865f2"/>
-            <stop offset="100%" style="stop-color:#4338ca"/>
+            <stop offset="0%" style="stop-color:#8b5cf6"/>
+            <stop offset="50%" style="stop-color:#6366f1"/>
+            <stop offset="100%" style="stop-color:#4f46e5"/>
           </linearGradient>
           <filter id="gGlow"><feGaussianBlur stdDeviation="4" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
-          <filter id="gShadow"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#000" flood-opacity="0.4"/></filter>
         </defs>
+        <!-- Glow background -->
+        <ellipse cx="50" cy="65" rx="42" ry="50" fill="#8b5cf6" opacity=".15"/>
         <!-- Body -->
-        <path d="M50 5 C24 5 8 28 8 52 L8 98 C8 102 12 104 14 100 L22 88 C25 84 30 83 34 86 L42 94 C45 97 49 97 50 95 L50 95 C51 97 55 97 58 94 L66 86 C70 83 75 84 78 88 L86 100 C88 104 92 102 92 98 L92 52 C92 28 76 5 50 5Z" fill="url(#gGrad)" filter="url(#gShadow)" opacity="0.95"/>
-        <!-- Eyes — sad/spooky slanted -->
-        <ellipse cx="35" cy="40" rx="9" ry="10" fill="#fff" opacity="0.9"/>
-        <ellipse cx="65" cy="40" rx="9" ry="10" fill="#fff" opacity="0.9"/>
-        <!-- Pupils — looking down sadly -->
-        <ellipse cx="37" cy="44" rx="5" ry="6" fill="#0f0f1a"/>
-        <ellipse cx="67" cy="44" rx="5" ry="6" fill="#0f0f1a"/>
-        <!-- Pupil highlights -->
-        <circle cx="39" cy="41" r="2" fill="#fff" opacity="0.85"/>
-        <circle cx="69" cy="41" r="2" fill="#fff" opacity="0.85"/>
-        <!-- Sad eyebrows (angled down inward) -->
-        <line x1="26" y1="28" x2="40" y2="30" stroke="#fff" stroke-width="2.5" stroke-linecap="round" opacity="0.6"/>
-        <line x1="74" y1="28" x2="60" y2="30" stroke="#fff" stroke-width="2.5" stroke-linecap="round" opacity="0.6"/>
-        <!-- Dark circles under eyes -->
-        <ellipse cx="35" cy="50" rx="6" ry="2" fill="#3b1f7a" opacity="0.4"/>
-        <ellipse cx="65" cy="50" rx="6" ry="2" fill="#3b1f7a" opacity="0.4"/>
-        <!-- Mouth: sad wavy frown -->
-        <path d="M38 62 Q43 58 50 62 Q57 58 62 62" stroke="rgba(255,255,255,0.5)" stroke-width="1.8" fill="none" stroke-linecap="round"/>
-        <!-- Small tear -->
-        <ellipse cx="30" cy="52" rx="2" ry="3" fill="rgba(88,180,255,0.5)"/>
-        <!-- Ghostly particles -->
-        <circle cx="18" cy="70" r="2" fill="#7c3aed" opacity="0.3"><animate attributeName="cy" values="70;60;70" dur="3s" repeatCount="indefinite"/></circle>
-        <circle cx="82" cy="65" r="1.5" fill="#5865f2" opacity="0.25"><animate attributeName="cy" values="65;55;65" dur="2.5s" repeatCount="indefinite"/></circle>
-        <circle cx="14" cy="50" r="1.5" fill="#a78bfa" opacity="0.2"><animate attributeName="cy" values="50;42;50" dur="4s" repeatCount="indefinite"/></circle>
+        <path d="M50 8 C24 8 8 30 8 54 L8 100 C8 103 11 105 13 102 L22 90 C25 86 30 85 34 88 L42 96 C45 99 49 99 50 97 L50 97 C51 99 55 99 58 96 L66 88 C70 85 75 86 78 90 L87 102 C89 105 92 103 92 100 L92 54 C92 30 76 8 50 8Z" fill="url(#gGrad)" filter="url(#gGlow)"/>
+        <!-- Eyes -->
+        <ellipse cx="35" cy="42" rx="8" ry="10" fill="#fff" opacity=".95"/>
+        <ellipse cx="65" cy="42" rx="8" ry="10" fill="#fff" opacity=".95"/>
+        <circle cx="37" cy="44" r="5" fill="#1a1a2e"/>
+        <circle cx="67" cy="44" r="5" fill="#1a1a2e"/>
+        <circle cx="39" cy="41" r="2" fill="#fff" opacity=".9"/>
+        <circle cx="69" cy="41" r="2" fill="#fff" opacity=".9"/>
+        <!-- Happy smile -->
+        <path d="M40 60 Q50 70 60 60" stroke="rgba(255,255,255,.5)" stroke-width="2" fill="none" stroke-linecap="round"/>
+        <!-- Chat bubble -->
+        <g transform="translate(68, 12)">
+          <rect width="28" height="18" rx="6" fill="#8b5cf6" opacity=".9"/>
+          <circle cx="8" cy="9" r="2" fill="#fff" opacity=".8"/>
+          <circle cx="14" cy="9" r="2" fill="#fff" opacity=".8"/>
+          <circle cx="20" cy="9" r="2" fill="#fff" opacity=".8"/>
+          <polygon points="4,16 8,16 4,22" fill="#8b5cf6" opacity=".9"/>
+        </g>
+        <!-- Floating particles -->
+        <circle cx="16" cy="72" r="2" fill="#a78bfa" opacity=".3"><animate attributeName="cy" values="72;62;72" dur="3s" repeatCount="indefinite"/></circle>
+        <circle cx="84" cy="66" r="1.5" fill="#6366f1" opacity=".25"><animate attributeName="cy" values="66;56;66" dur="2.5s" repeatCount="indefinite"/></circle>
       </svg>
     </div>
     <h1>Shadow Messenger</h1>
@@ -145,8 +143,12 @@
       <div class="mob-settings-sub hidden" id="mob-sub-appearance">
         <div class="mob-sub-header"><button class="mob-back-btn" data-back="mob-sub-appearance"><i class="fas fa-arrow-left"></i></button><h3>Оформление</h3></div>
         <div class="mob-sub-body">
-          <button class="mob-item" data-act="themes"><i class="fas fa-swatchbook"></i>Тема</button>
+          <button class="mob-item" data-act="themes"><i class="fas fa-swatchbook"></i>Тема<i class="fas fa-chevron-right mob-arrow"></i></button>
           <button class="mob-item" data-act="ghost"><i class="fas fa-ghost"></i>Режим Призрака <small style="color:var(--brand);font-size:10px">Shadow+</small><span id="ghost-mob-badge" class="mob-badge off">Выкл</span></button>
+          <button class="mob-item" data-act="font-size"><i class="fas fa-text-height"></i>Размер шрифта<i class="fas fa-chevron-right mob-arrow"></i></button>
+          <button class="mob-item" data-act="density"><i class="fas fa-grip-lines"></i>Плотность сообщений<i class="fas fa-chevron-right mob-arrow"></i></button>
+          <button class="mob-item" data-act="msg-style"><i class="fas fa-comment"></i>Стиль сообщений<i class="fas fa-chevron-right mob-arrow"></i></button>
+          <label class="mob-toggle-item"><span><i class="fas fa-wand-magic-sparkles"></i>Анимации</span><div class="toggle"><input type="checkbox" id="mob-set-animations" checked><span class="toggle-track"></span></div></label>
         </div>
       </div>
       <div class="mob-settings-sub hidden" id="mob-sub-notifications">
@@ -154,6 +156,8 @@
         <div class="mob-sub-body">
           <label class="mob-toggle-item"><span><i class="fas fa-bell"></i>Push-уведомления</span><div class="toggle"><input type="checkbox" id="mob-set-notifications" checked><span class="toggle-track"></span></div></label>
           <label class="mob-toggle-item"><span><i class="fas fa-volume-high"></i>Звуки</span><div class="toggle"><input type="checkbox" id="mob-set-sounds" checked><span class="toggle-track"></span></div></label>
+          <label class="mob-toggle-item"><span><i class="fas fa-moon"></i>Не беспокоить</span><div class="toggle"><input type="checkbox" id="mob-set-dnd"><span class="toggle-track"></span></div></label>
+          <div class="mob-toggle-item" style="flex-direction:column;align-items:stretch"><span style="margin-bottom:6px"><i class="fas fa-reply"></i>Автоответ</span><input type="text" id="mob-set-dnd-reply" placeholder="Я сейчас занят, отвечу позже..." style="width:100%;padding:8px 12px;border-radius:var(--r);background:var(--bg-input);color:var(--text);border:none;font-size:14px"></div>
         </div>
       </div>
       <div class="mob-settings-sub hidden" id="mob-sub-privacy">
@@ -450,7 +454,7 @@
         </div>
         <div class="s-divider"></div>
         <div id="super-user-section" class="hidden">
-          <h3>Super User 👑</h3>
+          <h3>Super User ⚡</h3>
           <p class="s-hint">Эксклюзивные функции Super User</p>
           <div class="s-toggle-group">
             <label class="toggle-card ghost-card" style="border-color:rgba(255,215,0,.3)"><div class="tc-info"><i class="fas fa-shield-halved" style="color:#ffd700"></i><div><span class="tc-title">Режим модерации</span><span class="tc-desc">Удалять чужие сообщения и управлять группами</span></div></div><div class="toggle"><input type="checkbox" id="set-super-moderate"><span class="toggle-track"></span></div></label>
@@ -555,9 +559,9 @@
           <div class="pf-item pf-premium"><i class="fas fa-upload"></i><span>Загрузка файлов до 100 МБ</span><span class="pf-tag pf-gold">Shadow+</span></div>
         </div>
         <div class="s-divider"></div>
-        <h3>👑 Super User</h3>
+        <h3>⚡ Super User</h3>
         <div class="premium-features-list">
-          <div class="pf-item pf-super"><i class="fas fa-crown"></i><span>Все возможности Shadow+</span><span class="pf-tag pf-diamond">Super</span></div>
+          <div class="pf-item pf-super"><i class="fas fa-bolt"></i><span>Все возможности Shadow+</span><span class="pf-tag pf-diamond">Super</span></div>
           <div class="pf-item pf-super"><i class="fas fa-bullhorn"></i><span>Массовая рассылка друзьям</span><span class="pf-tag pf-diamond">Super</span></div>
           <div class="pf-item pf-super"><i class="fas fa-globe"></i><span>Глобальные объявления</span><span class="pf-tag pf-diamond">Super</span></div>
           <div class="pf-item pf-super"><i class="fas fa-shield-halved"></i><span>Режим модерации</span><span class="pf-tag pf-diamond">Super</span></div>
@@ -597,6 +601,26 @@
   <div class="modal-card">
     <div class="modal-top"><h3>Тема оформления</h3><button class="modal-x" data-close="modal-themes"><i class="fas fa-xmark"></i></button></div>
     <div class="modal-body"><div id="theme-grid-mob" class="theme-grid"></div></div>
+  </div>
+</div>
+
+<!-- ===== THEME PREVIEW MODAL ===== -->
+<div id="modal-theme-preview" class="modal-overlay hidden">
+  <div class="modal-card" style="max-width:420px">
+    <div class="modal-top"><h3>Предпросмотр темы</h3><button class="modal-x" id="theme-preview-close"><i class="fas fa-xmark"></i></button></div>
+    <div class="modal-body" style="padding:16px">
+      <div id="theme-preview-box" style="border-radius:12px;overflow:hidden;height:260px;position:relative">
+        <div style="display:grid;grid-template-columns:50px 120px 1fr;height:100%">
+          <div id="tp-sidebar" style="display:flex;flex-direction:column;gap:8px;padding:8px;align-items:center"><div style="width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,.15)"></div><div style="width:28px;height:28px;border-radius:50%;background:rgba(255,255,255,.1)"></div></div>
+          <div id="tp-panel" style="display:flex;flex-direction:column;padding:10px;gap:6px"><div style="height:16px;border-radius:4px;background:rgba(255,255,255,.12);width:70%"></div><div style="height:40px;border-radius:8px;background:rgba(255,255,255,.08)"></div><div style="height:40px;border-radius:8px;background:rgba(255,255,255,.08)"></div><div style="height:40px;border-radius:8px;background:rgba(255,255,255,.08)"></div></div>
+          <div id="tp-chat" style="display:flex;flex-direction:column"><div id="tp-header" style="height:40px;display:flex;align-items:center;padding:0 12px;border-bottom:1px solid rgba(255,255,255,.08)"><span style="color:rgba(255,255,255,.85);font-size:13px;font-weight:600">Чат</span></div><div style="flex:1;padding:12px;display:flex;flex-direction:column;gap:8px;justify-content:flex-end"><div style="align-self:flex-start;padding:8px 14px;border-radius:12px;background:rgba(255,255,255,.08);color:rgba(255,255,255,.7);font-size:12px">Привет! 👋</div><div id="tp-msg-brand" style="align-self:flex-end;padding:8px 14px;border-radius:12px;color:#fff;font-size:12px">Как дела?</div></div></div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:16px">
+        <button id="theme-preview-cancel" class="btn-sm" style="flex:1">Отмена</button>
+        <button id="theme-preview-apply" class="btn-primary btn-sm" style="flex:1">Применить</button>
+      </div>
+    </div>
   </div>
 </div>
 
