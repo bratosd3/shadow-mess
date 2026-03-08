@@ -1,605 +1,666 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# Shadow Messenger — Console Admin Panel v4.8
+"""Shadow Messenger — Interactive Admin Console v4.9
+TUI с кликабельными кнопками, переключателями и таблицами.
+Запуск: python admin_console.py
+"""
+
 import os
 import sys
 import subprocess
 
-def ensure_package(name, pip_name=None):
+
+def ensure(name, pip_name=None):
     try:
         __import__(name)
     except ImportError:
         subprocess.check_call([sys.executable, "-m", "pip", "install", pip_name or name])
 
-ensure_package("requests")
-ensure_package("rich")
+
+ensure("requests")
+ensure("textual")
 
 import requests
-from rich.console import Console
-from rich.table import Table
-from rich.panel import Panel
-from rich.text import Text
-from rich.columns import Columns
-from rich import box
-
-console = Console()
-
-DEFAULT_URL = "https://shadow-mess.onrender.com"
-DEFAULT_KEY = "shadow_admin_secret_2026"
-
-server_url = os.environ.get("SHADOW_SERVER", DEFAULT_URL)
-admin_key = os.environ.get("SHADOW_ADMIN_KEY", DEFAULT_KEY)
+from textual.app import App, ComposeResult
+from textual.binding import Binding
+from textual.containers import Container, Horizontal, Vertical, ScrollableContainer
+from textual.widgets import (
+    Header, Footer, Button, Static, DataTable,
+    Switch, Input, Label, Rule, ContentSwitcher,
+)
+from textual import on
 
 
-def headers():
-    return {"X-Admin-Key": admin_key, "Content-Type": "application/json"}
+# ═══════════════════════════════════════════════════════════════
+#  CONFIG & API
+# ═══════════════════════════════════════════════════════════════
+
+class Config:
+    url = os.environ.get("SHADOW_SERVER", "https://shadow-mess.onrender.com")
+    key = os.environ.get("SHADOW_ADMIN_KEY", "shadow_admin_secret_2026")
 
 
-def api_get(path):
+def _headers():
+    return {"X-Admin-Key": Config.key, "Content-Type": "application/json"}
+
+
+def api(method, path, data=None):
     try:
-        r = requests.get(f"{server_url}{path}", headers=headers(), timeout=15)
+        fn = {"GET": requests.get, "PUT": requests.put,
+              "POST": requests.post, "DELETE": requests.delete}[method]
+        kw = {"headers": _headers(), "timeout": 15}
+        if data is not None:
+            kw["json"] = data
+        r = fn(f"{Config.url}{path}", **kw)
         r.raise_for_status()
         return r.json()
     except Exception as e:
         return {"_error": str(e)}
 
 
-def api_delete(path):
-    try:
-        r = requests.delete(f"{server_url}{path}", headers=headers(), timeout=15)
-        r.raise_for_status()
-        return r.json()
-    except Exception as e:
-        return {"_error": str(e)}
+# ═══════════════════════════════════════════════════════════════
+#  CONSTANTS
+# ═══════════════════════════════════════════════════════════════
+
+PREMIUM_FIELDS = [
+    ("premiumEmoji",      "😎 Эмодзи профиля"),
+    ("premiumBadge",      "🎖  Значок"),
+    ("premiumNameColor",  "🎨 Цвет имени"),
+    ("customStatus",      "💬 Кастомный статус"),
+    ("customStatusEmoji", "🎭 Эмодзи статуса"),
+    ("customStatusColor", "🌈 Цвет статуса"),
+]
+
+PREM_FEATURES = {
+    "ghost":           "👻 Призрак (невидимка)",
+    "emoji":           "😎 Эмодзи профиля",
+    "badge":           "🎖  Значок профиля",
+    "nameColor":       "🎨 Цвет имени",
+    "exclusiveThemes": "🎭 Эксклюзивные темы",
+    "customStatus":    "💬 Кастомный статус",
+    "notifSounds":     "🔔 Звуки уведомлений",
+    "socialLinks":     "🔗 Соц. ссылки",
+    "banner":          "🖼  Баннер профиля",
+    "translate":       "🌐 Перевод сообщений",
+    "customTheme":     "🎨 Конструктор тем",
+    "disappearing":    "💨 Исчезающие сообщения",
+    "fonts":           "🔤 Кастомные шрифты",
+    "bigUpload":       "📁 Большие файлы",
+}
+
+SUPER_FEATURES = {
+    "broadcast": "📢 Рассылка всем",
+    "announce":  "📣 Объявления",
+    "moderate":  "🛡  Модерация",
+    "seeHidden": "👁  Видеть скрытых",
+    "animation": "✨ Анимация входа",
+    "priority":  "⚡ Приоритет",
+    "noLimits":  "♾  Без ограничений",
+}
+
+NAV = ["dashboard", "users", "premium", "tools", "settings"]
 
 
-def api_put(path, data=None):
-    try:
-        r = requests.put(f"{server_url}{path}", headers=headers(), json=data, timeout=15)
-        r.raise_for_status()
-        return r.json()
-    except Exception as e:
-        return {"_error": str(e)}
-
-
-def clear():
-    os.system("cls" if os.name == "nt" else "clear")
-
-
-def pause():
-    console.print("\n[dim]Нажмите Enter для продолжения...[/dim]")
-    input()
-
-
-def show_header():
-    console.print(Panel(
-        Text("🌌 Shadow Messenger — Admin Console v4.8", style="bold bright_magenta", justify="center"),
-        border_style="bright_magenta",
-        padding=(0, 2)
-    ))
-    console.print(f"  [dim]Сервер:[/dim] [cyan]{server_url}[/cyan]\n")
-
-
-def choose(options, title="Выберите действие"):
-    """Display numbered menu and return selected index (0-based) or -1 for back."""
-    console.print(f"\n[bold bright_white]{title}[/bold bright_white]\n")
-    for i, (label, _icon) in enumerate(options, 1):
-        console.print(f"  [bright_magenta][{i}][/bright_magenta]  {_icon}  {label}")
-    console.print(f"  [dim][0]  ← Назад[/dim]")
-    console.print()
-    try:
-        choice = input("  ▸ ").strip()
-        if not choice or choice == "0":
-            return -1
-        idx = int(choice) - 1
-        if 0 <= idx < len(options):
-            return idx
-        console.print("[red]  Неверный выбор[/red]")
-        return -1
-    except (ValueError, EOFError):
-        return -1
-
-
-# ════════════════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════
 #  DASHBOARD
-# ════════════════════════════════════════════════════════════════════════
-def page_dashboard():
-    clear()
-    show_header()
-    console.print("[bold]📊 Главная панель[/bold]\n")
+# ═══════════════════════════════════════════════════════════════
 
-    data = api_get("/api/admin/stats")
-    if "_error" in data:
-        console.print(f"[red]❌ Ошибка: {data['_error']}[/red]")
-        pause()
-        return
+class DashboardPage(ScrollableContainer):
+    def compose(self) -> ComposeResult:
+        yield Static("📊  [bold]Главная панель[/]", classes="page-title")
+        yield Static("[dim]Загрузка...[/]", id="stats-body")
+        yield Button("🔄  Обновить статистику", id="btn-refresh-stats", variant="primary")
 
-    table = Table(box=box.ROUNDED, border_style="bright_magenta", show_header=False, padding=(0, 2))
-    table.add_column("Метрика", style="bold")
-    table.add_column("Значение", style="bold bright_cyan", justify="right")
+    def on_mount(self):
+        self._load()
 
-    table.add_row("👥 Пользователи", str(data.get("users", 0)))
-    table.add_row("💬 Чаты", str(data.get("chats", 0)))
-    table.add_row("✉️  Сообщения", str(data.get("messages", 0)))
-    table.add_row("📡 Сессии", str(data.get("sessions", 0)))
-    table.add_row("🔔 Push-подписки", str(data.get("pushSubs", 0)))
-    console.print(table)
-    console.print("[green]● Подключено[/green]")
-    pause()
+    @on(Button.Pressed, "#btn-refresh-stats")
+    def _on_refresh(self):
+        self._load()
+
+    def _load(self):
+        d = api("GET", "/api/admin/stats")
+        el = self.query_one("#stats-body", Static)
+        if "_error" in d:
+            el.update(f"[red]❌ {d['_error']}[/]")
+            return
+        el.update(
+            f"\n  👥  Пользователи   [bold cyan]{d.get('users', 0)}[/]\n"
+            f"  💬  Чаты            [bold cyan]{d.get('chats', 0)}[/]\n"
+            f"  ✉️   Сообщения       [bold cyan]{d.get('messages', 0)}[/]\n"
+            f"  📡  Сессии          [bold cyan]{d.get('sessions', 0)}[/]\n"
+            f"  🔔  Push-подписки   [bold cyan]{d.get('pushSubs', 0)}[/]\n\n"
+            f"  [green]● Подключено к {Config.url}[/]\n"
+        )
 
 
-# ════════════════════════════════════════════════════════════════════════
+# ═══════════════════════════════════════════════════════════════
 #  USERS
-# ════════════════════════════════════════════════════════════════════════
-def page_users():
-    while True:
-        clear()
-        show_header()
-        console.print("[bold]👥 Пользователи[/bold]\n")
+# ═══════════════════════════════════════════════════════════════
 
-        users = api_get("/api/admin/users")
-        if isinstance(users, dict) and "_error" in users:
-            console.print(f"[red]❌ {users['_error']}[/red]")
-            pause()
+class UsersPage(ScrollableContainer):
+    _users = []
+    _selected_user = None
+    _delete_confirm = None
+
+    def compose(self) -> ComposeResult:
+        yield Static("👥  [bold]Пользователи[/]", classes="page-title")
+        yield DataTable(id="users-table")
+        with Horizontal(classes="btn-row"):
+            yield Button("🔄", id="btn-refresh-users", variant="primary")
+            yield Button("👑 SuperUser", id="btn-toggle-su")
+            yield Button("⭐ Premium", id="btn-toggle-prem")
+            yield Button("🎛️  Функции", id="btn-show-feat")
+            yield Button("❌ Удалить", id="btn-del-user", variant="error")
+        yield Static("", id="user-status")
+        yield Rule()
+        yield Static("[bold]🎛️  Premium-функции выбранного пользователя[/]")
+        yield Static(
+            "[dim]← Кликните строку в таблице, затем нажмите «🎛️ Функции»[/]",
+            id="feat-hint",
+        )
+        with Container(id="feat-form"):
+            for field, label in PREMIUM_FIELDS:
+                with Horizontal(classes="feature-row"):
+                    yield Label(f"{label}:")
+                    yield Input(id=f"feat-{field}", placeholder="...")
+            yield Button("💾  Сохранить функции", id="btn-save-feat", variant="success")
+
+    def on_mount(self):
+        t = self.query_one("#users-table", DataTable)
+        t.add_columns("#", "Имя", "@username", "Роль", "Био", "Дата")
+        t.cursor_type = "row"
+        self.query_one("#feat-form").display = False
+        self._load()
+
+    def _st(self, msg):
+        self.query_one("#user-status", Static).update(msg)
+
+    def _load(self):
+        self._users = []
+        t = self.query_one("#users-table", DataTable)
+        t.clear()
+        data = api("GET", "/api/admin/users")
+        if isinstance(data, dict) and "_error" in data:
+            self._st(f"[red]❌ {data['_error']}[/]")
             return
+        self._users = data or []
+        for i, u in enumerate(self._users, 1):
+            role = ("⚡Super" if u.get("superUser")
+                    else ("⭐Prem" if u.get("premium") else "—"))
+            t.add_row(
+                str(i),
+                u.get("displayName") or "—",
+                "@" + (u.get("username") or ""),
+                role,
+                (u.get("bio") or "—")[:20],
+                (u.get("createdAt") or "")[:10],
+            )
+        self._st(f"[dim]Всего: {len(self._users)}[/]")
 
-        if not users:
-            console.print("[dim]Нет пользователей[/dim]")
-            pause()
+    def _sel(self):
+        t = self.query_one("#users-table", DataTable)
+        idx = t.cursor_row
+        if idx is not None and 0 <= idx < len(self._users):
+            return self._users[idx]
+        return None
+
+    @on(Button.Pressed, "#btn-refresh-users")
+    def _on_refresh(self):
+        self._load()
+
+    @on(Button.Pressed, "#btn-toggle-su")
+    def _on_su(self):
+        u = self._sel()
+        if not u:
+            self._st("[yellow]⚠ Выберите пользователя в таблице[/]")
             return
+        r = api("PUT", f"/api/admin/users/{u['_id']}/superuser")
+        if "_error" not in r:
+            st = "ВКЛ" if r.get("superUser") else "ВЫКЛ"
+            self._st(f"[green]✓ @{r.get('username', '?')} → SuperUser {st}[/]")
+            self._load()
+        else:
+            self._st(f"[red]✗ {r['_error']}[/]")
 
-        table = Table(box=box.ROUNDED, border_style="bright_magenta")
-        table.add_column("#", style="dim", width=4)
-        table.add_column("Имя", style="bold bright_white")
-        table.add_column("@username", style="cyan")
-        table.add_column("Роль", style="bold")
-        table.add_column("Био", style="dim", max_width=20, overflow="ellipsis")
-        table.add_column("Дата", style="dim")
+    @on(Button.Pressed, "#btn-toggle-prem")
+    def _on_prem(self):
+        u = self._sel()
+        if not u:
+            self._st("[yellow]⚠ Выберите пользователя в таблице[/]")
+            return
+        r = api("PUT", f"/api/admin/users/{u['_id']}/premium")
+        if "_error" not in r:
+            st = "ВКЛ" if r.get("premium") else "ВЫКЛ"
+            self._st(f"[green]✓ @{r.get('username', '?')} → Premium {st}[/]")
+            self._load()
+        else:
+            self._st(f"[red]✗ {r['_error']}[/]")
 
-        for i, u in enumerate(users, 1):
-            name = u.get("displayName") or "—"
-            uname = "@" + (u.get("username") or "")
-            if u.get("superUser"):
-                role = "[bright_yellow]⚡ Super[/bright_yellow]"
-            elif u.get("premium"):
-                role = "[bright_magenta]⭐ Premium[/bright_magenta]"
+    @on(Button.Pressed, "#btn-show-feat")
+    def _on_show_feat(self):
+        u = self._sel()
+        if not u:
+            self._st("[yellow]⚠ Выберите пользователя в таблице[/]")
+            return
+        self._selected_user = u
+        for field, _ in PREMIUM_FIELDS:
+            self.query_one(f"#feat-{field}", Input).value = u.get(field) or ""
+        self.query_one("#feat-form").display = True
+        self.query_one("#feat-hint").display = False
+        self._st(f"[cyan]Редактирование функций: @{u.get('username', '?')}[/]")
+
+    @on(Button.Pressed, "#btn-save-feat")
+    def _on_save_feat(self):
+        if not self._selected_user:
+            return
+        data = {}
+        for field, _ in PREMIUM_FIELDS:
+            data[field] = self.query_one(f"#feat-{field}", Input).value
+        r = api("PUT", f"/api/admin/users/{self._selected_user['_id']}/premium-features", data)
+        if "_error" not in r:
+            self._st(f"[green]✓ Функции сохранены для @{self._selected_user.get('username', '?')}[/]")
+        else:
+            self._st(f"[red]✗ {r['_error']}[/]")
+
+    @on(Button.Pressed, "#btn-del-user")
+    def _on_del(self):
+        u = self._sel()
+        if not u:
+            self._st("[yellow]⚠ Выберите пользователя[/]")
+            return
+        name = u.get("displayName") or u.get("username", "?")
+        if self._delete_confirm == u["_id"]:
+            r = api("DELETE", f"/api/admin/users/{u['_id']}")
+            if "_error" not in r:
+                self._st(f"[green]✓ {name} удалён[/]")
+                self._load()
             else:
-                role = "[dim]—[/dim]"
-            bio = (u.get("bio") or "—")[:20]
-            created = (u.get("createdAt") or "")[:10]
-            table.add_row(str(i), name, uname, role, bio, created)
+                self._st(f"[red]✗ {r['_error']}[/]")
+            self._delete_confirm = None
+        else:
+            self._delete_confirm = u["_id"]
+            self._st(f"[bold yellow]⚠ Нажмите ❌ ещё раз для удаления {name}[/]")
 
-        console.print(table)
-        console.print(f"  [dim]Всего: {len(users)}[/dim]\n")
 
-        options = [
-            ("Переключить SuperUser", "👑"),
-            ("Переключить Premium", "⭐"),
-            ("Управление Premium-функциями", "🎛️"),
-            ("Удалить пользователя", "❌"),
-            ("Поиск пользователя", "🔍"),
-        ]
-        idx = choose(options, "Действия с пользователями")
+# ═══════════════════════════════════════════════════════════════
+#  PREMIUM
+# ═══════════════════════════════════════════════════════════════
 
-        if idx == -1:
+class PremiumPage(ScrollableContainer):
+    def compose(self) -> ComposeResult:
+        yield Static("⭐  [bold]Premium управление[/]", classes="page-title")
+        yield Static("", id="prem-status")
+        with Horizontal(classes="btn-row"):
+            yield Button("⭐ Включить Premium", id="btn-prem-on", variant="warning")
+            yield Button("☆  Выключить (бесплатно)", id="btn-prem-off")
+            yield Button("🔄", id="btn-refresh-prem", variant="primary")
+        yield Rule()
+        yield Static("[bold magenta]Premium-функции[/]  [dim](кликните переключатель)[/]")
+        for key, label in PREM_FEATURES.items():
+            with Horizontal(classes="switch-row"):
+                yield Switch(value=True, id=f"sw-p-{key}")
+                yield Label(label)
+        yield Rule()
+        yield Static("[bold yellow]Super User функции[/]  [dim](кликните переключатель)[/]")
+        for key, label in SUPER_FEATURES.items():
+            with Horizontal(classes="switch-row"):
+                yield Switch(value=True, id=f"sw-s-{key}")
+                yield Label(label)
+        yield Rule()
+        with Horizontal(classes="btn-row"):
+            yield Button("✅ Все ВКЛ", id="btn-feat-on", variant="success")
+            yield Button("⬜ Все ВЫКЛ", id="btn-feat-off", variant="error")
+            yield Button("💾 Сохранить", id="btn-feat-save", variant="primary")
+
+    def on_mount(self):
+        self._load()
+
+    def _st(self, msg):
+        self.query_one("#prem-status", Static).update(msg)
+
+    @on(Button.Pressed, "#btn-refresh-prem")
+    def _on_refresh(self):
+        self._load()
+
+    def _load(self):
+        cfg = api("GET", "/api/admin/config/premium")
+        if isinstance(cfg, dict) and "_error" not in cfg:
+            ena = cfg.get("premiumEnabled", True)
+            self._st(
+                "[bold yellow]⭐ Premium ВКЛЮЧЁН[/]" if ena
+                else "[bold green]☆ Premium ВЫКЛ — всё бесплатно[/]"
+            )
+        else:
+            self._st("[dim]Статус неизвестен[/]")
+
+        data = api("GET", "/api/admin/features")
+        if isinstance(data, dict) and "_error" not in data:
+            pd = data.get("premium", {})
+            sd = data.get("super", {})
+            for key in PREM_FEATURES:
+                try:
+                    self.query_one(f"#sw-p-{key}", Switch).value = pd.get(key, True)
+                except Exception:
+                    pass
+            for key in SUPER_FEATURES:
+                try:
+                    self.query_one(f"#sw-s-{key}", Switch).value = sd.get(key, True)
+                except Exception:
+                    pass
+
+    @on(Button.Pressed, "#btn-prem-on")
+    def _on_on(self):
+        r = api("PUT", "/api/admin/config/premium", {"enabled": True})
+        self._st("[green]✓ Premium ВКЛЮЧЁН[/]" if "_error" not in r
+                 else f"[red]✗ {r['_error']}[/]")
+
+    @on(Button.Pressed, "#btn-prem-off")
+    def _on_off(self):
+        r = api("PUT", "/api/admin/config/premium", {"enabled": False})
+        self._st("[green]✓ Premium ВЫКЛ — всё бесплатно[/]" if "_error" not in r
+                 else f"[red]✗ {r['_error']}[/]")
+
+    @on(Button.Pressed, "#btn-feat-on")
+    def _on_all_on(self):
+        for sw in self.query(Switch):
+            sw.value = True
+
+    @on(Button.Pressed, "#btn-feat-off")
+    def _on_all_off(self):
+        for sw in self.query(Switch):
+            sw.value = False
+
+    @on(Button.Pressed, "#btn-feat-save")
+    def _on_save(self):
+        prem = {}
+        sup = {}
+        for key in PREM_FEATURES:
+            try:
+                prem[key] = self.query_one(f"#sw-p-{key}", Switch).value
+            except Exception:
+                pass
+        for key in SUPER_FEATURES:
+            try:
+                sup[key] = self.query_one(f"#sw-s-{key}", Switch).value
+            except Exception:
+                pass
+        r = api("PUT", "/api/admin/features", {"premium": prem, "super": sup})
+        self._st("[green]✓ Настройки функций сохранены[/]" if "_error" not in r
+                 else f"[red]✗ {r['_error']}[/]")
+
+
+# ═══════════════════════════════════════════════════════════════
+#  TOOLS
+# ═══════════════════════════════════════════════════════════════
+
+class ToolsPage(ScrollableContainer):
+    _confirm = None
+
+    def compose(self) -> ComposeResult:
+        yield Static("🔧  [bold]Инструменты[/]", classes="page-title")
+        yield Static("", id="tools-status")
+        yield Static("[bold]Рассылка и объявления:[/]")
+        with Horizontal(classes="feature-row"):
+            yield Label("📢 Рассылка:")
+            yield Input(id="inp-broadcast", placeholder="Текст для всех пользователей...")
+        yield Button(
+            "📢  Отправить рассылку", id="btn-broadcast",
+            variant="primary", classes="tool-btn",
+        )
+        with Horizontal(classes="feature-row"):
+            yield Label("📣 Объявление:")
+            yield Input(id="inp-announce", placeholder="Глобальное объявление...")
+        yield Button(
+            "📣  Отправить объявление", id="btn-announce",
+            variant="primary", classes="tool-btn",
+        )
+        yield Rule()
+        yield Static("[bold]Очистка данных:[/]")
+        yield Button("✉️   Удалить все сообщения", id="btn-del-msgs", variant="warning", classes="tool-btn")
+        yield Button("💬  Удалить все чаты", id="btn-del-chats", variant="warning", classes="tool-btn")
+        yield Button("📡  Очистить сессии", id="btn-del-sess", classes="tool-btn")
+        yield Button("🔔  Очистить push-подписки", id="btn-del-push", classes="tool-btn")
+        yield Rule()
+        yield Button("💥  ПОЛНЫЙ СБРОС БАЗЫ ДАННЫХ", id="btn-reset", variant="error", classes="tool-btn")
+
+    def _st(self, msg):
+        self.query_one("#tools-status", Static).update(msg)
+
+    def _do(self, key, endpoint, desc, count_key):
+        if self._confirm == key:
+            r = api("DELETE", endpoint)
+            if "_error" not in r:
+                self._st(f"[green]✓ {desc}: удалено {r.get(count_key, 0)}[/]")
+            else:
+                self._st(f"[red]✗ {r['_error']}[/]")
+            self._confirm = None
+        else:
+            self._confirm = key
+            self._st(f"[yellow]⚠ Нажмите кнопку ещё раз для подтверждения: {desc}[/]")
+
+    @on(Button.Pressed, "#btn-broadcast")
+    def _on_bc(self):
+        text = self.query_one("#inp-broadcast", Input).value.strip()
+        if not text:
+            self._st("[yellow]Введите текст рассылки[/]")
             return
-        elif idx == 0:
-            _user_toggle_su(users)
-        elif idx == 1:
-            _user_toggle_premium(users)
-        elif idx == 2:
-            _user_features(users)
-        elif idx == 3:
-            _user_delete(users)
-        elif idx == 4:
-            _user_search(users)
+        r = api("POST", "/api/broadcast", {"text": text})
+        if "_error" not in r:
+            self._st(f"[green]✓ Рассылка отправлена в {r.get('sentTo', 0)} чатов[/]")
+            self.query_one("#inp-broadcast", Input).value = ""
+        else:
+            self._st(f"[red]✗ {r['_error']}[/]")
+
+    @on(Button.Pressed, "#btn-announce")
+    def _on_ann(self):
+        text = self.query_one("#inp-announce", Input).value.strip()
+        if not text:
+            self._st("[yellow]Введите текст объявления[/]")
+            return
+        r = api("POST", "/api/announcement", {"text": text})
+        if "_error" not in r:
+            self._st("[green]✓ Объявление отправлено[/]")
+            self.query_one("#inp-announce", Input).value = ""
+        else:
+            self._st(f"[red]✗ {r['_error']}[/]")
+
+    @on(Button.Pressed, "#btn-del-msgs")
+    def _d1(self):
+        self._do("msgs", "/api/admin/messages", "Все сообщения", "deleted")
+
+    @on(Button.Pressed, "#btn-del-chats")
+    def _d2(self):
+        self._do("chats", "/api/admin/chats", "Все чаты", "deletedChats")
+
+    @on(Button.Pressed, "#btn-del-sess")
+    def _d3(self):
+        self._do("sess", "/api/admin/sessions", "Сессии", "deleted")
+
+    @on(Button.Pressed, "#btn-del-push")
+    def _d4(self):
+        self._do("push", "/api/admin/pushsubs", "Push-подписки", "deleted")
+
+    @on(Button.Pressed, "#btn-reset")
+    def _on_reset(self):
+        if self._confirm == "reset":
+            r = api("DELETE", "/api/admin/reset")
+            if "_error" not in r:
+                total = sum(
+                    v for k, v in r.items()
+                    if k.startswith("deleted") and isinstance(v, int)
+                )
+                self._st(f"[green]✓ БД очищена! Удалено: {total}[/]")
+            else:
+                self._st(f"[red]✗ {r['_error']}[/]")
+            self._confirm = None
+        else:
+            self._confirm = "reset"
+            self._st("[bold red]⚠️  ВНИМАНИЕ! Нажмите ещё раз для ПОЛНОГО СБРОСА![/]")
 
 
-def _pick_user(users, prompt="Введите номер пользователя"):
-    try:
-        n = int(input(f"  {prompt} (1-{len(users)}): ").strip())
-        if 1 <= n <= len(users):
-            return users[n - 1]
-    except (ValueError, EOFError):
-        pass
-    console.print("[red]  Неверный номер[/red]")
-    return None
+# ═══════════════════════════════════════════════════════════════
+#  SETTINGS
+# ═══════════════════════════════════════════════════════════════
+
+class SettingsPage(ScrollableContainer):
+    def compose(self) -> ComposeResult:
+        yield Static("⚙️  [bold]Настройки подключения[/]", classes="page-title")
+        yield Label("URL сервера:")
+        yield Input(value=Config.url, id="inp-url", placeholder="https://...")
+        yield Label("Admin Key:")
+        yield Input(value=Config.key, id="inp-key", password=True, placeholder="секретный ключ")
+        with Horizontal(classes="btn-row"):
+            yield Button("💾 Сохранить", id="btn-save-cfg", variant="primary")
+            yield Button("🔌 Проверить соединение", id="btn-test-cfg", variant="success")
+        yield Static("", id="cfg-status")
+
+    @on(Button.Pressed, "#btn-save-cfg")
+    def _on_save(self):
+        Config.url = self.query_one("#inp-url", Input).value.rstrip("/")
+        Config.key = self.query_one("#inp-key", Input).value
+        self.query_one("#cfg-status", Static).update("[green]✓ Сохранено[/]")
+
+    @on(Button.Pressed, "#btn-test-cfg")
+    def _on_test(self):
+        Config.url = self.query_one("#inp-url", Input).value.rstrip("/")
+        Config.key = self.query_one("#inp-key", Input).value
+        r = api("GET", "/api/admin/stats")
+        st = self.query_one("#cfg-status", Static)
+        if "_error" not in r:
+            st.update(f"[green]● Подключено! Пользователей: {r.get('users', 0)}[/]")
+        else:
+            st.update(f"[red]● Ошибка: {r['_error']}[/]")
 
 
-def _user_toggle_su(users):
-    u = _pick_user(users)
-    if not u:
-        return
-    r = api_put(f"/api/admin/users/{u['_id']}/superuser")
-    if "_error" not in r:
-        st = "ВКЛ" if r.get("superUser") else "ВЫКЛ"
-        console.print(f"[green]  ✓ {r.get('username', '?')} → SuperUser {st}[/green]")
-    else:
-        console.print(f"[red]  ✗ {r['_error']}[/red]")
-    pause()
+# ═══════════════════════════════════════════════════════════════
+#  MAIN APP
+# ═══════════════════════════════════════════════════════════════
 
+class ShadowAdmin(App):
+    TITLE = "Shadow Messenger — Admin Console"
+    SUB_TITLE = "v4.9 Interactive TUI"
 
-def _user_toggle_premium(users):
-    u = _pick_user(users)
-    if not u:
-        return
-    r = api_put(f"/api/admin/users/{u['_id']}/premium")
-    if "_error" not in r:
-        st = "ВКЛ" if r.get("premium") else "ВЫКЛ"
-        console.print(f"[green]  ✓ {r.get('username', '?')} → Premium {st}[/green]")
-    else:
-        console.print(f"[red]  ✗ {r['_error']}[/red]")
-    pause()
+    CSS = """
+    #main {
+        height: 1fr;
+    }
+    #sidebar {
+        width: 30;
+        background: $surface;
+        border-right: solid $primary;
+        padding: 1;
+    }
+    .nav-btn {
+        width: 100%;
+        margin: 0 0 1 0;
+    }
+    #pages {
+        width: 1fr;
+        padding: 1 2;
+    }
+    .page-title {
+        text-style: bold;
+        margin-bottom: 1;
+    }
+    .btn-row {
+        height: auto;
+        margin: 1 0;
+    }
+    .btn-row > Button {
+        margin: 0 1 0 0;
+    }
+    .switch-row {
+        height: 3;
+    }
+    .switch-row > Label {
+        padding: 1 0 0 1;
+    }
+    .feature-row {
+        height: 3;
+    }
+    .feature-row > Label {
+        width: 22;
+        padding: 1 0 0 0;
+    }
+    .feature-row > Input {
+        width: 1fr;
+    }
+    DataTable {
+        height: 14;
+        margin-bottom: 1;
+    }
+    .tool-btn {
+        margin: 0 0 1 0;
+        width: 100%;
+    }
+    Rule {
+        margin: 1 0;
+    }
+    #feat-form {
+        margin-top: 1;
+        padding: 1;
+        border: solid $primary;
+    }
+    """
 
-
-def _user_features(users):
-    u = _pick_user(users)
-    if not u:
-        return
-
-    console.print(f"\n[bold]  🎛️ Premium-функции для @{u.get('username', '?')}[/bold]\n")
-
-    features = [
-        ("premiumEmoji",      "😎 Эмодзи профиля"),
-        ("premiumBadge",      "🎖 Значок"),
-        ("premiumNameColor",  "🎨 Цвет имени"),
-        ("customStatus",      "💬 Статус"),
-        ("customStatusEmoji", "🎭 Эмодзи статуса"),
-        ("customStatusColor", "🌈 Цвет статуса"),
+    BINDINGS = [
+        Binding("q", "quit", "Выход"),
+        Binding("1", "go('dashboard')", "Панель", show=False),
+        Binding("2", "go('users')", "Польз.", show=False),
+        Binding("3", "go('premium')", "Premium", show=False),
+        Binding("4", "go('tools')", "Инстр.", show=False),
+        Binding("5", "go('settings')", "Настр.", show=False),
     ]
 
-    data = {}
-    for field, label in features:
-        current = u.get(field, "") or ""
-        val = input(f"  {label} [{current}]: ").strip()
-        data[field] = val if val else current
+    def compose(self) -> ComposeResult:
+        yield Header(show_clock=True)
+        with Horizontal(id="main"):
+            with Vertical(id="sidebar"):
+                yield Static("[bold magenta]🌌 Shadow Admin[/]\n")
+                yield Button("📊  Панель", id="nav-dashboard", classes="nav-btn", variant="primary")
+                yield Button("👥  Пользователи", id="nav-users", classes="nav-btn")
+                yield Button("⭐  Premium", id="nav-premium", classes="nav-btn")
+                yield Button("🔧  Инструменты", id="nav-tools", classes="nav-btn")
+                yield Button("⚙️  Настройки", id="nav-settings", classes="nav-btn")
+            with ContentSwitcher(id="pages", initial="page-dashboard"):
+                yield DashboardPage(id="page-dashboard")
+                yield UsersPage(id="page-users")
+                yield PremiumPage(id="page-premium")
+                yield ToolsPage(id="page-tools")
+                yield SettingsPage(id="page-settings")
+        yield Footer()
 
-    r = api_put(f"/api/admin/users/{u['_id']}/premium-features", data)
-    if "_error" not in r:
-        console.print(f"[green]  ✓ Функции обновлены для @{u.get('username', '?')}[/green]")
-    else:
-        console.print(f"[red]  ✗ {r['_error']}[/red]")
-    pause()
+    def _switch(self, name):
+        self.query_one("#pages", ContentSwitcher).current = f"page-{name}"
+        for p in NAV:
+            self.query_one(f"#nav-{p}", Button).variant = (
+                "primary" if p == name else "default"
+            )
 
+    def action_go(self, name):
+        self._switch(name)
 
-def _user_delete(users):
-    u = _pick_user(users)
-    if not u:
-        return
-    name = u.get("displayName") or u.get("username", "?")
-    confirm = input(f"  Удалить {name}? (да/нет): ").strip().lower()
-    if confirm in ("да", "yes", "y"):
-        r = api_delete(f"/api/admin/users/{u['_id']}")
-        if "_error" not in r:
-            console.print(f"[green]  ✓ Пользователь {name} удалён[/green]")
-        else:
-            console.print(f"[red]  ✗ {r['_error']}[/red]")
-    else:
-        console.print("[dim]  Отменено[/dim]")
-    pause()
+    @on(Button.Pressed, "#nav-dashboard")
+    def _n1(self):
+        self._switch("dashboard")
 
+    @on(Button.Pressed, "#nav-users")
+    def _n2(self):
+        self._switch("users")
 
-def _user_search(users):
-    q = input("  Поиск: ").strip().lower()
-    if not q:
-        return
-    found = [u for u in users if q in (u.get("displayName") or "").lower() or q in (u.get("username") or "").lower()]
-    if not found:
-        console.print("[dim]  Не найдено[/dim]")
-    else:
-        for u in found:
-            role = "⚡Super" if u.get("superUser") else ("⭐Prem" if u.get("premium") else "")
-            console.print(f"  [cyan]@{u.get('username', '?')}[/cyan]  {u.get('displayName', '—')}  [yellow]{role}[/yellow]")
-    pause()
+    @on(Button.Pressed, "#nav-premium")
+    def _n3(self):
+        self._switch("premium")
 
+    @on(Button.Pressed, "#nav-tools")
+    def _n4(self):
+        self._switch("tools")
 
-# ════════════════════════════════════════════════════════════════════════
-#  PREMIUM
-# ════════════════════════════════════════════════════════════════════════
-def page_premium():
-    while True:
-        clear()
-        show_header()
-        console.print("[bold]⭐ Premium управление[/bold]\n")
-
-        cfg = api_get("/api/admin/config/premium")
-        if isinstance(cfg, dict) and "_error" not in cfg:
-            enabled = cfg.get("premiumEnabled", True)
-            if enabled:
-                console.print(Panel("[bold bright_yellow]⭐ Premium ВКЛЮЧЁН[/bold bright_yellow]\nФункции доступны только подписчикам", border_style="yellow"))
-            else:
-                console.print(Panel("[bold green]☆ Premium ОТКЛЮЧЁН[/bold green]\nВсе функции бесплатны для всех", border_style="green"))
-        else:
-            console.print("[dim]Не удалось загрузить статус[/dim]")
-
-        # Show premium users
-        users = api_get("/api/admin/users")
-        if isinstance(users, list):
-            special = [u for u in users if u.get("superUser") or u.get("premium")]
-            if special:
-                console.print("\n[bold]Пользователи с особыми ролями:[/bold]")
-                for u in special:
-                    role = "[bright_yellow]⚡ Super[/bright_yellow]" if u.get("superUser") else "[bright_magenta]⭐ Premium[/bright_magenta]"
-                    console.print(f"  {role}  {u.get('displayName', '?')}  [dim]@{u.get('username', '')}[/dim]")
-            else:
-                console.print("\n[dim]Нет пользователей с особыми ролями[/dim]")
-
-        options = [
-            ("Включить Premium (платно)", "⭐"),
-            ("Отключить Premium (бесплатно)", "☆"),
-            ("Управление функциями", "🎛️"),
-        ]
-        idx = choose(options)
-        if idx == -1:
-            return
-        elif idx == 0:
-            r = api_put("/api/admin/config/premium", {"enabled": True})
-            if "_error" not in r:
-                console.print("[green]  ✓ Premium ВКЛЮЧЁН[/green]")
-            else:
-                console.print(f"[red]  ✗ {r['_error']}[/red]")
-            pause()
-        elif idx == 1:
-            r = api_put("/api/admin/config/premium", {"enabled": False})
-            if "_error" not in r:
-                console.print("[green]  ✓ Premium ОТКЛЮЧЁН — всё бесплатно[/green]")
-            else:
-                console.print(f"[red]  ✗ {r['_error']}[/red]")
-            pause()
-        elif idx == 2:
-            page_features()
-
-
-# ════════════════════════════════════════════════════════════════════════
-#  FEATURES CONFIG
-# ════════════════════════════════════════════════════════════════════════
-def page_features():
-    clear()
-    show_header()
-    console.print("[bold]🎛️ Настройка доступных функций[/bold]\n")
-
-    data = api_get("/api/admin/features")
-    if isinstance(data, dict) and "_error" in data:
-        console.print(f"[red]❌ {data['_error']}[/red]")
-        pause()
-        return
-
-    premium_features = data.get("premium", {})
-    super_features = data.get("super", {})
-
-    prem_labels = {
-        "ghost": "Призрак (невидимка)",
-        "emoji": "Эмодзи профиля",
-        "badge": "Значок профиля",
-        "nameColor": "Цвет имени",
-        "exclusiveThemes": "Эксклюзивные темы",
-        "customStatus": "Кастомный статус",
-        "notifSounds": "Звуки уведомлений",
-        "socialLinks": "Соц. ссылки",
-        "banner": "Баннер профиля",
-        "translate": "Перевод сообщений",
-        "customTheme": "Свой конструктор тем",
-        "disappearing": "Исчезающие сообщения",
-        "fonts": "Кастомные шрифты",
-        "bigUpload": "Большие файлы",
-    }
-
-    super_labels = {
-        "broadcast": "Рассылка всем",
-        "announce": "Объявления",
-        "moderate": "Модерация",
-        "seeHidden": "Видеть скрытых",
-        "animation": "Анимация входа",
-        "priority": "Приоритет",
-        "noLimits": "Без ограничений",
-    }
-
-    console.print("[bold bright_magenta]Premium функции:[/bold bright_magenta]")
-    table_p = Table(box=box.SIMPLE, show_header=True, border_style="magenta")
-    table_p.add_column("#", style="dim", width=4)
-    table_p.add_column("Функция", style="bright_white")
-    table_p.add_column("Статус", justify="center")
-
-    prem_keys = list(prem_labels.keys())
-    for i, key in enumerate(prem_keys, 1):
-        enabled = premium_features.get(key, True)
-        status = "[green]✓ ВКЛ[/green]" if enabled else "[red]✗ ВЫКЛ[/red]"
-        table_p.add_row(str(i), prem_labels[key], status)
-    console.print(table_p)
-
-    console.print("\n[bold bright_yellow]Super User функции:[/bold bright_yellow]")
-    table_s = Table(box=box.SIMPLE, show_header=True, border_style="yellow")
-    table_s.add_column("#", style="dim", width=4)
-    table_s.add_column("Функция", style="bright_white")
-    table_s.add_column("Статус", justify="center")
-
-    super_keys = list(super_labels.keys())
-    offset = len(prem_keys)
-    for i, key in enumerate(super_keys, 1):
-        enabled = super_features.get(key, True)
-        status = "[green]✓ ВКЛ[/green]" if enabled else "[red]✗ ВЫКЛ[/red]"
-        table_s.add_row(str(offset + i), super_labels[key], status)
-    console.print(table_s)
-
-    console.print("\n[dim]Введите номер функции для переключения (0 — назад, 'all' — вкл все, 'none' — выкл все):[/dim]")
-    choice = input("  ▸ ").strip().lower()
-
-    if choice == "0" or not choice:
-        return
-    elif choice == "all":
-        for k in prem_keys:
-            premium_features[k] = True
-        for k in super_keys:
-            super_features[k] = True
-    elif choice == "none":
-        for k in prem_keys:
-            premium_features[k] = False
-        for k in super_keys:
-            super_features[k] = False
-    else:
-        try:
-            num = int(choice)
-            if 1 <= num <= len(prem_keys):
-                key = prem_keys[num - 1]
-                premium_features[key] = not premium_features.get(key, True)
-            elif offset < num <= offset + len(super_keys):
-                key = super_keys[num - offset - 1]
-                super_features[key] = not super_features.get(key, True)
-            else:
-                console.print("[red]  Неверный номер[/red]")
-                pause()
-                return
-        except ValueError:
-            console.print("[red]  Неверный ввод[/red]")
-            pause()
-            return
-
-    r = api_put("/api/admin/features", {"premium": premium_features, "super": super_features})
-    if "_error" not in r:
-        console.print("[green]  ✓ Настройки функций сохранены[/green]")
-    else:
-        console.print(f"[red]  ✗ {r['_error']}[/red]")
-    pause()
-
-
-# ════════════════════════════════════════════════════════════════════════
-#  TOOLS
-# ════════════════════════════════════════════════════════════════════════
-def page_tools():
-    while True:
-        clear()
-        show_header()
-        console.print("[bold]🔧 Инструменты[/bold]\n")
-
-        options = [
-            ("Удалить все сообщения", "✉️"),
-            ("Удалить все чаты", "💬"),
-            ("Очистить сессии", "📡"),
-            ("Очистить push-подписки", "🔔"),
-            ("⚠️ ПОЛНЫЙ СБРОС", "💥"),
-        ]
-        idx = choose(options)
-        if idx == -1:
-            return
-        elif idx == 0:
-            _tool_delete("/api/admin/messages", "все сообщения", "deleted")
-        elif idx == 1:
-            _tool_delete("/api/admin/chats", "все чаты и сообщения", "deletedChats")
-        elif idx == 2:
-            _tool_delete("/api/admin/sessions", "неактивные сессии", "deleted")
-        elif idx == 3:
-            _tool_delete("/api/admin/pushsubs", "push-подписки", "deleted")
-        elif idx == 4:
-            _tool_reset()
-
-
-def _tool_delete(endpoint, desc, count_key):
-    confirm = input(f"  Удалить {desc}? (да/нет): ").strip().lower()
-    if confirm not in ("да", "yes", "y"):
-        console.print("[dim]  Отменено[/dim]")
-        pause()
-        return
-    r = api_delete(endpoint)
-    if "_error" not in r:
-        console.print(f"[green]  ✓ Удалено: {r.get(count_key, 0)}[/green]")
-    else:
-        console.print(f"[red]  ✗ {r['_error']}[/red]")
-    pause()
-
-
-def _tool_reset():
-    console.print("[bold red]\n  ⚠️ ПОЛНЫЙ СБРОС БАЗЫ ДАННЫХ![/bold red]")
-    console.print("[yellow]  Будут удалены ВСЕ данные: пользователи, чаты, сообщения, сессии.[/yellow]")
-    confirm = input("  Введите RESET для подтверждения: ").strip()
-    if confirm != "RESET":
-        console.print("[dim]  Отменено[/dim]")
-        pause()
-        return
-    r = api_delete("/api/admin/reset")
-    if "_error" not in r:
-        total = sum(v for k, v in r.items() if k.startswith("deleted") and isinstance(v, int))
-        console.print(f"[green]  ✓ БД очищена! Удалено: {total}[/green]")
-    else:
-        console.print(f"[red]  ✗ {r['_error']}[/red]")
-    pause()
-
-
-# ════════════════════════════════════════════════════════════════════════
-#  SETTINGS
-# ════════════════════════════════════════════════════════════════════════
-def page_settings():
-    global server_url, admin_key
-    clear()
-    show_header()
-    console.print("[bold]⚙️ Настройки[/bold]\n")
-
-    console.print(f"  Текущий сервер: [cyan]{server_url}[/cyan]")
-    console.print(f"  Текущий ключ:   [dim]{'•' * min(len(admin_key), 20)}[/dim]\n")
-
-    new_url = input(f"  Новый URL [{server_url}]: ").strip()
-    if new_url:
-        server_url = new_url.rstrip("/")
-
-    new_key = input(f"  Новый admin key [скрыт]: ").strip()
-    if new_key:
-        admin_key = new_key
-
-    console.print(f"\n  [green]✓ Сохранено[/green]  Сервер: [cyan]{server_url}[/cyan]")
-
-    test = input("  Проверить подключение? (да/нет): ").strip().lower()
-    if test in ("да", "yes", "y"):
-        r = api_get("/api/admin/stats")
-        if "_error" not in r:
-            console.print(f"[green]  ● Подключено! Пользователей: {r.get('users', 0)}[/green]")
-        else:
-            console.print(f"[red]  ● Ошибка: {r['_error']}[/red]")
-    pause()
-
-
-# ════════════════════════════════════════════════════════════════════════
-#  MAIN MENU
-# ════════════════════════════════════════════════════════════════════════
-def main():
-    while True:
-        clear()
-        show_header()
-
-        options = [
-            ("Главная панель (статистика)", "📊"),
-            ("Пользователи", "👥"),
-            ("Premium управление", "⭐"),
-            ("Инструменты (очистка)", "🔧"),
-            ("Настройки", "⚙️"),
-        ]
-
-        console.print("[bold bright_white]Главное меню[/bold bright_white]\n")
-        for i, (label, icon) in enumerate(options, 1):
-            console.print(f"  [bright_magenta][{i}][/bright_magenta]  {icon}  {label}")
-        console.print(f"  [dim][0]  Выход[/dim]")
-        console.print()
-
-        try:
-            choice = input("  ▸ ").strip()
-        except (EOFError, KeyboardInterrupt):
-            break
-
-        if choice == "0" or not choice:
-            console.print("\n[dim]До свидания! 👋[/dim]")
-            break
-        elif choice == "1":
-            page_dashboard()
-        elif choice == "2":
-            page_users()
-        elif choice == "3":
-            page_premium()
-        elif choice == "4":
-            page_tools()
-        elif choice == "5":
-            page_settings()
-        else:
-            console.print("[red]  Неверный выбор[/red]")
-            pause()
+    @on(Button.Pressed, "#nav-settings")
+    def _n5(self):
+        self._switch("settings")
 
 
 if __name__ == "__main__":
-    main()
+    ShadowAdmin().run()
