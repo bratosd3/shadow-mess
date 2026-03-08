@@ -171,8 +171,9 @@ function _isNewer(remote, local) {
 
 /* ───────── App lifecycle ───────── */
 app.whenReady().then(async () => {
-  // Clear cache to ensure latest web content is loaded
+  // Clear all caches including Service Worker to ensure latest web content
   await session.defaultSession.clearCache();
+  await session.defaultSession.clearStorageData({ storages: ['cachestorage', 'serviceworkers'] });
   createWindow();
   createTray();
   // Check for updates after a short delay

@@ -42,7 +42,7 @@
       "shortcutName": "Shadow Messenger",
       "createDesktopShortcut": "always",
       "createStartMenuShortcut": true,
-      "uninstallDisplayName": "Shadow Messenger v5.2",
+      "uninstallDisplayName": "Shadow Messenger v5.3",
       "deleteAppDataOnUninstall": true,
       "runAfterFinish": true,
       "include": "installer.nsh",

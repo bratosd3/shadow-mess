@@ -317,14 +317,16 @@ async function boot() {
    SOCKET
    ══════════════════════════════════════════════════════════════════════ */
 function initSocket() {
-  const socket = io({ auth: { token: S.token }, transports: ['websocket', 'polling'] });
+  if (S.socket) { S.socket.removeAllListeners(); S.socket.disconnect(); }
+  const socket = io({ auth: { token: S.token }, transports: ['websocket', 'polling'], forceNew: true });
   S.socket = socket;
 
   socket.on('connect', () => console.log('Socket connected'));
 
   socket.on('new_message', msg => {
-    // Sender adds own messages locally from HTTP response — skip all socket duplicates
+    // Skip sender's own messages AND already-added messages
     if (msg.senderId === S.user.id) return;
+    if (msg.chatId === S.chatId && S.messages.some(m => m.id === msg.id)) return;
 
     if (msg.chatId === S.chatId) {
       S.messages.push(msg);
@@ -526,7 +528,7 @@ function initUI() {
           const fd = new FormData();
           fd.append('file', file, 'screenshot.png');
           api(`/api/chats/${S.chatId}/upload`, { method: 'POST', body: fd })
-            .then(msg => { S.messages.push(msg); renderMessages(); scrollToBottom(); updateChatInList(S.chatId, msg); })
+            .then(msg => { if (!S.messages.some(m => m.id === msg.id)) { S.messages.push(msg); renderMessages(); scrollToBottom(); } updateChatInList(S.chatId, msg); })
             .catch(err => showToast(err.message, 'error'));
         }
         return;
@@ -547,7 +549,7 @@ function initUI() {
       hide($('input-ctx-menu'));
       const act = el.dataset.inputAction;
       if (act === 'paste') { navigator.clipboard?.readText().then(t => { document.execCommand('insertText', false, t); }).catch(() => {}); }
-      else if (act === 'paste-screenshot') { navigator.clipboard?.read().then(items => { for (const item of items) { const img = item.types.find(t => t.startsWith('image/')); if (img) { item.getType(img).then(blob => { if (S.chatId) { const fd = new FormData(); fd.append('file', new File([blob], 'screenshot.png', { type: img })); api(`/api/chats/${S.chatId}/upload`, { method: 'POST', body: fd }).then(msg => { S.messages.push(msg); renderMessages(); scrollToBottom(); updateChatInList(S.chatId, msg); }).catch(err => showToast(err.message, 'error')); } }); break; } } }).catch(() => showToast('Нет изображения в буфере', 'info')); }
+      else if (act === 'paste-screenshot') { navigator.clipboard?.read().then(items => { for (const item of items) { const img = item.types.find(t => t.startsWith('image/')); if (img) { item.getType(img).then(blob => { if (S.chatId) { const fd = new FormData(); fd.append('file', new File([blob], 'screenshot.png', { type: img })); api(`/api/chats/${S.chatId}/upload`, { method: 'POST', body: fd }).then(msg => { if (!S.messages.some(m => m.id === msg.id)) { S.messages.push(msg); renderMessages(); scrollToBottom(); } updateChatInList(S.chatId, msg); }).catch(err => showToast(err.message, 'error')); } }); break; } } }).catch(() => showToast('Нет изображения в буфере', 'info')); }
       else if (act === 'cut') { document.execCommand('cut'); }
       else if (act === 'copy') { document.execCommand('copy'); }
       else if (act === 'select-all') { inp.select(); }
@@ -1325,9 +1327,11 @@ async function sendSilentMessage() {
   toggleSendBtn();
   try {
     const msg = await api(`/api/chats/${S.chatId}/messages`, { method: 'POST', body: JSON.stringify({ text, silent: true }) });
-    S.messages.push(msg);
-    renderMessages();
-    scrollToBottom();
+    if (!S.messages.some(m => m.id === msg.id)) {
+      S.messages.push(msg);
+      renderMessages();
+      scrollToBottom();
+    }
     updateChatInList(S.chatId, msg);
     showToast('Отправлено без звука', 'info');
   } catch (e) { showToast(e.message, 'error'); }
@@ -1356,10 +1360,11 @@ async function sendMessage() {
 
   try {
     const msg = await api(`/api/chats/${S.chatId}/messages`, { method: 'POST', body: JSON.stringify(body) });
-    // Server doesn't send new_message to sender via socket — add locally
-    S.messages.push(msg);
-    renderMessages();
-    scrollToBottom();
+    if (!S.messages.some(m => m.id === msg.id)) {
+      S.messages.push(msg);
+      renderMessages();
+      scrollToBottom();
+    }
     updateChatInList(S.chatId, msg);
   } catch (e) { showToast(e.message, 'error'); }
 }
@@ -1374,10 +1379,11 @@ async function uploadFiles() {
     fd.append('file', file);
     try {
       const msg = await api(`/api/chats/${S.chatId}/upload`, { method: 'POST', body: fd });
-      // Server doesn't send new_message to sender via socket — add locally
-      S.messages.push(msg);
-      renderMessages();
-      scrollToBottom();
+      if (!S.messages.some(m => m.id === msg.id)) {
+        S.messages.push(msg);
+        renderMessages();
+        scrollToBottom();
+      }
       updateChatInList(S.chatId, msg);
     } catch (e) { showToast(e.message, 'error'); }
   }
@@ -3210,9 +3216,11 @@ async function stopRecording(send) {
 
   try {
     const msg = await api(`/api/chats/${S.chatId}/upload`, { method: 'POST', body: fd });
-    S.messages.push(msg);
-    renderMessages();
-    scrollToBottom();
+    if (!S.messages.some(m => m.id === msg.id)) {
+      S.messages.push(msg);
+      renderMessages();
+      scrollToBottom();
+    }
     updateChatInList(S.chatId, msg);
   } catch (e) { showToast(e.message, 'error'); }
 }

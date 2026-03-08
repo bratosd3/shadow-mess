@@ -244,7 +244,7 @@ const upload = multer({ storage, limits: { fileSize: 100 * 1024 * 1024 } });
 app.use(compression());
 app.use(cors());
 app.use(express.json());
-app.use('/static', express.static(STATIC_DIR, { maxAge: '7d', etag: true }));
+app.use('/static', express.static(STATIC_DIR, { maxAge: '1h', etag: true }));
 app.use('/uploads', express.static(UPLOADS_DIR, { maxAge: '30d', immutable: true }));
 
 // ── Auth middleware ────────────────────────────────────────────────────────
