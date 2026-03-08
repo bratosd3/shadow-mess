@@ -29,13 +29,18 @@
           <filter id="gGlow"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
         </defs>
         <path d="M50 8 C26 8 12 28 12 50 L12 92 C12 95 14 97 16 95 L26 86 C29 84 33 84 36 86 L44 94 C46 96 50 96 52 94 L50 92 L48 94 C50 96 54 96 56 94 L64 86 C67 84 71 84 74 86 L84 95 C86 97 88 95 88 92 L88 50 C88 28 74 8 50 8Z" fill="url(#gGrad)" filter="url(#gGlow)" opacity="0.95"/>
-        <ellipse cx="38" cy="42" rx="6" ry="7" fill="#fff" opacity="0.95"/>
-        <ellipse cx="62" cy="42" rx="6" ry="7" fill="#fff" opacity="0.95"/>
-        <circle cx="40" cy="44" r="3" fill="#1e1f22"/>
-        <circle cx="64" cy="44" r="3" fill="#1e1f22"/>
-        <circle cx="42" cy="41" r="1.2" fill="#fff" opacity="0.8"/>
-        <circle cx="66" cy="41" r="1.2" fill="#fff" opacity="0.8"/>
-        <path d="M44 57 Q50 64 56 57" stroke="rgba(255,255,255,0.3)" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+        <ellipse cx="36" cy="40" rx="8" ry="9" fill="#fff" opacity="0.95"/>
+        <ellipse cx="64" cy="40" rx="8" ry="9" fill="#fff" opacity="0.95"/>
+        <ellipse cx="38" cy="42" rx="4" ry="5" fill="#1e1f22"/>
+        <ellipse cx="66" cy="42" rx="4" ry="5" fill="#1e1f22"/>
+        <circle cx="40" cy="39" r="1.5" fill="#fff" opacity="0.9"/>
+        <circle cx="68" cy="39" r="1.5" fill="#fff" opacity="0.9"/>
+        <circle cx="36" cy="43" r="1" fill="#c00" opacity="0.5"/>
+        <circle cx="64" cy="43" r="1" fill="#c00" opacity="0.5"/>
+        <path d="M40 56 Q50 68 60 56" stroke="rgba(255,255,255,0.7)" stroke-width="1.5" fill="none" stroke-linecap="round"/>
+        <polygon points="43,57 45,63 47,57" fill="#fff" opacity="0.9"/>
+        <polygon points="50,58 52,65 54,58" fill="#fff" opacity="0.9"/>
+        <polygon points="53,57 55,63 57,57" fill="#fff" opacity="0.9"/>
       </svg>
     </div>
     <h1>Shadow Messenger</h1>
@@ -72,9 +77,13 @@
       <button class="sb-icon ghost-btn" id="ghost-toggle" title="Режим Призрака">
         <svg class="ghost-svg" viewBox="0 0 100 120" width="24" height="29">
           <path d="M50 8 C28 8 12 28 12 50 L12 92 C12 95 14 97 16 95 L26 86 C29 84 33 84 36 86 L44 94 C46 96 50 96 52 94 L50 92 L48 94 C50 96 54 96 56 94 L64 86 C67 84 71 84 74 86 L84 95 C86 97 88 95 88 92 L88 50 C88 28 72 8 50 8Z" fill="currentColor"/>
-          <ellipse cx="38" cy="42" rx="5" ry="6" fill="var(--bg-dark,#1e1f22)"/>
-          <ellipse cx="62" cy="42" rx="5" ry="6" fill="var(--bg-dark,#1e1f22)"/>
-        </svg>
+          <ellipse cx="36" cy="40" rx="7" ry="8" fill="var(--bg-dark,#1e1f22)"/>
+          <ellipse cx="64" cy="40" rx="7" ry="8" fill="var(--bg-dark,#1e1f22)"/>
+          <ellipse cx="38" cy="42" rx="3" ry="4" fill="currentColor" opacity="0.6"/>
+          <ellipse cx="66" cy="42" rx="3" ry="4" fill="currentColor" opacity="0.6"/>
+          <path d="M42 56 Q50 65 58 56" stroke="var(--bg-dark,#1e1f22)" stroke-width="1" fill="none"/>
+          <polygon points="45,57 46.5,61 48,57" fill="var(--bg-dark,#1e1f22)"/>
+          <polygon points="52,57 53.5,61 55,57" fill="var(--bg-dark,#1e1f22)"/>
         </svg>
       </button>
       <button class="sb-icon" id="nav-settings" title="Настройки"><i class="fas fa-gear"></i></button>
@@ -87,6 +96,7 @@
     <div id="panel-header">
       <span id="panel-title">Чаты</span>
       <div class="panel-btns">
+        <button id="btn-saved" title="Избранное"><i class="fas fa-bookmark"></i></button>
         <button id="btn-new-chat" title="Новый чат"><i class="fas fa-pen-to-square"></i></button>
       </div>
     </div>
@@ -125,9 +135,13 @@
       <svg class="welcome-ghost" viewBox="0 0 100 120" width="80" height="96">
         <defs><linearGradient id="wgGrad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#7c3aed"/><stop offset="100%" style="stop-color:#5865f2"/></linearGradient></defs>
         <path d="M50 8 C26 8 12 28 12 50 L12 92 C12 95 14 97 16 95 L26 86 C29 84 33 84 36 86 L44 94 C46 96 50 96 52 94 L50 92 L48 94 C50 96 54 96 56 94 L64 86 C67 84 71 84 74 86 L84 95 C86 97 88 95 88 92 L88 50 C88 28 74 8 50 8Z" fill="url(#wgGrad)" opacity="0.4"/>
-        <ellipse cx="38" cy="42" rx="6" ry="7" fill="rgba(255,255,255,0.3)"/>
-        <ellipse cx="62" cy="42" rx="6" ry="7" fill="rgba(255,255,255,0.3)"/>
-      </svg>
+        <ellipse cx="36" cy="40" rx="7" ry="8" fill="rgba(255,255,255,0.3)"/>
+        <ellipse cx="64" cy="40" rx="7" ry="8" fill="rgba(255,255,255,0.3)"/>
+        <ellipse cx="38" cy="42" rx="3" ry="4" fill="rgba(0,0,0,0.3)"/>
+        <ellipse cx="66" cy="42" rx="3" ry="4" fill="rgba(0,0,0,0.3)"/>
+        <path d="M42 56 Q50 66 58 56" stroke="rgba(255,255,255,0.25)" stroke-width="1" fill="none"/>
+        <polygon points="45,57 46.5,62 48,57" fill="rgba(255,255,255,0.25)"/>
+        <polygon points="52,57 53.5,62 55,57" fill="rgba(255,255,255,0.25)"/>
       </svg>
       <h2>Shadow Messenger</h2>
       <p>Выберите чат, чтобы начать общение</p>
@@ -146,6 +160,7 @@
           <button id="btn-chat-menu" title="Меню"><i class="fas fa-ellipsis-vertical"></i></button>
         </div>
       </header>
+      <div id="pinned-msg-bar" class="hidden"><i class="fas fa-thumbtack pin-icon"></i><span id="pinned-msg-text"></span><button id="pinned-msg-close"><i class="fas fa-xmark"></i></button></div>
       <div id="messages-container"><div id="messages-area"></div></div>
       <div id="typing-bar" class="hidden"><span id="typing-text"></span><span class="dots"><i></i><i></i><i></i></span></div>
       <div id="reply-bar" class="hidden"><i class="fas fa-reply"></i><span id="reply-name"></span>: <span id="reply-text"></span><button id="reply-cancel"><i class="fas fa-xmark"></i></button></div>
@@ -246,9 +261,11 @@
     <button class="modal-x" id="profile-close"><i class="fas fa-xmark"></i></button>
     <div class="pv-banner" id="pv-banner"></div>
     <div class="avatar-xl" id="pv-avatar"></div>
+    <div class="pv-custom-status hidden" id="pv-custom-status"></div>
     <h3 id="pv-name"></h3>
     <p class="pv-uname" id="pv-username"></p>
     <p class="pv-bio" id="pv-bio"></p>
+    <div class="pv-social hidden" id="pv-social"></div>
     <div class="pv-actions" id="pv-actions"></div>
   </div>
 </div>
@@ -262,12 +279,13 @@
       <button class="settings-nav" data-sec="sec-appearance"><i class="fas fa-palette"></i>Внешний вид</button>
       <button class="settings-nav" data-sec="sec-notifications"><i class="fas fa-bell"></i>Уведомления</button>
       <button class="settings-nav" data-sec="sec-privacy"><i class="fas fa-shield-halved"></i>Приватность</button>
+      <button class="settings-nav" data-sec="sec-premium"><i class="fas fa-crown"></i>Premium</button>
       <button class="settings-nav" data-sec="sec-sessions"><i class="fas fa-clock-rotate-left"></i>Сессии</button>
       <div class="settings-sb-sep"></div>
       <button class="settings-nav danger" onclick="logout()"><i class="fas fa-right-from-bracket"></i>Выйти</button>
     </div>
     <div class="settings-content">
-      <button class="settings-close-btn" data-close="modal-settings"><i class="fas fa-xmark"></i><span>ESC</span></button>
+      <button class="settings-close-btn" data-close="modal-settings"><i class="fas fa-xmark"></i></button>
 
       <div class="settings-section active" id="sec-profile">
         <h2>Мой аккаунт</h2>
@@ -288,6 +306,42 @@
           <div class="s-field"><label>О себе</label><textarea id="set-bio" rows="3"></textarea></div>
           <button id="btn-save-profile" class="btn-primary">Сохранить изменения</button>
         </div>
+        <div id="premium-emoji-section">
+          <div class="s-divider"></div>
+          <h3>Premium ⭐</h3>
+          <div id="premium-lock-area"></div>
+          <p class="s-hint">Эмодзи рядом с именем</p>
+          <div class="premium-emoji-picker" id="premium-emoji-grid"></div>
+          <div class="s-divider"></div>
+          <h3>Значок профиля</h3>
+          <p class="s-hint">Текстовый значок рядом с именем в чате</p>
+          <div class="premium-badge-picker" id="premium-badge-grid"></div>
+          <div class="s-divider"></div>
+          <h3>Цвет имени в чате</h3>
+          <p class="s-hint">Ваше имя будет выделено цветом в сообщениях</p>
+          <div class="premium-color-picker" id="premium-color-grid"></div>
+          <div class="s-divider"></div>
+          <h3>Эксклюзивные темы 💎</h3>
+          <p class="s-hint">Темы, доступные только Premium-подписчикам</p>
+          <div id="premium-themes-grid" class="theme-grid-large"></div>
+          <div class="s-divider"></div>
+          <h3>Кастомный статус 💬</h3>
+          <p class="s-hint">Статус с эмодзи и цветным фоном (Premium)</p>
+          <div class="custom-status-editor" id="custom-status-editor">
+            <div class="cs-row"><input id="cs-emoji" type="text" placeholder="😎" maxlength="2" style="width:48px;text-align:center;font-size:20px"><input id="cs-text" type="text" placeholder="Мой крутой статус..."></div>
+            <div class="cs-row"><label>Цвет фона</label><input type="color" id="cs-color" value="#5865f2"><button id="btn-save-status" class="btn-sm">Сохранить</button></div>
+          </div>
+          <div class="s-divider"></div>
+          <h3>Расширенный профиль 🔗</h3>
+          <p class="s-hint">Социальные ссылки и баннер (Premium)</p>
+          <div class="s-form-group">
+            <div class="s-field"><label>Telegram</label><input id="social-tg" type="text" placeholder="@username"></div>
+            <div class="s-field"><label>Instagram</label><input id="social-ig" type="text" placeholder="@username"></div>
+            <div class="s-field"><label>GitHub</label><input id="social-gh" type="text" placeholder="username"></div>
+            <div class="s-field"><label>Сайт</label><input id="social-web" type="text" placeholder="https://..."></div>
+            <button id="btn-save-social" class="btn-sm"><i class="fas fa-floppy-disk"></i> Сохранить ссылки</button>
+          </div>
+        </div>
         <div class="s-divider"></div>
         <h3>Смена пароля</h3>
         <div class="s-form-group">
@@ -302,6 +356,23 @@
         <h3>Тема оформления</h3>
         <p class="s-hint">Выберите тему для интерфейса мессенджера</p>
         <div id="theme-grid" class="theme-grid-large"></div>
+        <div class="s-divider"></div>
+        <h3>Создать свою тему</h3>
+        <p class="s-hint">Настройте цвета под себя</p>
+        <div class="custom-theme-creator" id="custom-theme-creator">
+          <div class="ct-row"><label>Основной фон</label><input type="color" id="ct-bg" value="#313338"></div>
+          <div class="ct-row"><label>Тёмный фон</label><input type="color" id="ct-dark" value="#1e1f22"></div>
+          <div class="ct-row"><label>Вторичный</label><input type="color" id="ct-sec" value="#2b2d31"></div>
+          <div class="ct-row"><label>Акцент</label><input type="color" id="ct-brand" value="#5865f2"></div>
+          <div class="ct-preview-box" id="ct-preview-box">
+            <div class="ts-preview">
+              <div class="ts-sb" id="ct-p-dark"></div>
+              <div class="ts-pnl" id="ct-p-sec"></div>
+              <div class="ts-ch"><div class="ts-m1" id="ct-p-m1"></div><div class="ts-m2" id="ct-p-brand"></div></div>
+            </div>
+          </div>
+          <button class="btn-primary btn-sm" id="btn-apply-custom-theme">Применить</button>
+        </div>
         <div class="s-divider"></div>
         <h3>Размер шрифта</h3>
         <div class="s-option-row" id="font-size-opts">
@@ -320,6 +391,47 @@
         <h3>Фон чата</h3>
         <p class="s-hint">Узор в области сообщений</p>
         <div id="wallpaper-grid" class="wallpaper-grid"></div>
+        <div class="s-divider"></div>
+        <h3>Стиль сообщений</h3>
+        <div class="s-option-row" id="bubble-style-opts">
+          <button class="s-opt-btn active" data-val="default"><i class="fas fa-align-left"></i> Обычный</button>
+          <button class="s-opt-btn" data-val="bubbles"><i class="fas fa-comment"></i> Пузыри</button>
+        </div>
+        <div class="s-divider"></div>
+        <h3>Скругление</h3>
+        <div class="s-option-row" id="border-radius-opts">
+          <button class="s-opt-btn" data-val="none">▯</button>
+          <button class="s-opt-btn active" data-val="normal">▢</button>
+          <button class="s-opt-btn" data-val="round">◯</button>
+        </div>
+        <div class="s-divider"></div>
+        <h3>Анимации</h3>
+        <div class="s-toggle-group">
+          <label class="toggle-card"><div class="tc-info"><i class="fas fa-wand-magic-sparkles"></i><div><span class="tc-title">Анимации интерфейса</span><span class="tc-desc">Плавные переходы и анимации</span></div></div><div class="toggle"><input type="checkbox" id="set-animations" checked><span class="toggle-track"></span></div></label>
+        </div>
+        <div class="s-divider"></div>
+        <div id="super-user-section" class="hidden">
+          <h3>Super User 👑</h3>
+          <p class="s-hint">Эксклюзивные функции Super User</p>
+          <div class="s-toggle-group">
+            <label class="toggle-card ghost-card" style="border-color:rgba(255,215,0,.3)"><div class="tc-info"><i class="fas fa-shield-halved" style="color:#ffd700"></i><div><span class="tc-title">Режим модерации</span><span class="tc-desc">Удалять чужие сообщения и управлять группами</span></div></div><div class="toggle"><input type="checkbox" id="set-super-moderate"><span class="toggle-track"></span></div></label>
+            <label class="toggle-card ghost-card" style="border-color:rgba(255,215,0,.3)"><div class="tc-info"><i class="fas fa-eye" style="color:#ffd700"></i><div><span class="tc-title">Расширенный профиль</span><span class="tc-desc">Видеть скрытый онлайн-статус и последний визит</span></div></div><div class="toggle"><input type="checkbox" id="set-super-extended" checked><span class="toggle-track"></span></div></label>
+          </div>
+          <div class="s-divider"></div>
+          <h3>Массовая рассылка 📢</h3>
+          <p class="s-hint">Отправить сообщение всем друзьям одновременно</p>
+          <div class="s-form-group">
+            <div class="s-field"><textarea id="broadcast-text" rows="2" placeholder="Текст рассылки..."></textarea></div>
+            <button id="btn-broadcast" class="btn-primary btn-sm"><i class="fas fa-bullhorn"></i> Разослать</button>
+          </div>
+          <div class="s-divider"></div>
+          <h3>Глобальное объявление 🌐</h3>
+          <p class="s-hint">Отправить объявление во все ваши чаты</p>
+          <div class="s-form-group">
+            <div class="s-field"><textarea id="announce-text" rows="2" placeholder="Текст объявления..."></textarea></div>
+            <button id="btn-announce" class="btn-primary btn-sm"><i class="fas fa-globe"></i> Объявить</button>
+          </div>
+        </div>
       </div>
 
       <div class="settings-section" id="sec-notifications">
@@ -328,6 +440,10 @@
           <label class="toggle-card"><div class="tc-info"><i class="fas fa-bell"></i><div><span class="tc-title">Push-уведомления</span><span class="tc-desc">Получать уведомления о новых сообщениях</span></div></div><div class="toggle"><input type="checkbox" id="set-notifications" checked><span class="toggle-track"></span></div></label>
           <label class="toggle-card"><div class="tc-info"><i class="fas fa-volume-high"></i><div><span class="tc-title">Звуки</span><span class="tc-desc">Звук при получении сообщения</span></div></div><div class="toggle"><input type="checkbox" id="set-sounds" checked><span class="toggle-track"></span></div></label>
         </div>
+        <div class="s-divider"></div>
+        <h3>Звук уведомления 🔔</h3>
+        <p class="s-hint">Выберите мелодию уведомления (Premium)</p>
+        <div class="notif-sounds-grid" id="notif-sounds-grid"></div>
       </div>
 
       <div class="settings-section" id="sec-privacy">
@@ -341,6 +457,52 @@
         <h3>Режим Призрака 👻</h3>
         <p class="s-hint">Скрыть статус, набор текста и отметки прочтения одной кнопкой</p>
         <label class="toggle-card ghost-card"><div class="tc-info"><i class="fas fa-ghost"></i><div><span class="tc-title">Режим Призрака</span><span class="tc-desc">Полная невидимость — скрывает всё сразу</span></div></div><div class="toggle"><input type="checkbox" id="set-ghost"><span class="toggle-track"></span></div></label>
+        <div class="s-divider"></div>
+        <h3>Режим «Не беспокоить» 🔕</h3>
+        <p class="s-hint">Отключает уведомления и отправляет автоответ</p>
+        <label class="toggle-card"><div class="tc-info"><i class="fas fa-moon"></i><div><span class="tc-title">Не беспокоить</span><span class="tc-desc">Скрыть уведомления и отвечать автоматически</span></div></div><div class="toggle"><input type="checkbox" id="set-dnd"><span class="toggle-track"></span></div></label>
+        <div class="s-field" style="margin-top:8px"><label>Автоответ</label><input id="set-dnd-reply" type="text" placeholder="Я сейчас занят, отвечу позже..."></div>
+      </div>
+
+      <div class="settings-section" id="sec-premium">
+        <h2>Premium & Super User</h2>
+        <div id="premium-status-card" class="premium-status-card">
+          <div class="psc-icon">👤</div>
+          <div class="psc-info">
+            <span class="psc-role">Обычный пользователь</span>
+            <span class="psc-desc">Активируйте Premium для дополнительных функций</span>
+          </div>
+        </div>
+        <div class="s-divider"></div>
+        <h3>Возможности по ролям</h3>
+        <div class="premium-features-list">
+          <div class="pf-item"><i class="fas fa-message"></i><span>Обмен сообщениями</span><span class="pf-tag pf-free">Все</span></div>
+          <div class="pf-item"><i class="fas fa-phone"></i><span>Звонки</span><span class="pf-tag pf-free">Все</span></div>
+          <div class="pf-item"><i class="fas fa-user-group"></i><span>Группы и роли</span><span class="pf-tag pf-free">Все</span></div>
+          <div class="pf-item"><i class="fas fa-ghost"></i><span>Режим Призрака</span><span class="pf-tag pf-free">Все</span></div>
+          <div class="pf-item"><i class="fas fa-palette"></i><span>17 тем оформления</span><span class="pf-tag pf-free">Все</span></div>
+          <div class="pf-item"><i class="fas fa-thumbtack"></i><span>Закреплённые сообщения</span><span class="pf-tag pf-free">Все</span></div>
+          <div class="pf-item"><i class="fas fa-face-smile"></i><span>20+ реакций на сообщения</span><span class="pf-tag pf-free">Все</span></div>
+          <div class="pf-item"><i class="fas fa-share"></i><span>Пересылка сообщений</span><span class="pf-tag pf-free">Все</span></div>
+          <div class="pf-item"><i class="fas fa-clock"></i><span>Авто-удаление сообщений</span><span class="pf-tag pf-free">Все</span></div>
+          <div class="pf-item"><i class="fas fa-moon"></i><span>Режим «Не беспокоить»</span><span class="pf-tag pf-free">Все</span></div>
+          <div class="pf-item pf-premium"><i class="fas fa-star"></i><span>Эмодзи рядом с именем</span><span class="pf-tag pf-gold">Premium</span></div>
+          <div class="pf-item pf-premium"><i class="fas fa-id-badge"></i><span>Значок профиля</span><span class="pf-tag pf-gold">Premium</span></div>
+          <div class="pf-item pf-premium"><i class="fas fa-droplet"></i><span>Цвет имени в чате</span><span class="pf-tag pf-gold">Premium</span></div>
+          <div class="pf-item pf-premium"><i class="fas fa-gem"></i><span>Эксклюзивные темы</span><span class="pf-tag pf-gold">Premium</span></div>
+          <div class="pf-item pf-premium"><i class="fas fa-comment-dots"></i><span>Кастомный статус</span><span class="pf-tag pf-gold">Premium</span></div>
+          <div class="pf-item pf-premium"><i class="fas fa-calendar"></i><span>Запланированные сообщения</span><span class="pf-tag pf-gold">Premium</span></div>
+          <div class="pf-item pf-premium"><i class="fas fa-eye-slash"></i><span>Невидимый режим чтения</span><span class="pf-tag pf-gold">Premium</span></div>
+          <div class="pf-item pf-premium"><i class="fas fa-bell"></i><span>Кастомные звуки</span><span class="pf-tag pf-gold">Premium</span></div>
+          <div class="pf-item pf-premium"><i class="fas fa-language"></i><span>Перевод сообщений</span><span class="pf-tag pf-gold">Premium</span></div>
+          <div class="pf-item pf-premium"><i class="fas fa-link"></i><span>Расширенный профиль</span><span class="pf-tag pf-gold">Premium</span></div>
+          <div class="pf-item pf-premium"><i class="fas fa-fire"></i><span>Эксклюзивные реакции 🔥💎👑🦄</span><span class="pf-tag pf-gold">Premium</span></div>
+          <div class="pf-item pf-super"><i class="fas fa-crown"></i><span>Все Premium функции</span><span class="pf-tag pf-diamond">Super</span></div>
+          <div class="pf-item pf-super"><i class="fas fa-bullhorn"></i><span>Массовая рассылка</span><span class="pf-tag pf-diamond">Super</span></div>
+          <div class="pf-item pf-super"><i class="fas fa-globe"></i><span>Глобальные объявления</span><span class="pf-tag pf-diamond">Super</span></div>
+          <div class="pf-item pf-super"><i class="fas fa-bolt"></i><span>Приоритетная доставка</span><span class="pf-tag pf-diamond">Super</span></div>
+          <div class="pf-item pf-super"><i class="fas fa-sparkles"></i><span>Анимация входа</span><span class="pf-tag pf-diamond">Super</span></div>
+        </div>
       </div>
 
       <div class="settings-section" id="sec-sessions">
@@ -377,6 +539,50 @@
 
 <!-- Context Menu -->
 <div id="ctx-menu" class="hidden"><div id="ctx-items"></div></div>
+<!-- Forward Modal -->
+<div id="modal-forward" class="modal-overlay hidden">
+  <div class="modal-card">
+    <div class="modal-top"><h3>Переслать в чат</h3><button class="modal-x" data-close="modal-forward"><i class="fas fa-xmark"></i></button></div>
+    <div class="modal-body"><div id="forward-chat-list"></div></div>
+  </div>
+</div>
+<!-- Auto-delete Modal -->
+<div id="modal-autodelete" class="modal-overlay hidden">
+  <div class="modal-card">
+    <div class="modal-top"><h3>Авто-удаление сообщений</h3><button class="modal-x" data-close="modal-autodelete"><i class="fas fa-xmark"></i></button></div>
+    <div class="modal-body">
+      <p class="s-hint">Сообщения будут автоматически удаляться через выбранное время</p>
+      <div class="autodelete-options" id="autodelete-options">
+        <button class="s-opt-btn" data-val="0">Выкл</button>
+        <button class="s-opt-btn" data-val="3600">1 час</button>
+        <button class="s-opt-btn" data-val="86400">24 часа</button>
+        <button class="s-opt-btn" data-val="604800">7 дней</button>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- Scheduled message Modal -->
+<div id="modal-schedule" class="modal-overlay hidden">
+  <div class="modal-card">
+    <div class="modal-top"><h3>Запланировать сообщение</h3><button class="modal-x" data-close="modal-schedule"><i class="fas fa-xmark"></i></button></div>
+    <div class="modal-body">
+      <div class="s-field"><label>Текст</label><textarea id="schedule-text" rows="3" placeholder="Текст сообщения..."></textarea></div>
+      <div class="s-field"><label>Дата и время</label><input type="datetime-local" id="schedule-datetime"></div>
+      <button id="btn-schedule-send" class="btn-primary">Запланировать</button>
+    </div>
+  </div>
+</div>
+<!-- Roles Modal -->
+<div id="modal-roles" class="modal-overlay hidden">
+  <div class="modal-card">
+    <div class="modal-top"><h3>Роли группы</h3><button class="modal-x" data-close="modal-roles"><i class="fas fa-xmark"></i></button></div>
+    <div class="modal-body">
+      <div id="roles-list"></div>
+      <div class="s-field"><label>Новая роль</label><input id="role-name-input" type="text" placeholder="Название роли"><input type="color" id="role-color-input" value="#5865f2"></div>
+      <button id="btn-add-role" class="btn-sm"><i class="fas fa-plus"></i> Добавить</button>
+    </div>
+  </div>
+</div>
 <!-- Emoji Picker -->
 <div id="emoji-picker" class="hidden"><div id="emoji-cats"></div><div id="emoji-grid"></div></div>
 <!-- Lightbox -->

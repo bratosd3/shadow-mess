@@ -61,6 +61,17 @@ const userSchema = new mongoose.Schema({
   firstName:     { type: String, default: '' },
   lastName:      { type: String, default: '' },
   superUser:     { type: Boolean, default: false },
+  premium:       { type: Boolean, default: false },
+  premiumEmoji:  { type: String, default: '' },
+  premiumBadge:  { type: String, default: '' },
+  premiumNameColor: { type: String, default: '' },
+  customStatus:  { type: String, default: '' },
+  customStatusEmoji: { type: String, default: '' },
+  customStatusColor: { type: String, default: '' },
+  dndMode:       { type: Boolean, default: false },
+  dndAutoReply:  { type: String, default: '' },
+  socialLinks:   { type: mongoose.Schema.Types.Mixed, default: {} },
+  banner:        { type: String, default: '' },
   online:        { type: Boolean, default: false },
   lastSeen:      { type: Date, default: Date.now },
   createdAt:     { type: Date, default: Date.now },
@@ -84,6 +95,8 @@ const userSchema = new mongoose.Schema({
     compactMode:      { type: Boolean, default: false },
     chatWallpaper:    { type: String, default: 'dots' },
     sendByEnter:      { type: Boolean, default: true },
+    pinnedChats:      { type: [String], default: [] },
+    mutedChats:       { type: [String], default: [] },
   }
 }, { _id: false, timestamps: false });
 userSchema.set('toJSON', {
@@ -122,6 +135,9 @@ const chatSchema = new mongoose.Schema({
   muted:          { type: Boolean, default: false },
   archived:       { type: Boolean, default: false },
   pinnedMessage:  String,
+  autoDeleteTimer: { type: Number, default: 0 },
+  roles:           { type: mongoose.Schema.Types.Mixed, default: {} },
+  memberRoles:     { type: mongoose.Schema.Types.Mixed, default: {} },
 }, { _id: false });
 chatSchema.index({ members: 1 });
 chatSchema.set('toJSON', {
@@ -138,6 +154,10 @@ const messageSchema = new mongoose.Schema({
   senderAvatar:     String,
   senderAvatarColor:String,
   senderSuperUser:  { type: Boolean, default: false },
+  senderPremium:    { type: Boolean, default: false },
+  senderPremiumEmoji: { type: String, default: '' },
+  senderPremiumBadge: { type: String, default: '' },
+  senderPremiumNameColor: { type: String, default: '' },
   type:             { type: String, default: 'text' },
   text:             { type: String, default: '' },
   fileName:         String,
@@ -149,6 +169,10 @@ const messageSchema = new mongoose.Schema({
   editedAt:         Date,
   replyTo:          String,
   forwardFrom:      String,
+  forwardFromChat:  String,
+  forwardText:      String,
+  scheduledAt:      Date,
+  isGlobalAnnouncement: { type: Boolean, default: false },
   reactions:        { type: mongoose.Schema.Types.Mixed, default: {} },
   readBy:           [{ type: String }],
 }, { _id: false });
@@ -423,7 +447,7 @@ app.delete('/api/admin/users', adminKeyMiddleware, async (req, res) => {
 
 // Список пользователей (для admin panel)
 app.get('/api/admin/users', adminKeyMiddleware, async (req, res) => {
-  const users = await User.find({}, 'username displayName createdAt lastSeen bio superUser').sort({ createdAt: -1 });
+  const users = await User.find({}, 'username displayName createdAt lastSeen bio superUser premium premiumEmoji premiumBadge premiumNameColor').sort({ createdAt: -1 });
   res.json(users);
 });
 
@@ -481,6 +505,32 @@ app.put('/api/admin/users/:id/superuser', adminKeyMiddleware, async (req, res) =
   user.superUser = !user.superUser;
   await user.save();
   res.json({ id: user._id, username: user.username, superUser: user.superUser });
+});
+
+// Переключение premium статуса
+app.put('/api/admin/users/:id/premium', adminKeyMiddleware, async (req, res) => {
+  const user = await User.findById(req.params.id);
+  if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
+  user.premium = !user.premium;
+  if (!user.premium) user.premiumEmoji = '';
+  await user.save();
+  res.json({ id: user._id, username: user.username, premium: user.premium });
+});
+
+// Глобальная настройка Premium (включить/отключить для всего сервера)
+app.get('/api/admin/config/premium', adminKeyMiddleware, async (req, res) => {
+  const cfg = await Config.findById('premiumEnabled');
+  res.json({ premiumEnabled: cfg?.value !== false });
+});
+
+app.put('/api/admin/config/premium', adminKeyMiddleware, async (req, res) => {
+  const { enabled } = req.body;
+  await Config.findOneAndUpdate(
+    { _id: 'premiumEnabled' },
+    { value: enabled },
+    { upsert: true }
+  );
+  res.json({ premiumEnabled: enabled });
 });
 
 // Полный сброс — удаляет ВСЁ
@@ -608,7 +658,14 @@ app.post('/api/login', async (req, res) => {
 app.get('/api/me', authMiddleware, async (req, res) => {
   const user = await User.findById(req.user.id);
   if (!user) return res.status(404).json({ error: 'Not found' });
-  res.json(sanitizeUser(user));
+  const cfg = await Config.findById('premiumEnabled');
+  const result = sanitizeUser(user);
+  result.premiumEnabled = cfg?.value === false ? false : true;
+  // If premium is globally free, treat user as premium
+  if (result.premiumEnabled === false) result.premiumFree = true;
+  // SuperUsers always have premium features
+  if (user.superUser) result.premiumFree = true;
+  res.json(result);
 });
 
 // ── Update Profile ────────────────────────────────────────────────────────
@@ -644,6 +701,50 @@ app.put('/api/me', authMiddleware, async (req, res) => {
     console.error('Update profile error:', err);
     res.status(500).json({ error: 'Ошибка сервера' });
   }
+});
+
+// Set premium emoji for current user
+app.put('/api/me/emoji', authMiddleware, async (req, res) => {
+  const { emoji } = req.body;
+  const user = await User.findById(req.user.id);
+  if (!user) return res.status(404).json({ error: 'Not found' });
+  const cfg = await Config.findById('premiumEnabled');
+  const premiumFree = cfg?.value === false;
+  if (!user.premium && !user.superUser && !premiumFree) return res.status(403).json({ error: 'Требуется Premium' });
+  user.premiumEmoji = emoji || '';
+  await user.save();
+  const result = sanitizeUser(user);
+  result.premiumEnabled = !premiumFree;
+  result.premiumFree = premiumFree;
+  res.json(result);
+});
+
+// Set premium profile badge (title)
+app.put('/api/me/badge', authMiddleware, async (req, res) => {
+  const { badge } = req.body;
+  const user = await User.findById(req.user.id);
+  if (!user) return res.status(404).json({ error: 'Not found' });
+  const cfg = await Config.findById('premiumEnabled');
+  const premiumFree = cfg?.value === false;
+  if (!user.premium && !user.superUser && !premiumFree) return res.status(403).json({ error: 'Требуется Premium' });
+  user.premiumBadge = badge || '';
+  await user.save();
+  res.json(sanitizeUser(user));
+});
+
+// Set premium profile color (name color in chat)
+app.put('/api/me/namecolor', authMiddleware, async (req, res) => {
+  const { color } = req.body;
+  const user = await User.findById(req.user.id);
+  if (!user) return res.status(404).json({ error: 'Not found' });
+  const cfg = await Config.findById('premiumEnabled');
+  const premiumFree = cfg?.value === false;
+  if (!user.premium && !user.superUser && !premiumFree) return res.status(403).json({ error: 'Требуется Premium' });
+  const allowed = ['#ff6b6b','#ffd93d','#6bcb77','#4d96ff','#9b59b6','#e84393','#00cec9','#fd79a8','#a29bfe','#ff9ff3','#f368e0','#ff6348','#7bed9f','#70a1ff','#5352ed','#ff4757','#2ed573','#1e90ff','#ffa502','#eccc68'];
+  if (color && !allowed.includes(color)) return res.status(400).json({ error: 'Недопустимый цвет' });
+  user.premiumNameColor = color || '';
+  await user.save();
+  res.json(sanitizeUser(user));
 });
 
 // ── Update password ────────────────────────────────────────────────────────
@@ -924,6 +1025,9 @@ app.get('/api/chats', authMiddleware, async (req, res) => {
     const chats = await Chat.find({ members: uid }).lean();
     if (!chats.length) return res.json([]);
     const chatIds = chats.map(c => c._id);
+    const currentUser = await User.findById(uid).lean();
+    const userPinnedChats = currentUser?.settings?.pinnedChats || [];
+    const userMutedChats = currentUser?.settings?.mutedChats || [];
 
     // Агрегация: последнее сообщение + непрочитанные за один pipeline
     const [lastMsgAgg, unreadAgg, users] = await Promise.all([
@@ -957,8 +1061,19 @@ app.get('/api/chats', authMiddleware, async (req, res) => {
       let onlineStatus = false;
       let partnerSuperUser = false;
 
+      let partnerLastSeen = null;
+      let partnerPremium = false;
+      let partnerPremiumEmoji = null;
+
       if (c.type === 'private') {
         const otherId = c.members.find(id => id !== uid);
+        if (!otherId || otherId === uid) {
+          // Self-chat (Saved Messages / Favourites)
+          displayName = 'Избранное ⭐';
+          displayAvatar = null;
+          displayAvatarColor = 'linear-gradient(135deg,#f59e0b,#eab308)';
+          onlineStatus = false;
+        } else {
         const other = userMap[otherId];
         if (other) {
           displayName = other.displayName;
@@ -966,6 +1081,12 @@ app.get('/api/chats', authMiddleware, async (req, res) => {
           displayAvatarColor = other.avatarColor;
           onlineStatus = (other.settings?.privShowOnline !== false) ? isOnline(otherId) : false;
           partnerSuperUser = !!other.superUser;
+          partnerPremium = !!other.premium;
+          partnerPremiumEmoji = other.premiumEmoji || null;
+          if (other.settings?.privShowLastSeen !== false && other.lastSeen) {
+            partnerLastSeen = other.lastSeen;
+          }
+        }
         }
       }
 
@@ -976,16 +1097,24 @@ app.get('/api/chats', authMiddleware, async (req, res) => {
         displayAvatarColor,
         online: onlineStatus,
         partnerSuperUser,
+        partnerPremium,
+        partnerPremiumEmoji,
+        _lastSeen: partnerLastSeen,
+        pinned: userPinnedChats.includes(c._id),
+        muted: userMutedChats.includes(c._id),
         lastMessage: lastMsg,
         unreadCount: unread,
         membersInfo: c.type === 'group'
           ? c.members.map(mid => {
               const u = userMap[mid];
-              return u ? { id: u._id, displayName: u.displayName, avatar: u.avatar, avatarColor: u.avatarColor, online: isOnline(u._id), superUser: !!u.superUser } : null;
+              return u ? { id: u._id, displayName: u.displayName, avatar: u.avatar, avatarColor: u.avatarColor, online: isOnline(u._id), superUser: !!u.superUser, premium: !!u.premium, premiumEmoji: u.premiumEmoji || '', premiumBadge: u.premiumBadge || '', premiumNameColor: u.premiumNameColor || '' } : null;
             }).filter(Boolean)
           : []
       };
     }).sort((a, b) => {
+      // Pinned chats first
+      if (a.pinned && !b.pinned) return -1;
+      if (!a.pinned && b.pinned) return 1;
       const ta = a.lastMessage ? new Date(a.lastMessage.timestamp) : new Date(a.createdAt);
       const tb = b.lastMessage ? new Date(b.lastMessage.timestamp) : new Date(b.createdAt);
       return tb - ta;
@@ -1002,6 +1131,31 @@ app.get('/api/chats', authMiddleware, async (req, res) => {
 app.post('/api/chats', authMiddleware, async (req, res) => {
   const { userId } = req.body;
   if (!userId) return res.status(400).json({ error: 'userId required' });
+
+  // Self-chat = "Saved Messages"
+  if (userId === req.user.id) {
+    const existing = await Chat.findOne({
+      type: 'private',
+      members: { $all: [req.user.id], $size: 1 }
+    });
+    if (existing) return res.json(existing.toJSON());
+
+    const chat = await Chat.create({
+      type: 'private',
+      members: [req.user.id],
+      name: 'Избранное',
+      createdBy: req.user.id
+    });
+
+    const sset = onlineUsers.get(req.user.id);
+    if (sset) sset.forEach(sid => {
+      io.to(sid).emit('chat_created', chat.toJSON());
+      const s = io.sockets.sockets.get(sid);
+      if (s) s.join(chat._id);
+    });
+
+    return res.json(chat.toJSON());
+  }
 
   const target = await User.findById(userId);
   if (!target) return res.status(404).json({ error: 'User not found' });
@@ -1068,18 +1222,47 @@ app.put('/api/chats/:id', authMiddleware, async (req, res) => {
   const { name, pinned, muted, archived, pinnedMessage, description } = req.body;
   if (name         !== undefined) chat.name         = name.trim();
   if (description  !== undefined) chat.description  = description;
-  if (pinned       !== undefined) chat.pinned       = pinned;
-  if (muted        !== undefined) chat.muted        = muted;
   if (archived     !== undefined) chat.archived     = archived;
   if ('pinnedMessage' in req.body) chat.pinnedMessage = pinnedMessage;
+
+  // Per-user pin/mute
+  if (pinned !== undefined || muted !== undefined) {
+    const user = await User.findById(req.user.id);
+    if (user) {
+      if (pinned !== undefined) {
+        const chatId = req.params.id;
+        const arr = user.settings.pinnedChats || [];
+        if (pinned && !arr.includes(chatId)) arr.push(chatId);
+        else if (!pinned) user.settings.pinnedChats = arr.filter(id => id !== chatId);
+        else user.settings.pinnedChats = arr;
+        user.markModified('settings');
+      }
+      if (muted !== undefined) {
+        const chatId = req.params.id;
+        const arr = user.settings.mutedChats || [];
+        if (muted && !arr.includes(chatId)) arr.push(chatId);
+        else if (!muted) user.settings.mutedChats = arr.filter(id => id !== chatId);
+        else user.settings.mutedChats = arr;
+        user.markModified('settings');
+      }
+      await user.save();
+    }
+  }
+
   await chat.save();
+
+  // Return updated chat with user-specific pin/mute
+  const userDoc = await User.findById(req.user.id);
+  const chatJson = chat.toJSON();
+  chatJson.pinned = (userDoc?.settings?.pinnedChats || []).includes(req.params.id);
+  chatJson.muted = (userDoc?.settings?.mutedChats || []).includes(req.params.id);
 
   chat.members.forEach(uid => {
     const sset = onlineUsers.get(uid);
-    if (sset) sset.forEach(sid => io.to(sid).emit('chat_updated', chat.toJSON()));
+    if (sset) sset.forEach(sid => io.to(sid).emit('chat_updated', chatJson));
   });
 
-  res.json(chat.toJSON());
+  res.json(chatJson);
 });
 
 // ── Add members to group ──────────────────────────────────────────────────
@@ -1182,6 +1365,10 @@ app.post('/api/chats/:id/messages', authMiddleware, async (req, res) => {
     senderAvatar: sender ? sender.avatar : null,
     senderAvatarColor: sender ? sender.avatarColor : null,
     senderSuperUser: sender ? !!sender.superUser : false,
+    senderPremium: sender ? !!sender.premium : false,
+    senderPremiumEmoji: sender ? (sender.premiumEmoji || '') : '',
+    senderPremiumBadge: sender ? (sender.premiumBadge || '') : '',
+    senderPremiumNameColor: sender ? (sender.premiumNameColor || '') : '',
     type:         type || 'text',
     text:         text || '',
     replyTo:      replyTo || null,
@@ -1201,6 +1388,24 @@ app.post('/api/chats/:id/messages', authMiddleware, async (req, res) => {
     io.to(req.params.id).emit('new_message', msg.toJSON());
   }
   sendPushForMessage(msg, chat).catch(() => {});
+
+  // DND auto-reply
+  if (chat.type === 'private') {
+    const otherIds = chat.members.filter(m => m !== req.user.id);
+    for (const oid of otherIds) {
+      const otherUser = await User.findById(oid);
+      if (otherUser?.dndMode && otherUser.dndAutoReply) {
+        const autoMsg = await Message.create({
+          chatId: req.params.id, senderId: oid,
+          senderName: otherUser.displayName, senderAvatar: otherUser.avatar,
+          senderAvatarColor: otherUser.avatarColor,
+          type: 'text', text: `🔕 ${otherUser.dndAutoReply}`, readBy: [oid]
+        });
+        io.to(req.params.id).emit('new_message', autoMsg.toJSON());
+      }
+    }
+  }
+
   res.json(msg.toJSON());
 });
 
@@ -1238,6 +1443,10 @@ app.post('/api/chats/:id/upload', authMiddleware, (req, res, next) => {
       senderAvatar: sender ? sender.avatar : null,
       senderAvatarColor: sender ? sender.avatarColor : null,
       senderSuperUser: sender ? !!sender.superUser : false,
+      senderPremium: sender ? !!sender.premium : false,
+      senderPremiumEmoji: sender ? (sender.premiumEmoji || '') : '',
+      senderPremiumBadge: sender ? (sender.premiumBadge || '') : '',
+      senderPremiumNameColor: sender ? (sender.premiumNameColor || '') : '',
       type:         msgType,
       text:         '',
       fileName:     req.file.originalname,
@@ -1310,6 +1519,273 @@ app.post('/api/messages/:id/react', authMiddleware, async (req, res) => {
   io.to(msg.chatId).emit('message_reaction', { messageId: req.params.id, reactions: msg.reactions });
   res.json(msg.reactions);
 });
+
+// ── Custom status (Premium) ────────────────────────────────────────────────
+app.put('/api/me/status', authMiddleware, async (req, res) => {
+  const { text, emoji, color } = req.body;
+  const user = await User.findById(req.user.id);
+  if (!user) return res.status(404).json({ error: 'Not found' });
+  const cfg = await Config.findById('premiumEnabled');
+  const premiumFree = cfg?.value === false;
+  if (!user.premium && !user.superUser && !premiumFree) return res.status(403).json({ error: 'Требуется Premium' });
+  user.customStatus = text || '';
+  user.customStatusEmoji = emoji || '';
+  user.customStatusColor = color || '';
+  await user.save();
+  res.json(sanitizeUser(user));
+});
+
+// ── DND mode ──────────────────────────────────────────────────────────────
+app.put('/api/me/dnd', authMiddleware, async (req, res) => {
+  const { enabled, autoReply } = req.body;
+  const user = await User.findById(req.user.id);
+  if (!user) return res.status(404).json({ error: 'Not found' });
+  user.dndMode = !!enabled;
+  if (autoReply !== undefined) user.dndAutoReply = autoReply;
+  await user.save();
+  res.json(sanitizeUser(user));
+});
+
+// ── Social links / banner (Premium extended profile) ──────────────────────
+app.put('/api/me/social', authMiddleware, async (req, res) => {
+  const { socialLinks, banner } = req.body;
+  const user = await User.findById(req.user.id);
+  if (!user) return res.status(404).json({ error: 'Not found' });
+  const cfg = await Config.findById('premiumEnabled');
+  const premiumFree = cfg?.value === false;
+  if (!user.premium && !user.superUser && !premiumFree) return res.status(403).json({ error: 'Требуется Premium' });
+  if (socialLinks !== undefined) user.socialLinks = socialLinks;
+  if (banner !== undefined) user.banner = banner;
+  user.markModified('socialLinks');
+  await user.save();
+  res.json(sanitizeUser(user));
+});
+
+// ── Forward message to another chat ───────────────────────────────────────
+app.post('/api/messages/:id/forward', authMiddleware, async (req, res) => {
+  const { targetChatId } = req.body;
+  if (!targetChatId) return res.status(400).json({ error: 'targetChatId required' });
+  const origMsg = await Message.findById(req.params.id);
+  if (!origMsg) return res.status(404).json({ error: 'Message not found' });
+  const targetChat = await Chat.findById(targetChatId);
+  if (!targetChat || !targetChat.members.includes(req.user.id)) return res.status(403).json({ error: 'Forbidden' });
+  const sender = await User.findById(req.user.id);
+  const fwd = await Message.create({
+    chatId: targetChatId,
+    senderId: req.user.id,
+    senderName: sender ? sender.displayName : '',
+    senderAvatar: sender ? sender.avatar : null,
+    senderAvatarColor: sender ? sender.avatarColor : null,
+    senderSuperUser: sender ? !!sender.superUser : false,
+    senderPremium: sender ? !!sender.premium : false,
+    senderPremiumEmoji: sender ? (sender.premiumEmoji || '') : '',
+    senderPremiumBadge: sender ? (sender.premiumBadge || '') : '',
+    senderPremiumNameColor: sender ? (sender.premiumNameColor || '') : '',
+    type: origMsg.type,
+    text: origMsg.text,
+    fileName: origMsg.fileName,
+    fileSize: origMsg.fileSize,
+    fileUrl: origMsg.fileUrl,
+    fileMime: origMsg.fileMime,
+    duration: origMsg.duration,
+    forwardFrom: origMsg.senderId,
+    forwardFromChat: origMsg.chatId,
+    forwardText: origMsg.senderName,
+    readBy: [req.user.id]
+  });
+  io.to(targetChatId).emit('new_message', fwd.toJSON());
+  sendPushForMessage(fwd, targetChat).catch(() => {});
+  res.json(fwd.toJSON());
+});
+
+// ── Auto-delete timer for chat ────────────────────────────────────────────
+app.put('/api/chats/:id/autodelete', authMiddleware, async (req, res) => {
+  const { timer } = req.body; // 0, 3600, 86400, 604800 seconds
+  const chat = await Chat.findById(req.params.id);
+  if (!chat || !chat.members.includes(req.user.id)) return res.status(403).json({ error: 'Forbidden' });
+  const allowed = [0, 3600, 86400, 604800];
+  if (!allowed.includes(timer)) return res.status(400).json({ error: 'Invalid timer' });
+  chat.autoDeleteTimer = timer;
+  await chat.save();
+  chat.members.forEach(uid => {
+    const sset = onlineUsers.get(uid);
+    if (sset) sset.forEach(sid => io.to(sid).emit('chat_updated', chat.toJSON()));
+  });
+  res.json(chat.toJSON());
+});
+
+// ── Scheduled messages ────────────────────────────────────────────────────
+app.post('/api/chats/:id/schedule', authMiddleware, async (req, res) => {
+  const { text, scheduledAt } = req.body;
+  if (!text || !scheduledAt) return res.status(400).json({ error: 'text and scheduledAt required' });
+  const chat = await Chat.findById(req.params.id);
+  if (!chat || !chat.members.includes(req.user.id)) return res.status(403).json({ error: 'Forbidden' });
+  const user = await User.findById(req.user.id);
+  const cfg = await Config.findById('premiumEnabled');
+  const premiumFree = cfg?.value === false;
+  if (!user.premium && !user.superUser && !premiumFree) return res.status(403).json({ error: 'Требуется Premium' });
+  const msg = await Message.create({
+    chatId: req.params.id,
+    senderId: req.user.id,
+    senderName: user ? user.displayName : '',
+    senderAvatar: user ? user.avatar : null,
+    senderAvatarColor: user ? user.avatarColor : null,
+    senderSuperUser: user ? !!user.superUser : false,
+    senderPremium: user ? !!user.premium : false,
+    senderPremiumEmoji: user ? (user.premiumEmoji || '') : '',
+    senderPremiumBadge: user ? (user.premiumBadge || '') : '',
+    senderPremiumNameColor: user ? (user.premiumNameColor || '') : '',
+    type: 'text',
+    text,
+    scheduledAt: new Date(scheduledAt),
+    readBy: [req.user.id]
+  });
+  res.json(msg.toJSON());
+});
+
+// ── Group roles ───────────────────────────────────────────────────────────
+app.put('/api/chats/:id/roles', authMiddleware, async (req, res) => {
+  const { roles } = req.body; // { roleName: { color, permissions: [] } }
+  const chat = await Chat.findById(req.params.id);
+  if (!chat || chat.type !== 'group') return res.status(404).json({ error: 'Group not found' });
+  if (!chat.admins.includes(req.user.id)) return res.status(403).json({ error: 'Admin only' });
+  chat.roles = roles || {};
+  chat.markModified('roles');
+  await chat.save();
+  chat.members.forEach(uid => {
+    const sset = onlineUsers.get(uid);
+    if (sset) sset.forEach(sid => io.to(sid).emit('chat_updated', chat.toJSON()));
+  });
+  res.json(chat.toJSON());
+});
+
+app.put('/api/chats/:id/member-role', authMiddleware, async (req, res) => {
+  const { userId, role } = req.body;
+  const chat = await Chat.findById(req.params.id);
+  if (!chat || chat.type !== 'group') return res.status(404).json({ error: 'Group not found' });
+  if (!chat.admins.includes(req.user.id)) return res.status(403).json({ error: 'Admin only' });
+  if (!chat.memberRoles) chat.memberRoles = {};
+  chat.memberRoles[userId] = role || '';
+  chat.markModified('memberRoles');
+  await chat.save();
+  chat.members.forEach(uid => {
+    const sset = onlineUsers.get(uid);
+    if (sset) sset.forEach(sid => io.to(sid).emit('chat_updated', chat.toJSON()));
+  });
+  res.json(chat.toJSON());
+});
+
+// ── Mass broadcast (Super User) ───────────────────────────────────────────
+app.post('/api/broadcast', authMiddleware, async (req, res) => {
+  const { text } = req.body;
+  if (!text) return res.status(400).json({ error: 'text required' });
+  const user = await User.findById(req.user.id);
+  if (!user || !user.superUser) return res.status(403).json({ error: 'Super User only' });
+  const friendships = await Friendship.find({
+    status: 'accepted',
+    $or: [{ sender: req.user.id }, { receiver: req.user.id }]
+  });
+  const friendIds = friendships.map(f => f.sender === req.user.id ? f.receiver : f.sender);
+  let sent = 0;
+  for (const fid of friendIds) {
+    let chat = await Chat.findOne({ type: 'private', members: { $all: [req.user.id, fid], $size: 2 } });
+    if (!chat) {
+      chat = await Chat.create({ type: 'private', members: [req.user.id, fid], createdBy: req.user.id });
+    }
+    const msg = await Message.create({
+      chatId: chat._id, senderId: req.user.id,
+      senderName: user.displayName, senderAvatar: user.avatar,
+      senderAvatarColor: user.avatarColor, senderSuperUser: true,
+      senderPremium: !!user.premium, senderPremiumEmoji: user.premiumEmoji || '',
+      senderPremiumBadge: user.premiumBadge || '', senderPremiumNameColor: user.premiumNameColor || '',
+      type: 'text', text: `📢 ${text}`, readBy: [req.user.id]
+    });
+    io.to(chat._id).emit('new_message', msg.toJSON());
+    sendPushForMessage(msg, chat).catch(() => {});
+    sent++;
+  }
+  res.json({ ok: true, sent });
+});
+
+// ── Global announcement (Super User) ──────────────────────────────────────
+app.post('/api/announcement', authMiddleware, async (req, res) => {
+  const { text } = req.body;
+  if (!text) return res.status(400).json({ error: 'text required' });
+  const user = await User.findById(req.user.id);
+  if (!user || !user.superUser) return res.status(403).json({ error: 'Super User only' });
+  // Send system message to all user's chats
+  const chats = await Chat.find({ members: req.user.id });
+  for (const chat of chats) {
+    const msg = await Message.create({
+      chatId: chat._id, senderId: req.user.id,
+      senderName: user.displayName, senderSuperUser: true,
+      type: 'text', text: `🌐 ${text}`,
+      isGlobalAnnouncement: true, readBy: [req.user.id]
+    });
+    io.to(chat._id).emit('new_message', msg.toJSON());
+  }
+  res.json({ ok: true, chats: chats.length });
+});
+
+// ── Pin/Unpin message in chat ──────────────────────────────────────────
+app.post('/api/chats/:id/pin', authMiddleware, async (req, res) => {
+  const { messageId } = req.body;
+  const chat = await Chat.findById(req.params.id);
+  if (!chat || !chat.members.includes(req.user.id)) return res.status(403).json({ error: 'Forbidden' });
+  chat.pinnedMessage = messageId || null;
+  await chat.save();
+  chat.members.forEach(uid => {
+    const sset = onlineUsers.get(uid);
+    if (sset) sset.forEach(sid => io.to(sid).emit('chat_updated', chat.toJSON()));
+  });
+  res.json(chat.toJSON());
+});
+
+// ── Delete all messages in chat ───────────────────────────────────────────
+app.delete('/api/chats/:id/messages', authMiddleware, async (req, res) => {
+  const chat = await Chat.findById(req.params.id);
+  if (!chat || !chat.members.includes(req.user.id)) return res.status(403).json({ error: 'Forbidden' });
+  await Message.deleteMany({ chatId: req.params.id });
+  res.json({ ok: true });
+});
+
+// =============================================================================
+// Scheduled message delivery (check every 30s)
+// =============================================================================
+setInterval(async () => {
+  try {
+    const now = new Date();
+    const scheduled = await Message.find({ scheduledAt: { $lte: now } });
+    for (const msg of scheduled) {
+      msg.scheduledAt = undefined;
+      msg.timestamp = now;
+      await msg.save();
+      io.to(msg.chatId).emit('new_message', msg.toJSON());
+      const chat = await Chat.findById(msg.chatId);
+      if (chat) sendPushForMessage(msg, chat).catch(() => {});
+    }
+  } catch {}
+}, 30000);
+
+// =============================================================================
+// Auto-delete messages (check every 60s)
+// =============================================================================
+setInterval(async () => {
+  try {
+    const chats = await Chat.find({ autoDeleteTimer: { $gt: 0 } }).lean();
+    const now = new Date();
+    for (const chat of chats) {
+      const cutoff = new Date(now.getTime() - chat.autoDeleteTimer * 1000);
+      const deleted = await Message.deleteMany({ chatId: chat._id, timestamp: { $lt: cutoff } });
+      if (deleted.deletedCount > 0) {
+        chat.members.forEach(uid => {
+          const sset = onlineUsers.get(uid);
+          if (sset) sset.forEach(sid => io.to(sid).emit('messages_auto_deleted', { chatId: chat._id }));
+        });
+      }
+    }
+  } catch {}
+}, 60000);
 
 // =============================================================================
 // Socket.io

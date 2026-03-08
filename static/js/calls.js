@@ -573,7 +573,7 @@ window.callsModule = (() => {
     if (!pc) throw new Error('No active call');
     try {
       screenStream = await navigator.mediaDevices.getDisplayMedia({
-        video: { frameRate: { ideal: 30, max: 60 }, width: { ideal: 1920 }, height: { ideal: 1080 }, cursor: 'always' },
+        video: { frameRate: { ideal: 60 }, width: { ideal: 1920 }, height: { ideal: 1080 }, cursor: 'always' },
         audio: false
       });
       isScreenSharing = true;
