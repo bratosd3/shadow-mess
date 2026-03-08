@@ -161,7 +161,38 @@ const Sounds = {
     osc.connect(gain); gain.connect(ctx.destination);
     osc.start(); osc.stop(ctx.currentTime + dur);
   },
-  message() { if (!S.user?.settings?.soundEnabled) return; this._beep(880, 0.08); setTimeout(() => this._beep(1100, 0.08), 100); },
+  message() {
+    if (!S.user?.settings?.soundEnabled) return;
+    const freq = this._getSoundFreq();
+    this._playNotifSound(freq);
+  },
+  _getSoundFreq() {
+    const sid = S.user?.settings?.notifSound || 'default';
+    const s = (typeof NOTIF_SOUNDS !== 'undefined') && NOTIF_SOUNDS.find(x => x.id === sid);
+    return s ? s.freq : 800;
+  },
+  _playNotifSound(baseFreq) {
+    try {
+      const ctx = this._getCtx();
+      const now = ctx.currentTime;
+      // Pleasant two-tone chime with fade
+      const osc1 = ctx.createOscillator();
+      const osc2 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      const gain2 = ctx.createGain();
+      osc1.type = 'sine'; osc1.frequency.value = baseFreq;
+      osc2.type = 'sine'; osc2.frequency.value = baseFreq * 1.5;
+      gain1.gain.setValueAtTime(0.12, now);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+      gain2.gain.setValueAtTime(0, now);
+      gain2.gain.linearRampToValueAtTime(0.1, now + 0.08);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.35);
+      osc1.connect(gain1); gain1.connect(ctx.destination);
+      osc2.connect(gain2); gain2.connect(ctx.destination);
+      osc1.start(now); osc1.stop(now + 0.3);
+      osc2.start(now + 0.06); osc2.stop(now + 0.35);
+    } catch {}
+  },
   callEnd() { this._beep(400, 0.15); setTimeout(() => this._beep(300, 0.15), 180); },
   _ringInterval: null,
   ringStart() {
@@ -265,6 +296,10 @@ function initSocket() {
     }
     Sounds.message();
     updateChatInList(msg.chatId, msg);
+    // In-app notification popup for messages not in current chat
+    if (msg.senderId !== S.user.id && msg.chatId !== S.chatId) {
+      showInAppNotif(msg);
+    }
   });
 
   socket.on('message_edited', msg => {
@@ -516,7 +551,9 @@ function initUI() {
     const name = $('role-name-input').value.trim();
     const color = $('role-color-input').value || '#888';
     if (!name) { showToast('Введите имя роли', 'warning'); return; }
-    const roles = { ...(S.chatObj?.roles || {}), [name]: { color } };
+    const permissions = {};
+    $$('#role-permissions-new input[data-perm]').forEach(cb => { permissions[cb.dataset.perm] = cb.checked; });
+    const roles = { ...(S.chatObj?.roles || {}), [name]: { color, permissions } };
     try {
       const res = await api(`/api/chats/${S.chatId}/roles`, { method: 'PUT', body: JSON.stringify({ roles }) });
       S.chatObj.roles = res.roles; $('role-name-input').value = ''; showRolesModal();
@@ -1204,25 +1241,11 @@ async function handleChatMenuAction(action) {
       showToast(res.muted ? 'Звук отключён' : 'Звук включён', 'success');
     } catch {}
   } else if (action === 'search-chat') {
-    const query = prompt('Поиск по чату:');
-    if (!query || !query.trim()) return;
-    const q = query.trim().toLowerCase();
-    const found = S.messages.filter(m => m.text && m.text.toLowerCase().includes(q));
-    if (!found.length) { showToast('Ничего не найдено', 'info'); return; }
-    const target = $('messages-area').querySelector(`.msg[data-id="${found[found.length - 1].id}"]`);
-    if (target) { target.scrollIntoView({ behavior: 'smooth', block: 'center' }); target.style.outline = '2px solid var(--brand)'; setTimeout(() => target.style.outline = '', 2000); }
-    showToast(`Найдено: ${found.length}`, 'info');
+    showChatSearchModal();
   } else if (action === 'show-members') {
     toggleMembers(true);
   } else if (action === 'edit-group') {
-    const newName = prompt('Название группы:', S.chatObj.displayName || '');
-    if (newName !== null && newName.trim()) {
-      try {
-        await api(`/api/chats/${S.chatId}`, { method: 'PUT', body: JSON.stringify({ name: newName.trim() }) });
-        showToast('Название изменено', 'success');
-        loadChats();
-      } catch (e) { showToast(e.message, 'error'); }
-    }
+    showEditGroupModal();
   } else if (action === 'view-profile') {
     const partner = getPartner();
     if (partner) showProfile(partner);
@@ -1240,13 +1263,7 @@ async function handleChatMenuAction(action) {
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `chat-${S.chatId}.txt`; a.click();
     showToast('Чат экспортирован', 'success');
   } else if (action === 'invite-member') {
-    const username = prompt('Имя пользователя для приглашения:');
-    if (username?.trim()) {
-      try {
-        await api(`/api/chats/${S.chatId}/members`, { method: 'POST', body: JSON.stringify({ username: username.trim() }) });
-        showToast('Пользователь добавлен', 'success');
-      } catch (e) { showToast(e.message, 'error'); }
-    }
+    showInviteMemberModal();
   } else if (action === 'autodelete') {
     showAutoDeleteModal();
   } else if (action === 'schedule') {
@@ -1323,16 +1340,7 @@ function showChatListContextMenu(e, chatId) {
       updateBadge();
     } else if (act === 'ctx-search') {
       openChat(chatId);
-      setTimeout(() => {
-        const q = prompt('Поиск по чату:');
-        if (q?.trim()) {
-          const found = S.messages.filter(m => m.text?.toLowerCase().includes(q.trim().toLowerCase()));
-          if (!found.length) { showToast('Ничего не найдено', 'info'); return; }
-          const el = $('messages-area').querySelector(`.msg[data-id="${found[found.length-1].id}"]`);
-          if (el) { el.scrollIntoView({behavior:'smooth',block:'center'}); el.style.outline='2px solid var(--brand)'; setTimeout(()=>el.style.outline='',2000); }
-          showToast(`Найдено: ${found.length}`, 'info');
-        }
-      }, 300);
+      setTimeout(() => showChatSearchModal(), 300);
     } else if (act === 'ctx-autodelete') {
       openChat(chatId);
       setTimeout(() => showAutoDeleteModal(), 300);
@@ -1985,6 +1993,14 @@ function updateCustomThemePreview() {
   if ($('ct-p-brand')) $('ct-p-brand').style.background = brand;
   const box = $('ct-preview-box');
   if (box) box.style.background = bg;
+  // Live preview on the page
+  document.documentElement.style.setProperty('--bg-pri', bg);
+  document.documentElement.style.setProperty('--bg-dark', dark);
+  document.documentElement.style.setProperty('--bg-sec', sec);
+  document.documentElement.style.setProperty('--brand', brand);
+  document.documentElement.style.setProperty('--bg-hover', adjustColor(bg, 15));
+  document.documentElement.style.setProperty('--bg-active', adjustColor(bg, 30));
+  document.documentElement.style.setProperty('--bg-input', adjustColor(dark, 15));
 }
 
 async function applyCustomTheme() {
@@ -2034,7 +2050,7 @@ function initPremiumEmojiPicker() {
   grid.querySelectorAll('.pe-emoji').forEach(el => {
     const handler = async () => {
       const canUse = S.user?.premium || S.user?.superUser || S.user?.premiumFree;
-      if (!canUse) { showToast('Требуется Premium подписка', 'warning'); return; }
+      if (!canUse) { showToast('Требуется Shadow+', 'warning'); return; }
       grid.querySelectorAll('.pe-emoji').forEach(x => x.classList.remove('active'));
       el.classList.add('active');
       try {
@@ -2062,7 +2078,7 @@ function initPremiumBadgePicker() {
   grid.querySelectorAll('.pe-badge').forEach(el => {
     const handler = async () => {
       const canUse = S.user?.premium || S.user?.superUser || S.user?.premiumFree;
-      if (!canUse) { showToast('Требуется Premium подписка', 'warning'); return; }
+      if (!canUse) { showToast('Требуется Shadow+', 'warning'); return; }
       grid.querySelectorAll('.pe-badge').forEach(x => x.classList.remove('active'));
       el.classList.add('active');
       try {
@@ -2086,7 +2102,7 @@ function initPremiumColorPicker() {
   grid.querySelectorAll('.pe-color').forEach(el => {
     const handler = async () => {
       const canUse = S.user?.premium || S.user?.superUser || S.user?.premiumFree;
-      if (!canUse) { showToast('Требуется Premium подписка', 'warning'); return; }
+      if (!canUse) { showToast('Требуется Shadow+', 'warning'); return; }
       grid.querySelectorAll('.pe-color').forEach(x => x.classList.remove('active'));
       el.classList.add('active');
       try {
@@ -2139,9 +2155,11 @@ function initPremiumThemes() {
 async function ensureSavedChat() {
   try {
     const chat = await api('/api/chats', { method: 'POST', body: JSON.stringify({ userId: S.user.id }) });
-    if (!chat.lastMessage) {
+    const introKey = 'shadow_saved_intro_' + S.user.id;
+    if (!chat.lastMessage && !localStorage.getItem(introKey)) {
       const intro = `⭐ Добро пожаловать в Shadow Messenger!\n\n📱 Возможности мессенджера:\n\n💬 Сообщения — текст, фото, файлы, голосовые, видеокружки\n📌 Закреп — закрепляйте важные сообщения\n↩️ Ответы — отвечайте на конкретные сообщения\n✏️ Редактирование — измените отправленное\n🗑 Удаление — удаляйте сообщения у всех\n⏩ Пересылка — пересылайте между чатами\n😄 Реакции — ставьте эмодзи-реакции\n\n📞 Звонки — аудио и видео, в т.ч. групповые\n👥 Группы — создавайте чаты с друзьями\n👻 Режим Призрака — полная невидимость\n🎨 Темы — 17+ тем оформления\n🔔 Уведомления — push и звуки\n🔒 Приватность — контроль видимости\n\n💎 Shadow+ — эксклюзивные темы, эмодзи профиля, значки, цвет имени, кастомный статус и многое другое!\n\n⭐ Это ваше Избранное — сохраняйте сюда важные сообщения, ссылки и заметки.`;
       await api(`/api/chats/${chat.id}/messages`, { method: 'POST', body: JSON.stringify({ text: intro }) });
+      localStorage.setItem(introKey, '1');
     }
     await loadChats();
   } catch {}
@@ -2153,17 +2171,6 @@ async function openSavedChat() {
     await loadChats();
     openChat(chat.id);
     switchTab('chats');
-    // If new chat, send welcome message
-    if (!chat.lastMessage) {
-      setTimeout(async () => {
-        try {
-          await api(`/api/chats/${chat.id}/messages`, { method: 'POST', body: JSON.stringify({ text: '⭐ Избранное — ваш личный блокнот!\n\nЗдесь можно сохранять:\n• Важные сообщения\n• Ссылки и заметки\n• Файлы и фото\n\nВсё, что вы отправите сюда, будет только для вас.\n\n📱 Shadow Messenger v4.4' }) });
-          S.messages = await api(`/api/chats/${chat.id}/messages`);
-          renderMessages();
-          scrollToBottom(true);
-        } catch {}
-      }, 300);
-    }
   } catch (e) { showToast(e.message, 'error'); }
 }
 
@@ -2330,13 +2337,21 @@ function acceptIncoming() {
   const ctrls = overlay.querySelector('.vk-call-controls');
   if (ctrls) ctrls.style.display = '';
   const audioLayer = $('call-audio-layer');
-  if (audioLayer) audioLayer.style.display = '';
+  if (audioLayer) { audioLayer.style.display = ''; audioLayer.classList.remove('hidden-layer'); }
+  const videoLayer = $('call-video-layer');
+  if (videoLayer) videoLayer.classList.remove('active');
   // Reset control states
   $('toggle-mute').classList.remove('vk-ctrl-off');
   $('toggle-mute').querySelector('i').className = 'fas fa-microphone';
   $('toggle-video').classList.add('vk-ctrl-off');
   $('toggle-video').querySelector('i').className = 'fas fa-video-slash';
   $('toggle-screen').classList.remove('sharing');
+  // Reset status indicators — show all as active
+  const myMic = $('my-mic-status');
+  const myCam = $('my-cam-status');
+  const peerMic = $('peer-mic-status');
+  const peerCam = $('peer-cam-status');
+  [myMic, myCam, peerMic, peerCam].forEach(el => { if (el) { el.classList.remove('indicator-off'); el.style.display = ''; } });
 
   $('call-audio-name').textContent = _incomingCallData.fromName || 'Звонок';
   const av = $('call-audio-avatar');
@@ -2353,6 +2368,8 @@ function acceptIncoming() {
     const m = Math.floor(sec / 60), s = sec % 60;
     $('call-audio-timer').textContent = `${m}:${String(s).padStart(2, '0')}`;
   }, 1000);
+  // Force a user gesture audio unlock for mobile
+  try { const ctx = new (window.AudioContext || window.webkitAudioContext)(); ctx.resume().then(() => ctx.close()); } catch {}
   _incomingCallData = null;
 }
 
@@ -2673,6 +2690,63 @@ function updatePinnedBar() {
 }
 
 /* ══════════════════════════════════════════════════════════════════════
+   CHAT SEARCH MODAL
+   ══════════════════════════════════════════════════════════════════════ */
+function showChatSearchModal() {
+  if (!S.chatId) return;
+  $('chat-search-input').value = '';
+  show($('modal-chat-search'));
+  $('chat-search-input').focus();
+}
+window.doChatSearch = function() {
+  const q = $('chat-search-input').value.trim().toLowerCase();
+  if (!q) return;
+  const found = S.messages.filter(m => m.text && m.text.toLowerCase().includes(q));
+  if (!found.length) { showToast('Ничего не найдено', 'info'); return; }
+  hide($('modal-chat-search'));
+  const target = $('messages-area').querySelector(`.msg[data-id="${found[found.length - 1].id}"]`);
+  if (target) { target.scrollIntoView({ behavior: 'smooth', block: 'center' }); target.style.outline = '2px solid var(--brand)'; setTimeout(() => target.style.outline = '', 2000); }
+  showToast(`Найдено: ${found.length}`, 'info');
+};
+
+/* ══════════════════════════════════════════════════════════════════════
+   EDIT GROUP MODAL
+   ══════════════════════════════════════════════════════════════════════ */
+function showEditGroupModal() {
+  if (!S.chatId || S.chatObj?.type !== 'group') return;
+  $('edit-group-name').value = S.chatObj.displayName || S.chatObj.name || '';
+  show($('modal-edit-group'));
+}
+window.submitEditGroup = async function() {
+  const name = $('edit-group-name').value.trim();
+  if (!name) { showToast('Введите название', 'warning'); return; }
+  try {
+    await api(`/api/chats/${S.chatId}`, { method: 'PUT', body: JSON.stringify({ name }) });
+    showToast('Название изменено', 'success');
+    hide($('modal-edit-group'));
+    loadChats();
+  } catch (e) { showToast(e.message, 'error'); }
+};
+
+/* ══════════════════════════════════════════════════════════════════════
+   INVITE MEMBER MODAL
+   ══════════════════════════════════════════════════════════════════════ */
+function showInviteMemberModal() {
+  if (!S.chatId) return;
+  $('invite-username').value = '';
+  show($('modal-invite'));
+}
+window.submitInviteMember = async function() {
+  const username = $('invite-username').value.trim();
+  if (!username) { showToast('Введите имя пользователя', 'warning'); return; }
+  try {
+    await api(`/api/chats/${S.chatId}/members`, { method: 'POST', body: JSON.stringify({ username }) });
+    showToast('Пользователь добавлен', 'success');
+    hide($('modal-invite'));
+  } catch (e) { showToast(e.message, 'error'); }
+};
+
+/* ══════════════════════════════════════════════════════════════════════
    AUTO-DELETE MODAL
    ══════════════════════════════════════════════════════════════════════ */
 function showAutoDeleteModal() {
@@ -2710,10 +2784,24 @@ function showScheduleModal() {
 function showRolesModal() {
   if (!S.chatId || S.chatObj?.type !== 'group') return;
   const roles = S.chatObj.roles || {};
+  const PERM_LABELS = { write: 'Писать', delete: 'Удалять', pin: 'Закреплять', invite: 'Приглашать', kick: 'Исключать', editGroup: 'Ред. группу', manageRoles: 'Управл. ролями' };
   const list = $('roles-list');
-  list.innerHTML = Object.entries(roles).map(([name, r]) =>
-    `<div class="role-item"><span class="role-dot" style="background:${r.color || '#888'}"></span><span>${escHTML(name)}</span><button class="btn-sm" onclick="deleteRole('${escHTML(name)}')"><i class="fas fa-trash"></i></button></div>`
-  ).join('') || '<p class="s-hint">Нет ролей</p>';
+  if (!Object.keys(roles).length) {
+    list.innerHTML = '<p class="s-hint">Нет ролей</p>';
+  } else {
+    list.innerHTML = Object.entries(roles).map(([name, r]) => {
+      const perms = r.permissions || {};
+      const permTags = Object.entries(PERM_LABELS).filter(([k]) => perms[k]).map(([, v]) => `<span class="role-perm-tag">${v}</span>`).join('');
+      return `<div class="role-card">
+        <div class="role-card-header">
+          <span class="role-dot" style="background:${r.color || '#888'}"></span>
+          <span class="role-card-name">${escHTML(name)}</span>
+          <button class="btn-sm role-delete-btn" onclick="deleteRole('${escHTML(name)}')"><i class="fas fa-trash"></i></button>
+        </div>
+        <div class="role-card-perms">${permTags || '<span class="s-hint" style="margin:0;font-size:11px">Нет прав</span>'}</div>
+      </div>`;
+    }).join('');
+  }
   show($('modal-roles'));
 }
 window.deleteRole = async function(name) {
@@ -2793,7 +2881,7 @@ function buildNotifSoundsGrid() {
   grid.innerHTML = NOTIF_SOUNDS.map(s => `<button class="notif-sound-btn${s.id === current ? ' active' : ''}" data-sid="${s.id}" data-freq="${s.freq}"><i class="fas fa-music"></i> ${s.label}</button>`).join('');
   grid.querySelectorAll('.notif-sound-btn').forEach(b => b.onclick = () => {
     const canUse = S.user?.premium || S.user?.superUser || S.user?.premiumFree;
-    if (!canUse && b.dataset.sid !== 'default') { showToast('Требуется Premium', 'warning'); return; }
+    if (!canUse && b.dataset.sid !== 'default') { showToast('Требуется Shadow+', 'warning'); return; }
     // Preview sound
     try {
       const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -2821,7 +2909,12 @@ async function translateMessage(msgId) {
   showToast('Перевод...', 'info');
   // Use free translation API
   try {
-    const resp = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(msg.text.slice(0, 500))}&langpair=auto|ru`);
+    // Detect if text is mostly Cyrillic → translate to English, otherwise to Russian
+    const textSample = msg.text.slice(0, 200);
+    const cyrCount = (textSample.match(/[а-яёА-ЯЁ]/g) || []).length;
+    const srcLang = cyrCount > textSample.length * 0.3 ? 'ru' : 'en';
+    const tgtLang = srcLang === 'ru' ? 'en' : 'ru';
+    const resp = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(msg.text.slice(0, 500))}&langpair=${srcLang}|${tgtLang}`);
     const data = await resp.json();
     if (data.responseData?.translatedText) {
       const el = $('messages-area').querySelector(`.msg[data-id="${msgId}"] .msg-content`);
@@ -2872,15 +2965,56 @@ function showProfileExtended(u) {
 }
 
 /* ══════════════════════════════════════════════════════════════════════
+   IN-APP NOTIFICATION POPUP
+   ══════════════════════════════════════════════════════════════════════ */
+function showInAppNotif(msg) {
+  // Remove old popup if any
+  document.querySelectorAll('.in-app-notif').forEach(el => el.remove());
+  const chat = S.chats.find(c => c.id === msg.chatId);
+  const senderName = msg.senderName || (chat ? chat.name : 'Сообщение');
+  const text = msg.text ? (msg.text.length > 60 ? msg.text.slice(0, 60) + '…' : msg.text) : (msg.fileUrl ? '📎 Файл' : '💬');
+
+  const el = document.createElement('div');
+  el.className = 'in-app-notif';
+  el.innerHTML = `<div class="ian-left"><div class="ian-avatar">${senderName.charAt(0).toUpperCase()}</div></div><div class="ian-body"><div class="ian-name">${senderName}</div><div class="ian-text">${text}</div></div><div class="ian-close">&times;</div>`;
+  el.querySelector('.ian-close').onclick = e => { e.stopPropagation(); el.classList.add('ian-hide'); setTimeout(() => el.remove(), 300); };
+  el.onclick = () => { el.remove(); if (chat) openChat(chat.id); };
+  document.body.appendChild(el);
+  setTimeout(() => { if (el.parentNode) { el.classList.add('ian-hide'); setTimeout(() => el.remove(), 300); } }, 5000);
+}
+
+/* ══════════════════════════════════════════════════════════════════════
    SUPER USER: ONLINE ANIMATION
    ══════════════════════════════════════════════════════════════════════ */
 function showSuperEntryAnimation() {
   if (!S.user?.superUser) return;
-  const el = document.createElement('div');
-  el.className = 'super-entry-anim';
-  el.innerHTML = '👑';
-  document.body.appendChild(el);
-  setTimeout(() => el.remove(), 2000);
+  const overlay = document.createElement('div');
+  overlay.className = 'super-entry-overlay';
+  // Central crown
+  const crown = document.createElement('div');
+  crown.className = 'super-entry-crown';
+  crown.textContent = '👑';
+  overlay.appendChild(crown);
+  // Welcome text
+  const txt = document.createElement('div');
+  txt.className = 'super-entry-text';
+  txt.textContent = S.user.displayName || S.user.username;
+  overlay.appendChild(txt);
+  // Particles
+  const symbols = ['✦','✧','⚡','💎','🌟','⭐'];
+  for (let i = 0; i < 20; i++) {
+    const p = document.createElement('div');
+    p.className = 'super-entry-particle';
+    p.textContent = symbols[i % symbols.length];
+    p.style.left = Math.random() * 100 + '%';
+    p.style.top = Math.random() * 100 + '%';
+    p.style.animationDelay = (Math.random() * 0.6) + 's';
+    p.style.fontSize = (12 + Math.random() * 18) + 'px';
+    overlay.appendChild(p);
+  }
+  document.body.appendChild(overlay);
+  setTimeout(() => { overlay.classList.add('super-entry-fade'); }, 2200);
+  setTimeout(() => overlay.remove(), 3000);
 }
 
 /* ══════════════════════════════════════════════════════════════════════

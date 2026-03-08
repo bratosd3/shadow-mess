@@ -20,27 +20,41 @@
 <div id="auth-screen">
   <div class="auth-card">
     <div class="auth-ghost-icon">
-      <svg viewBox="0 0 100 120" width="72" height="86">
+      <svg viewBox="0 0 100 130" width="72" height="94">
         <defs>
           <linearGradient id="gGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" style="stop-color:#7c3aed"/>
-            <stop offset="100%" style="stop-color:#5865f2"/>
+            <stop offset="0%" style="stop-color:#6c2bd9"/>
+            <stop offset="50%" style="stop-color:#5865f2"/>
+            <stop offset="100%" style="stop-color:#4338ca"/>
           </linearGradient>
-          <filter id="gGlow"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+          <filter id="gGlow"><feGaussianBlur stdDeviation="4" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+          <filter id="gShadow"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="#000" flood-opacity="0.4"/></filter>
         </defs>
-        <path d="M50 8 C26 8 12 28 12 50 L12 92 C12 95 14 97 16 95 L26 86 C29 84 33 84 36 86 L44 94 C46 96 50 96 52 94 L50 92 L48 94 C50 96 54 96 56 94 L64 86 C67 84 71 84 74 86 L84 95 C86 97 88 95 88 92 L88 50 C88 28 74 8 50 8Z" fill="url(#gGrad)" filter="url(#gGlow)" opacity="0.95"/>
-        <ellipse cx="36" cy="40" rx="8" ry="9" fill="#fff" opacity="0.95"/>
-        <ellipse cx="64" cy="40" rx="8" ry="9" fill="#fff" opacity="0.95"/>
-        <ellipse cx="38" cy="42" rx="4" ry="5" fill="#1e1f22"/>
-        <ellipse cx="66" cy="42" rx="4" ry="5" fill="#1e1f22"/>
-        <circle cx="40" cy="39" r="1.5" fill="#fff" opacity="0.9"/>
-        <circle cx="68" cy="39" r="1.5" fill="#fff" opacity="0.9"/>
-        <circle cx="36" cy="43" r="1" fill="#c00" opacity="0.5"/>
-        <circle cx="64" cy="43" r="1" fill="#c00" opacity="0.5"/>
-        <path d="M40 56 Q50 68 60 56" stroke="rgba(255,255,255,0.7)" stroke-width="1.5" fill="none" stroke-linecap="round"/>
-        <polygon points="43,57 45,63 47,57" fill="#fff" opacity="0.9"/>
-        <polygon points="50,58 52,65 54,58" fill="#fff" opacity="0.9"/>
-        <polygon points="53,57 55,63 57,57" fill="#fff" opacity="0.9"/>
+        <!-- Body -->
+        <path d="M50 5 C24 5 8 28 8 52 L8 98 C8 102 12 104 14 100 L22 88 C25 84 30 83 34 86 L42 94 C45 97 49 97 50 95 L50 95 C51 97 55 97 58 94 L66 86 C70 83 75 84 78 88 L86 100 C88 104 92 102 92 98 L92 52 C92 28 76 5 50 5Z" fill="url(#gGrad)" filter="url(#gShadow)" opacity="0.95"/>
+        <!-- Eyes — sad/spooky slanted -->
+        <ellipse cx="35" cy="40" rx="9" ry="10" fill="#fff" opacity="0.9"/>
+        <ellipse cx="65" cy="40" rx="9" ry="10" fill="#fff" opacity="0.9"/>
+        <!-- Pupils — looking down sadly -->
+        <ellipse cx="37" cy="44" rx="5" ry="6" fill="#0f0f1a"/>
+        <ellipse cx="67" cy="44" rx="5" ry="6" fill="#0f0f1a"/>
+        <!-- Pupil highlights -->
+        <circle cx="39" cy="41" r="2" fill="#fff" opacity="0.85"/>
+        <circle cx="69" cy="41" r="2" fill="#fff" opacity="0.85"/>
+        <!-- Sad eyebrows (angled down inward) -->
+        <line x1="26" y1="28" x2="40" y2="30" stroke="#fff" stroke-width="2.5" stroke-linecap="round" opacity="0.6"/>
+        <line x1="74" y1="28" x2="60" y2="30" stroke="#fff" stroke-width="2.5" stroke-linecap="round" opacity="0.6"/>
+        <!-- Dark circles under eyes -->
+        <ellipse cx="35" cy="50" rx="6" ry="2" fill="#3b1f7a" opacity="0.4"/>
+        <ellipse cx="65" cy="50" rx="6" ry="2" fill="#3b1f7a" opacity="0.4"/>
+        <!-- Mouth: sad wavy frown -->
+        <path d="M38 62 Q43 58 50 62 Q57 58 62 62" stroke="rgba(255,255,255,0.5)" stroke-width="1.8" fill="none" stroke-linecap="round"/>
+        <!-- Small tear -->
+        <ellipse cx="30" cy="52" rx="2" ry="3" fill="rgba(88,180,255,0.5)"/>
+        <!-- Ghostly particles -->
+        <circle cx="18" cy="70" r="2" fill="#7c3aed" opacity="0.3"><animate attributeName="cy" values="70;60;70" dur="3s" repeatCount="indefinite"/></circle>
+        <circle cx="82" cy="65" r="1.5" fill="#5865f2" opacity="0.25"><animate attributeName="cy" values="65;55;65" dur="2.5s" repeatCount="indefinite"/></circle>
+        <circle cx="14" cy="50" r="1.5" fill="#a78bfa" opacity="0.2"><animate attributeName="cy" values="50;42;50" dur="4s" repeatCount="indefinite"/></circle>
       </svg>
     </div>
     <h1>Shadow Messenger</h1>
@@ -610,6 +624,36 @@
     </div>
   </div>
 </div>
+<!-- Edit Group Modal -->
+<div id="modal-edit-group" class="modal-overlay hidden">
+  <div class="modal-card">
+    <div class="modal-top"><h3>Редактировать группу</h3><button class="modal-x" data-close="modal-edit-group"><i class="fas fa-xmark"></i></button></div>
+    <div class="modal-body">
+      <div class="s-field"><label>Название группы</label><input id="edit-group-name" type="text" placeholder="Название..."></div>
+      <button class="btn-primary" onclick="submitEditGroup()">Сохранить</button>
+    </div>
+  </div>
+</div>
+<!-- Invite Member Modal -->
+<div id="modal-invite" class="modal-overlay hidden">
+  <div class="modal-card">
+    <div class="modal-top"><h3>Пригласить участника</h3><button class="modal-x" data-close="modal-invite"><i class="fas fa-xmark"></i></button></div>
+    <div class="modal-body">
+      <div class="s-field"><label>Имя пользователя</label><input id="invite-username" type="text" placeholder="username"></div>
+      <button class="btn-primary" onclick="submitInviteMember()">Добавить</button>
+    </div>
+  </div>
+</div>
+<!-- Chat Search Modal -->
+<div id="modal-chat-search" class="modal-overlay hidden">
+  <div class="modal-card">
+    <div class="modal-top"><h3>Поиск по чату</h3><button class="modal-x" data-close="modal-chat-search"><i class="fas fa-xmark"></i></button></div>
+    <div class="modal-body">
+      <div class="s-field"><input id="chat-search-input" type="text" placeholder="Введите текст для поиска..." onkeydown="if(event.key==='Enter')doChatSearch()"></div>
+      <button class="btn-primary" onclick="doChatSearch()">Найти</button>
+    </div>
+  </div>
+</div>
 <!-- Scheduled message Modal -->
 <div id="modal-schedule" class="modal-overlay hidden">
   <div class="modal-card">
@@ -623,12 +667,26 @@
 </div>
 <!-- Roles Modal -->
 <div id="modal-roles" class="modal-overlay hidden">
-  <div class="modal-card">
+  <div class="modal-card" style="max-width:520px">
     <div class="modal-top"><h3>Роли группы</h3><button class="modal-x" data-close="modal-roles"><i class="fas fa-xmark"></i></button></div>
     <div class="modal-body">
       <div id="roles-list"></div>
-      <div class="s-field"><label>Новая роль</label><input id="role-name-input" type="text" placeholder="Название роли"><input type="color" id="role-color-input" value="#5865f2"></div>
-      <button id="btn-add-role" class="btn-sm"><i class="fas fa-plus"></i> Добавить</button>
+      <div class="s-divider"></div>
+      <h4 style="margin:8px 0 6px;font-size:14px;color:var(--head2)">Добавить роль</h4>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+        <input id="role-name-input" type="text" placeholder="Название роли" style="flex:1">
+        <input type="color" id="role-color-input" value="#5865f2" style="width:40px;height:36px;border:none;cursor:pointer;border-radius:6px">
+      </div>
+      <div id="role-permissions-new" class="role-perms-grid">
+        <label><input type="checkbox" data-perm="write" checked> Писать</label>
+        <label><input type="checkbox" data-perm="delete"> Удалять</label>
+        <label><input type="checkbox" data-perm="pin"> Закреплять</label>
+        <label><input type="checkbox" data-perm="invite"> Приглашать</label>
+        <label><input type="checkbox" data-perm="kick"> Исключать</label>
+        <label><input type="checkbox" data-perm="editGroup"> Ред. группу</label>
+        <label><input type="checkbox" data-perm="manageRoles"> Управл. ролями</label>
+      </div>
+      <button id="btn-add-role" class="btn-sm" style="margin-top:8px"><i class="fas fa-plus"></i> Добавить</button>
     </div>
   </div>
 </div>

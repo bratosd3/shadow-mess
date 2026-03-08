@@ -512,9 +512,28 @@ app.put('/api/admin/users/:id/premium', adminKeyMiddleware, async (req, res) => 
   const user = await User.findById(req.params.id);
   if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
   user.premium = !user.premium;
-  if (!user.premium) user.premiumEmoji = '';
+  if (!user.premium) {
+    user.premiumEmoji = '';
+    user.premiumBadge = '';
+    user.premiumNameColor = '';
+    user.customStatus = '';
+    user.customStatusEmoji = '';
+    user.customStatusColor = '';
+  }
   await user.save();
   res.json({ id: user._id, username: user.username, premium: user.premium });
+});
+
+// Гранулярное управление Premium-функциями пользователя
+app.put('/api/admin/users/:id/premium-features', adminKeyMiddleware, async (req, res) => {
+  const user = await User.findById(req.params.id);
+  if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
+  const allowed = ['premiumEmoji','premiumBadge','premiumNameColor','customStatus','customStatusEmoji','customStatusColor','premium'];
+  for (const key of allowed) {
+    if (req.body[key] !== undefined) user[key] = req.body[key];
+  }
+  await user.save();
+  res.json(user.toJSON());
 });
 
 // Глобальная настройка Premium (включить/отключить для всего сервера)

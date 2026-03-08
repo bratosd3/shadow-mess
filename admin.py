@@ -1,6 +1,6 @@
 ﻿#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-# Shadow Messenger — Admin Panel v4.0 (Complete Redesign)
+# Shadow Messenger — Admin Panel v4.1 (Complete Redesign)
 import os
 import sys
 import subprocess
@@ -58,7 +58,7 @@ FONT_MONO   = "Consolas"
 class AdminApp(ctk.CTk):
     def __init__(self):
         super().__init__()
-        self.title("Shadow Messenger \u2666 Admin Panel v4.0")
+        self.title("Shadow Messenger \u2666 Admin Panel v4.1")
         self.geometry("1160x760")
         self.minsize(960, 600)
         self.configure(fg_color=BG_MAIN)
@@ -430,6 +430,11 @@ class AdminApp(ctk.CTk):
                            border_color=BORDER if not u.get("premium") else BRAND,
                            command=lambda uid=uid: self._toggle_premium_user(uid)).pack(side="left", padx=1)
 
+            ctk.CTkButton(btns_f, text="\U0001f39b\ufe0f", width=32, height=28, font=("Segoe UI Emoji", 12),
+                           fg_color=BG_CARD, hover_color=BRAND_L, corner_radius=6, border_width=1,
+                           border_color=BORDER,
+                           command=lambda uid=uid, uu=u: self._show_features(uid, uu)).pack(side="left", padx=1)
+
             ctk.CTkButton(btns_f, text="\u2716", width=32, height=28, font=(FONT, 12),
                            fg_color=BG_CARD, hover_color=RED, corner_radius=6, border_width=1,
                            border_color=BORDER, text_color=RED,
@@ -471,6 +476,84 @@ class AdminApp(ctk.CTk):
                 self.show_page("users")
             self._run_async(do, done)
         self._confirm("\u0423\u0434\u0430\u043b\u0435\u043d\u0438\u0435", f"\u0423\u0434\u0430\u043b\u0438\u0442\u044c \u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u044f {name}\n\u0438 \u0432\u0441\u0435 \u0435\u0433\u043e \u0434\u0430\u043d\u043d\u044b\u0435?", do_del)
+
+    def _show_features(self, uid, user_data):
+        d = ctk.CTkToplevel(self)
+        d.title(f"Shadow+ — @{user_data.get('username', '?')}")
+        d.geometry("460x440")
+        d.configure(fg_color=BG_MAIN)
+        d.transient(self)
+        d.grab_set()
+        d.resizable(False, False)
+
+        ctk.CTkLabel(d, text=f"\U0001f39b\ufe0f  Shadow+ для @{user_data.get('username', '')}",
+                     font=(FONT, 15, "bold"), text_color=TEXT_W).pack(pady=(16, 4))
+        ctk.CTkLabel(d, text="Управление отдельными Premium-функциями",
+                     font=(FONT, 11), text_color=TEXT_D).pack(pady=(0, 12))
+
+        scroll = ctk.CTkScrollableFrame(d, fg_color="transparent", height=260)
+        scroll.pack(fill="x", padx=16, pady=(0, 8))
+
+        features = [
+            ("premium",          "\u2b50 Premium-статус",     "Общий Premium"),
+            ("premiumEmoji",     "\U0001f60e Эмодзи профиля", "Кастомный эмодзи"),
+            ("premiumBadge",     "\U0001f396 Значок",         "Значок пользователя"),
+            ("premiumNameColor", "\U0001f3a8 Цвет имени",     "Цвет отображаемого имени"),
+            ("customStatus",     "\U0001f4ac Статус",         "Текст статуса"),
+            ("customStatusEmoji","\U0001f3ad Эмодзи статуса", "Эмодзи рядом со статусом"),
+            ("customStatusColor","\U0001f308 Цвет статуса",   "Цвет текста статуса"),
+        ]
+
+        entries = {}
+        for field, icon, desc in features:
+            card = ctk.CTkFrame(scroll, fg_color=BG_CARD, corner_radius=8, border_width=1, border_color=BORDER)
+            card.pack(fill="x", pady=2)
+            inner = ctk.CTkFrame(card, fg_color="transparent")
+            inner.pack(fill="x", padx=10, pady=8)
+
+            ctk.CTkLabel(inner, text=f"{icon}  {desc}", font=(FONT, 11),
+                         text_color=TEXT_S, anchor="w").pack(side="left")
+
+            val = user_data.get(field, "")
+            if field == "premium":
+                var = ctk.BooleanVar(value=bool(val))
+                sw = ctk.CTkSwitch(inner, text="", variable=var, onvalue=True, offvalue=False,
+                                    progress_color=BRAND, width=40)
+                sw.pack(side="right")
+                entries[field] = var
+            else:
+                e = ctk.CTkEntry(inner, width=130, height=28, font=(FONT, 11),
+                                  fg_color=BG_INPUT, border_color=BORDER, placeholder_text="—")
+                e.pack(side="right")
+                if val:
+                    e.insert(0, str(val))
+                entries[field] = e
+
+        def save():
+            data = {}
+            for field, widget in entries.items():
+                if field == "premium":
+                    data[field] = widget.get()
+                else:
+                    data[field] = widget.get().strip()
+
+            def do():
+                return self.api_put(f"/api/admin/users/{uid}/premium-features", data)
+            def done(r):
+                if isinstance(r, dict) and "_error" not in r:
+                    self._toast(f"Функции обновлены для @{user_data.get('username', '?')}")
+                    d.destroy()
+                    self.show_page("users")
+                else:
+                    self._toast(f"\u041e\u0448\u0438\u0431\u043a\u0430: {r.get('_error', '?')}", RED)
+            self._run_async(do, done)
+
+        bf = ctk.CTkFrame(d, fg_color="transparent")
+        bf.pack(pady=8)
+        ctk.CTkButton(bf, text="Отмена", fg_color=BG_CARD, hover_color=BG_CARD_H,
+                       width=110, corner_radius=8, command=d.destroy).pack(side="left", padx=6)
+        ctk.CTkButton(bf, text="\U0001f4be Сохранить", fg_color=BRAND, hover_color=BRAND_H,
+                       width=130, corner_radius=8, command=save).pack(side="left", padx=6)
 
     # ====================================================================
     #  PREMIUM
