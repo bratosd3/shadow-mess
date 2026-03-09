@@ -374,22 +374,20 @@ app.get('/', (req, res) => res.sendFile(path.join(STATIC_DIR, 'index.html')));
 app.get('/admin', (req, res) => res.sendFile(path.join(STATIC_DIR, 'admin.html')));
 
 // Desktop app version check
-app.get('/api/desktop-version', (req, res) => {
-  res.json({ version: '5.3.0', downloadUrl: 'https://shadow-mess.onrender.com/downloads/ShadowMessengerSetup.exe' });
+app.get('/api/desktop-version', async (req, res) => {
+  const cfg = await Config.findById('downloadLinks');
+  res.json({ version: '5.3.0', downloadUrl: cfg?.value?.windows || '' });
 });
 // Mobile APK version check
-app.get('/api/mobile-version', (req, res) => {
-  res.json({ version: '5.3.0', downloadUrl: 'https://shadow-mess.onrender.com/downloads/ShadowMessenger.apk' });
+app.get('/api/mobile-version', async (req, res) => {
+  const cfg = await Config.findById('downloadLinks');
+  res.json({ version: '5.3.0', downloadUrl: cfg?.value?.android || '' });
 });
 
 // Download links (configurable from admin panel)
 app.get('/api/download-links', async (req, res) => {
   const cfg = await Config.findById('downloadLinks');
-  const defaults = {
-    android: 'https://shadow-mess.onrender.com/downloads/ShadowMessenger.apk',
-    windows: 'https://shadow-mess.onrender.com/downloads/ShadowMessengerSetup.exe'
-  };
-  res.json(cfg?.value || defaults);
+  res.json(cfg?.value || { android: '', windows: '' });
 });
 app.get('/api/admin/download-links', adminKeyMiddleware, async (req, res) => {
   const cfg = await Config.findById('downloadLinks');
