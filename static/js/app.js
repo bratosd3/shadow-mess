@@ -141,8 +141,18 @@ async function api(url, opts = {}) {
   const headers = { ...(opts.headers || {}) };
   if (S.token) headers['Authorization'] = `Bearer ${S.token}`;
   if (!(opts.body instanceof FormData)) headers['Content-Type'] = 'application/json';
-  const res = await fetch(url, { ...opts, headers });
-  const data = await res.json();
+  let res;
+  try {
+    res = await fetch(url, { ...opts, headers });
+  } catch (e) {
+    throw new Error('Нет соединения с сервером');
+  }
+  let data;
+  try {
+    data = await res.json();
+  } catch {
+    throw new Error(res.status >= 500 ? 'Сервер временно недоступен' : 'Ошибка ответа сервера');
+  }
   if (!res.ok) throw new Error(data.error || 'Ошибка');
   return data;
 }
@@ -246,39 +256,37 @@ function initAuth() {
 
   loginForm.onsubmit = async e => {
     e.preventDefault();
+    const btn = loginForm.querySelector('button[type="submit"]');
+    const origText = btn.textContent;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Вход...';
     try {
       const data = await api('/api/login', { method: 'POST', body: JSON.stringify({ username: $('login-username').value.trim(), password: $('login-password').value }) });
       S.token = data.token; S.user = data.user;
       localStorage.setItem('token', data.token);
       boot();
-    } catch (err) { showToast(err.message, 'error'); }
+    } catch (err) {
+      showToast(err.message, 'error');
+      btn.disabled = false;
+      btn.textContent = origText;
+    }
   };
 
   regForm.onsubmit = async e => {
     e.preventDefault();
+    const btn = regForm.querySelector('button[type="submit"]');
+    const origText = btn.textContent;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Создание...';
     try {
       const data = await api('/api/register', { method: 'POST', body: JSON.stringify({ username: $('reg-username').value.trim(), displayName: $('reg-displayname').value.trim() || $('reg-username').value.trim(), password: $('reg-password').value }) });
       S.token = data.token; S.user = data.user;
       localStorage.setItem('token', data.token);
       boot();
-    } catch (err) { showToast(err.message, 'error'); }
-  };
-
-  // Demo mode button
-  const demoBtn = $('btn-demo');
-  if (demoBtn) demoBtn.onclick = async () => {
-    try {
-      demoBtn.disabled = true;
-      demoBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Создание демо...';
-      const data = await api('/api/demo', { method: 'POST' });
-      S.token = data.token; S.user = data.user;
-      localStorage.setItem('token', data.token);
-      showToast('Демо-режим активирован!', 'success');
-      boot();
     } catch (err) {
       showToast(err.message, 'error');
-      demoBtn.disabled = false;
-      demoBtn.innerHTML = '<i class="fas fa-play-circle"></i> Демо-режим';
+      btn.disabled = false;
+      btn.textContent = origText;
     }
   };
 }
@@ -320,7 +328,7 @@ async function boot() {
 
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000);
+    const timeout = setTimeout(() => controller.abort(), 30000);
     S.user = await api('/api/me', { signal: controller.signal });
     clearTimeout(timeout);
   } catch (err) {

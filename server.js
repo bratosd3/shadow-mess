@@ -820,30 +820,6 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-// ── Demo mode ─────────────────────────────────────────────────────────────
-app.post('/api/demo', async (req, res) => {
-  try {
-    const demoId = 'demo_' + Date.now().toString(36);
-    const username = demoId.slice(0, 16);
-    const hash = await bcrypt.hash('demo', 10);
-    const user = await User.create({
-      username,
-      displayName: 'Demo User',
-      passwordHash: hash,
-      bio: 'Демо-аккаунт',
-      premium: true,
-      settings: { theme: 'shadow-purple', animations: true },
-    });
-    const sessionId = uuidv4();
-    const token = jwt.sign({ id: user._id, sid: sessionId }, JWT_SECRET, { expiresIn: '1d' });
-    await Session.create({ _id: sessionId, userId: user._id, device: 'Demo', ip: '' });
-    res.json({ token, user: sanitizeUser(user), demo: true });
-  } catch (err) {
-    console.error('Demo error:', err);
-    res.status(500).json({ error: 'Ошибка создания демо' });
-  }
-});
-
 // ── Me ────────────────────────────────────────────────────────────────────
 app.get('/api/me', authMiddleware, async (req, res) => {
   const user = await User.findById(req.user.id);
