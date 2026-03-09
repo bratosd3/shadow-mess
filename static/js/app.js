@@ -245,6 +245,24 @@ function initAuth() {
       boot();
     } catch (err) { showToast(err.message, 'error'); }
   };
+
+  // Demo mode button
+  const demoBtn = $('btn-demo');
+  if (demoBtn) demoBtn.onclick = async () => {
+    try {
+      demoBtn.disabled = true;
+      demoBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Создание демо...';
+      const data = await api('/api/demo', { method: 'POST' });
+      S.token = data.token; S.user = data.user;
+      localStorage.setItem('token', data.token);
+      showToast('Демо-режим активирован!', 'success');
+      boot();
+    } catch (err) {
+      showToast(err.message, 'error');
+      demoBtn.disabled = false;
+      demoBtn.innerHTML = '<i class="fas fa-play-circle"></i> Демо-режим';
+    }
+  };
 }
 
 function logout() {
@@ -262,6 +280,15 @@ function logout() {
    BOOT
    ══════════════════════════════════════════════════════════════════════ */
 async function boot() {
+  // Platform detection for design sync
+  const isAndroidApp = !!window.ShadowNative;
+  const isElectronApp = !!(window.process?.versions?.electron || navigator.userAgent.includes('Electron'));
+  const isMobileWeb = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) && !isAndroidApp;
+  document.body.classList.toggle('platform-android', isAndroidApp);
+  document.body.classList.toggle('platform-desktop', isElectronApp);
+  document.body.classList.toggle('platform-mobile-web', isMobileWeb);
+  document.body.classList.toggle('platform-web', !isAndroidApp && !isElectronApp && !isMobileWeb);
+
   // Show loading spinner
   const authLoading = $('auth-loading');
   const loginForm = $('login-form');
@@ -733,6 +760,7 @@ function initUI() {
     else if (act === 'font-size') openMobSub('mob-sub-fontsize');
     else if (act === 'density') openMobSub('mob-sub-density');
     else if (act === 'msg-style') openMobSub('mob-sub-msgstyle');
+    else if (act === 'wallpaper') openMobSub('mob-sub-wallpaper');
     else if (act === 'logout') logout();
   });
 
@@ -750,6 +778,7 @@ function initUI() {
   if ($('mob-set-dnd')) $('mob-set-dnd').onchange = () => saveSettingsToggle('dndMode', $('mob-set-dnd').checked);
   if ($('mob-set-dnd-reply')) $('mob-set-dnd-reply').onchange = () => saveSettingsToggle('dndAutoReply', $('mob-set-dnd-reply').value);
   if ($('mob-set-animations')) $('mob-set-animations').onchange = () => saveSettingsToggle('animations', $('mob-set-animations').checked);
+  if ($('mob-set-send-enter')) $('mob-set-send-enter').onchange = () => saveSettingsToggle('sendByEnter', $('mob-set-send-enter').checked);
 
   // Mobile profile save
   if ($('mob-btn-save-profile')) $('mob-btn-save-profile').onclick = async () => {
@@ -1984,6 +2013,13 @@ function _syncMobToggles() {
   if ($('mob-set-dnd')) $('mob-set-dnd').checked = !!S.user?.dndMode;
   if ($('mob-set-dnd-reply')) $('mob-set-dnd-reply').value = S.user?.dndAutoReply || '';
   if ($('mob-set-animations')) $('mob-set-animations').checked = s.animations !== false;
+  if ($('mob-set-send-enter')) $('mob-set-send-enter').checked = !!s.sendByEnter;
+  // Sync mobile custom theme inputs
+  const ct = s.customTheme || {};
+  if ($('mob-ct-bg')) $('mob-ct-bg').value = ct.bg || '#313338';
+  if ($('mob-ct-dark')) $('mob-ct-dark').value = ct.dark || '#1e1f22';
+  if ($('mob-ct-sec')) $('mob-ct-sec').value = ct.sec || '#2b2d31';
+  if ($('mob-ct-brand')) $('mob-ct-brand').value = ct.brand || '#5865f2';
 }
 
 function _syncMobRadios() {
@@ -2034,6 +2070,181 @@ function _fillMobPremium() {
   card.querySelector('.tg-mob-premium-icon').textContent = icons[role] || '👻';
   card.querySelector('.tg-mob-premium-role').textContent = names[role] || 'Пользователь';
   card.querySelector('.tg-mob-premium-desc').textContent = role === 'user' ? 'Активируйте Shadow+ для расширенных возможностей' : 'Все возможности активны';
+
+  const canUse = S.user?.premium || S.user?.superUser || S.user?.premiumFree;
+  const configEl = $('mob-premium-config');
+  const lockArea = $('mob-premium-lock-area');
+  if (lockArea) {
+    lockArea.innerHTML = canUse ? '' : '<div class="mob-premium-lock-badge"><i class="fas fa-lock"></i> Функции ниже доступны для Shadow+</div>';
+  }
+  if (configEl) configEl.classList.toggle('mob-premium-locked', !canUse);
+
+  // Premium card style
+  card.classList.remove('psc-premium', 'psc-super');
+  if (S.user?.superUser) card.classList.add('psc-super');
+  else if (canUse) card.classList.add('psc-premium');
+
+  // Custom status
+  if ($('mob-cs-text')) $('mob-cs-text').value = S.user?.customStatus || '';
+  if ($('mob-cs-emoji')) $('mob-cs-emoji').value = S.user?.customStatusEmoji || '';
+  if ($('mob-cs-color')) $('mob-cs-color').value = S.user?.customStatusColor || '#5865f2';
+
+  // Social links
+  const sl = S.user?.socialLinks || {};
+  if ($('mob-social-tg')) $('mob-social-tg').value = sl.telegram || '';
+  if ($('mob-social-ig')) $('mob-social-ig').value = sl.instagram || '';
+  if ($('mob-social-gh')) $('mob-social-gh').value = sl.github || '';
+  if ($('mob-social-web')) $('mob-social-web').value = sl.website || '';
+
+  initMobPremiumPickers();
+}
+
+function initMobPremiumPickers() {
+  // Emoji picker
+  const emojiGrid = $('mob-premium-emoji-grid');
+  if (emojiGrid) {
+    const emojis = ['⭐', '💎', '👑', '🔥', '💫', '✨', '🌟', '⚡', '🎯', '🦋', '🌈', '🍀', '💜', '🖤', '❤️‍🔥', '🎵', '🎮', '🏆', '🦄', '🌸', '🐉', '☠️', '👾', '🤖', '🎭', '🌙', '❄️', '🍭', '🧬', '🎪', '🃏', '🔮', ''];
+    emojiGrid.innerHTML = emojis.map(e => `<span class="pe-emoji${e === (S.user?.premiumEmoji || '') ? ' active' : ''}" data-emoji="${e}">${e || '✕'}</span>`).join('');
+    emojiGrid.querySelectorAll('.pe-emoji').forEach(el => {
+      el.ontouchend = el.onclick = async (ev) => {
+        ev.preventDefault();
+        const canUse = S.user?.premium || S.user?.superUser || S.user?.premiumFree;
+        if (!canUse) { showToast('Требуется Shadow+', 'warning'); return; }
+        emojiGrid.querySelectorAll('.pe-emoji').forEach(x => x.classList.remove('active'));
+        el.classList.add('active');
+        try {
+          S.user = await api('/api/me/emoji', { method: 'PUT', body: JSON.stringify({ emoji: el.dataset.emoji }) });
+          showToast(el.dataset.emoji ? `Эмодзи: ${el.dataset.emoji}` : 'Эмодзи убрано', 'success');
+        } catch (e) { showToast(e.message, 'error'); }
+      };
+    });
+  }
+
+  // Custom emoji
+  const btnCE = $('mob-btn-set-custom-emoji');
+  if (btnCE) btnCE.onclick = async () => {
+    const canUse = S.user?.premium || S.user?.superUser || S.user?.premiumFree;
+    if (!canUse) { showToast('Требуется Shadow+', 'warning'); return; }
+    const val = $('mob-custom-emoji-input').value.trim();
+    if (emojiGrid) emojiGrid.querySelectorAll('.pe-emoji').forEach(x => x.classList.remove('active'));
+    try {
+      S.user = await api('/api/me/emoji', { method: 'PUT', body: JSON.stringify({ emoji: val }) });
+      showToast(val ? `Эмодзи: ${val}` : 'Эмодзи убрано', 'success');
+    } catch (e) { showToast(e.message, 'error'); }
+  };
+
+  // Badge picker
+  const badgeGrid = $('mob-premium-badge-grid');
+  if (badgeGrid) {
+    const badges = ['', 'VIP', 'PRO', 'ELITE', 'BOSS', 'KING', 'ACE', 'TOP', 'MVP', 'HERO', 'LEGEND', 'OG', 'ALPHA', 'SIGMA'];
+    badgeGrid.innerHTML = badges.map(b => `<span class="pe-badge${b === (S.user?.premiumBadge || '') ? ' active' : ''}" data-badge="${b}">${b || '✕'}</span>`).join('');
+    badgeGrid.querySelectorAll('.pe-badge').forEach(el => {
+      el.ontouchend = el.onclick = async (ev) => {
+        ev.preventDefault();
+        const canUse = S.user?.premium || S.user?.superUser || S.user?.premiumFree;
+        if (!canUse) { showToast('Требуется Shadow+', 'warning'); return; }
+        badgeGrid.querySelectorAll('.pe-badge').forEach(x => x.classList.remove('active'));
+        el.classList.add('active');
+        try {
+          S.user = await api('/api/me/badge', { method: 'PUT', body: JSON.stringify({ badge: el.dataset.badge }) });
+          showToast(el.dataset.badge ? `Значок: ${el.dataset.badge}` : 'Значок убран', 'success');
+        } catch (e) { showToast(e.message, 'error'); }
+      };
+    });
+  }
+
+  // Custom badge
+  const btnCB = $('mob-btn-set-custom-badge');
+  if (btnCB) btnCB.onclick = async () => {
+    const canUse = S.user?.premium || S.user?.superUser || S.user?.premiumFree;
+    if (!canUse) { showToast('Требуется Shadow+', 'warning'); return; }
+    const val = $('mob-custom-badge-input').value.trim();
+    if (val.length > 12) { showToast('Макс. 12 символов', 'warning'); return; }
+    if (badgeGrid) badgeGrid.querySelectorAll('.pe-badge').forEach(x => x.classList.remove('active'));
+    try {
+      S.user = await api('/api/me/badge', { method: 'PUT', body: JSON.stringify({ badge: val }) });
+      showToast(val ? `Значок: ${val}` : 'Значок убран', 'success');
+    } catch (e) { showToast(e.message, 'error'); }
+  };
+
+  // Color picker
+  const colorGrid = $('mob-premium-color-grid');
+  if (colorGrid) {
+    const colors = ['', '#ff6b6b', '#ffd93d', '#6bcb77', '#4d96ff', '#9b59b6', '#e84393', '#00cec9', '#fd79a8', '#a29bfe', '#ff9ff3', '#f368e0', '#ff6348', '#7bed9f', '#70a1ff', '#5352ed', '#ff4757', '#2ed573', '#1e90ff', '#ffa502', '#eccc68'];
+    colorGrid.innerHTML = colors.map(c => {
+      const active = c === (S.user?.premiumNameColor || '') ? ' active' : '';
+      return c ? `<span class="pe-color${active}" data-color="${c}" style="background:${c}"></span>` : `<span class="pe-color${active}" data-color="">✕</span>`;
+    }).join('');
+    colorGrid.querySelectorAll('.pe-color').forEach(el => {
+      el.ontouchend = el.onclick = async (ev) => {
+        ev.preventDefault();
+        const canUse = S.user?.premium || S.user?.superUser || S.user?.premiumFree;
+        if (!canUse) { showToast('Требуется Shadow+', 'warning'); return; }
+        colorGrid.querySelectorAll('.pe-color').forEach(x => x.classList.remove('active'));
+        el.classList.add('active');
+        try {
+          S.user = await api('/api/me/namecolor', { method: 'PUT', body: JSON.stringify({ color: el.dataset.color }) });
+          showToast(el.dataset.color ? 'Цвет применён' : 'Цвет сброшен', 'success');
+        } catch (e) { showToast(e.message, 'error'); }
+      };
+    });
+  }
+
+  // Premium themes
+  const themesGrid = $('mob-premium-themes-grid');
+  if (themesGrid) {
+    const names = {neon:'Неон',sakura:'Сакура',cyber:'Кибер',golden:'Золото',aurora:'Аврора',vampire:'Вампир',lavender:'Лаванда',emerald:'Изумруд',synthwave:'Синтвейв',arctic:'Арктика',magma:'Магма',matrix:'Матрица',cosmic:'Космос','midnight-blue':'Индиго'};
+    themesGrid.innerHTML = Object.entries(PREMIUM_THEMES).map(([name, t]) =>
+      `<div class="theme-swatch${name === (S.user?.settings?.theme || '') ? ' active' : ''}" data-theme="${name}" style="background:${t.bg}">
+        <div class="ts-preview"><div class="ts-sb" style="background:${t.dark}"></div><div class="ts-pnl" style="background:${t.sec}"></div><div class="ts-ch"><div class="ts-m1" style="background:${t.sec}"></div><div class="ts-m2" style="background:${t.brand}"></div></div></div>
+        <span class="ts-name">💎 ${names[name] || name}</span>
+      </div>`
+    ).join('');
+    themesGrid.querySelectorAll('.theme-swatch').forEach(s => s.onclick = async () => {
+      const canUse = S.user?.premium || S.user?.superUser || S.user?.premiumFree;
+      if (!canUse) { showToast('Требуется Shadow+', 'warning'); return; }
+      const themeName = s.dataset.theme;
+      const t = PREMIUM_THEMES[themeName];
+      if (!t) return;
+      applyTheme(themeName);
+      themesGrid.querySelectorAll('.theme-swatch').forEach(x => x.classList.remove('active'));
+      s.classList.add('active');
+      try { S.user = await api('/api/me', { method: 'PUT', body: JSON.stringify({ settings: { theme: themeName } }) }); showToast('Тема применена', 'success'); } catch {}
+    });
+  }
+
+  // Custom status save
+  const btnStatus = $('mob-btn-save-status');
+  if (btnStatus) btnStatus.onclick = async () => {
+    const canUse = S.user?.premium || S.user?.superUser || S.user?.premiumFree;
+    if (!canUse) { showToast('Требуется Shadow+', 'warning'); return; }
+    try {
+      S.user = await api('/api/me', { method: 'PUT', body: JSON.stringify({
+        customStatus: $('mob-cs-text')?.value || '',
+        customStatusEmoji: $('mob-cs-emoji')?.value || '',
+        customStatusColor: $('mob-cs-color')?.value || '#5865f2'
+      }) });
+      showToast('Статус сохранён', 'success');
+    } catch (e) { showToast(e.message, 'error'); }
+  };
+
+  // Social links save
+  const btnSocial = $('mob-btn-save-social');
+  if (btnSocial) btnSocial.onclick = async () => {
+    const canUse = S.user?.premium || S.user?.superUser || S.user?.premiumFree;
+    if (!canUse) { showToast('Требуется Shadow+', 'warning'); return; }
+    try {
+      S.user = await api('/api/me', { method: 'PUT', body: JSON.stringify({
+        socialLinks: {
+          telegram: $('mob-social-tg')?.value || '',
+          instagram: $('mob-social-ig')?.value || '',
+          github: $('mob-social-gh')?.value || '',
+          website: $('mob-social-web')?.value || ''
+        }
+      }) });
+      showToast('Ссылки сохранены', 'success');
+    } catch (e) { showToast(e.message, 'error'); }
+  };
 }
 
 function closeMobSub(id, parentId) {
@@ -2178,6 +2389,11 @@ function fillSettings() {
   if (suSection) {
     if (S.user?.superUser) show(suSection);
     else hide(suSection);
+  }
+  const mobSuSection = $('mob-super-user-section');
+  if (mobSuSection) {
+    if (S.user?.superUser) show(mobSuSection);
+    else hide(mobSuSection);
   }
 
   // DND
@@ -2386,8 +2602,6 @@ function applyWallpaper(wp) {
 }
 
 function buildWallpaperGrid() {
-  const grid = $('wallpaper-grid');
-  if (!grid) return;
   const wallpapers = [
     { id: 'none', label: 'Нет', bg: '' },
     { id: 'dots', label: '···', bg: 'radial-gradient(circle,var(--bg-active) 1px,transparent 1px)' },
@@ -2396,14 +2610,18 @@ function buildWallpaperGrid() {
     { id: 'cross', label: '✕', bg: 'repeating-linear-gradient(45deg,transparent,transparent 8px,rgba(255,255,255,.02) 8px,rgba(255,255,255,.02) 9px),repeating-linear-gradient(-45deg,transparent,transparent 8px,rgba(255,255,255,.02) 8px,rgba(255,255,255,.02) 9px)' },
   ];
   const current = S.user?.settings?.wallpaper || 'none';
-  grid.innerHTML = wallpapers.map(w =>
-    `<div class="wp-swatch${w.id === current ? ' active' : ''}" data-wp="${w.id}" style="${w.bg ? 'background-image:' + w.bg + ';background-size:12px 12px' : ''}"><span class="wp-label">${w.label}</span></div>`
-  ).join('');
-  grid.querySelectorAll('.wp-swatch').forEach(s => s.onclick = async () => {
-    grid.querySelectorAll('.wp-swatch').forEach(x => x.classList.remove('active'));
-    s.classList.add('active');
-    applyWallpaper(s.dataset.wp);
-    saveSettingsToggle('wallpaper', s.dataset.wp);
+  ['wallpaper-grid', 'mob-wallpaper-grid'].forEach(gid => {
+    const grid = $(gid);
+    if (!grid) return;
+    grid.innerHTML = wallpapers.map(w =>
+      `<div class="wp-swatch${w.id === current ? ' active' : ''}" data-wp="${w.id}" style="${w.bg ? 'background-image:' + w.bg + ';background-size:12px 12px' : ''}"><span class="wp-label">${w.label}</span></div>`
+    ).join('');
+    grid.querySelectorAll('.wp-swatch').forEach(s => s.onclick = async () => {
+      document.querySelectorAll('.wp-swatch').forEach(x => x.classList.remove('active'));
+      s.classList.add('active');
+      applyWallpaper(s.dataset.wp);
+      saveSettingsToggle('wallpaper', s.dataset.wp);
+    });
   });
 }
 
@@ -2472,6 +2690,15 @@ function initCustomThemeCreator() {
   });
   const btnApply = $('btn-apply-custom-theme');
   if (btnApply) btnApply.onclick = () => applyCustomTheme();
+  const mobApply = $('mob-btn-apply-custom-theme');
+  if (mobApply) mobApply.onclick = () => {
+    // Sync mobile inputs to desktop values and apply
+    ['bg', 'dark', 'sec', 'brand'].forEach(k => {
+      const mv = $('mob-ct-' + k)?.value;
+      if (mv && $('ct-' + k)) $('ct-' + k).value = mv;
+    });
+    applyCustomTheme();
+  };
 
   // Load saved custom theme
   const ct = S.user?.settings?.customTheme;
@@ -3646,28 +3873,29 @@ const NOTIF_SOUNDS = [
 ];
 
 function buildNotifSoundsGrid() {
-  const grid = $('notif-sounds-grid');
-  if (!grid) return;
   const current = S.user?.settings?.notifSound || 'default';
-  grid.innerHTML = NOTIF_SOUNDS.map(s => `<button class="notif-sound-btn${s.id === current ? ' active' : ''}" data-sid="${s.id}" data-freq="${s.freq}"><i class="fas fa-music"></i> ${s.label}</button>`).join('');
-  grid.querySelectorAll('.notif-sound-btn').forEach(b => b.onclick = () => {
-    const canUse = S.user?.premium || S.user?.superUser || S.user?.premiumFree;
-    if (!canUse && b.dataset.sid !== 'default') { showToast('Требуется Shadow+', 'warning'); return; }
-    // Preview sound
-    try {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain); gain.connect(ctx.destination);
-      osc.frequency.value = parseInt(b.dataset.freq);
-      osc.type = 'sine';
-      gain.gain.value = 0.3;
-      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
-      osc.start(); osc.stop(ctx.currentTime + 0.3);
-    } catch {}
-    grid.querySelectorAll('.notif-sound-btn').forEach(x => x.classList.remove('active'));
-    b.classList.add('active');
-    saveSettingsToggle('notifSound', b.dataset.sid);
+  ['notif-sounds-grid', 'mob-notif-sounds-grid'].forEach(gid => {
+    const grid = $(gid);
+    if (!grid) return;
+    grid.innerHTML = NOTIF_SOUNDS.map(s => `<button class="notif-sound-btn${s.id === current ? ' active' : ''}" data-sid="${s.id}" data-freq="${s.freq}"><i class="fas fa-music"></i> ${s.label}</button>`).join('');
+    grid.querySelectorAll('.notif-sound-btn').forEach(b => b.onclick = () => {
+      const canUse = S.user?.premium || S.user?.superUser || S.user?.premiumFree;
+      if (!canUse && b.dataset.sid !== 'default') { showToast('Требуется Shadow+', 'warning'); return; }
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.frequency.value = parseInt(b.dataset.freq);
+        osc.type = 'sine';
+        gain.gain.value = 0.3;
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+        osc.start(); osc.stop(ctx.currentTime + 0.3);
+      } catch {}
+      document.querySelectorAll('.notif-sound-btn').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+      saveSettingsToggle('notifSound', b.dataset.sid);
+    });
   });
 }
 

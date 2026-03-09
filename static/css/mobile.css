@@ -1,28 +1,29 @@
 /* ═══════════════════════════════════════════════════════
    Shadow Messenger — Mobile Settings (Telegram-style)
-   Separate file for mobile settings overrides
+   v5.3.3 — Unified design with CSS variables
    ═══════════════════════════════════════════════════════ */
 
-/* Force Telegram colors only inside .tg-style on mobile */
 @media (max-width: 768px) {
   .tg-style {
-    background: #17212B !important;
+    background: var(--bg-dark, #17212B) !important;
     padding: 0 !important;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     min-height: 100%;
   }
 
+  /* ── Header ─────────────────────────────── */
   .tg-mob-header {
     display: flex;
     align-items: center;
-    height: 60px;
+    height: 56px;
     padding: 0 16px;
-    border-bottom: 1px solid #2B3A4A;
+    border-bottom: 1px solid rgba(255,255,255,.06);
     position: sticky;
     top: 0;
     z-index: 3;
-    background: #17212B !important;
+    background: linear-gradient(135deg, var(--bg-sec, #1a2536), var(--bg-dark, #17212B)) !important;
+    backdrop-filter: blur(12px);
   }
 
   .tg-mob-title {
@@ -31,6 +32,7 @@
     font-size: 18px;
     font-weight: 700;
     color: #fff !important;
+    letter-spacing: .3px;
   }
 
   .tg-mob-search {
@@ -39,54 +41,59 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #fff !important;
-    font-size: 22px;
+    color: #adb5bd !important;
+    font-size: 20px;
     background: none;
     border: none;
     cursor: pointer;
     border-radius: 50%;
-    transition: background .15s;
+    transition: all .2s;
   }
 
   .tg-mob-search:active {
-    background: rgba(255,255,255,.08);
+    background: rgba(80,162,233,.15);
+    color: #50A2E9 !important;
   }
 
+  /* ── Cards ──────────────────────────────── */
   .tg-mob-card {
-    background: #1E2A3A !important;
-    margin-bottom: 24px;
+    background: var(--bg-sec, #1E2A3A) !important;
+    margin: 0 12px 16px;
     overflow: hidden;
-    border-radius: 0 !important;
+    border-radius: 14px !important;
+    box-shadow: 0 2px 12px rgba(0,0,0,.18);
+    border: 1px solid rgba(255,255,255,.04);
   }
 
-  /* Profile row */
+  /* ── Profile row ────────────────────────── */
   .tg-mob-profile {
     display: flex;
     align-items: center;
     height: 80px;
     padding: 0 16px;
     cursor: pointer;
-    transition: background .15s;
+    transition: background .2s;
   }
 
   .tg-mob-profile:active {
-    background: #253648;
+    background: rgba(80,162,233,.08);
   }
 
   .tg-mob-avatar {
-    width: 60px;
-    height: 60px;
+    width: 56px;
+    height: 56px;
     border-radius: 50%;
-    background: #3D4C5E !important;
+    background: linear-gradient(135deg, #3D6B99, #2A4A6B) !important;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 24px;
+    font-size: 22px;
     font-weight: 700;
     color: #fff !important;
     overflow: hidden;
     flex-shrink: 0;
     position: relative;
+    box-shadow: 0 2px 10px rgba(0,0,0,.2);
   }
 
   .tg-mob-avatar img {
@@ -100,13 +107,13 @@
   .tg-mob-pinfo {
     display: flex;
     flex-direction: column;
-    margin-left: 12px;
+    margin-left: 14px;
     flex: 1;
     min-width: 0;
   }
 
   .tg-mob-pname {
-    font-size: 16px;
+    font-size: 17px;
     font-weight: 700;
     color: #fff !important;
     overflow: hidden;
@@ -115,46 +122,52 @@
   }
 
   .tg-mob-pphone {
-    font-size: 14px;
-    color: #8E9AA6 !important;
-    margin-top: 2px;
+    font-size: 13px;
+    color: #7B8D9E !important;
+    margin-top: 3px;
   }
 
   .tg-mob-arr {
-    color: #8E9AA6 !important;
-    font-size: 16px;
+    color: #5A6A7A !important;
+    font-size: 14px;
     flex-shrink: 0;
     margin-left: 8px;
+    transition: transform .2s;
   }
 
-  /* Menu rows */
+  /* ── Menu rows ──────────────────────────── */
   .tg-mob-row {
     display: flex;
     align-items: center;
     width: 100%;
-    height: 50px;
+    min-height: 52px;
     padding: 0 16px;
     background: none !important;
     border: none;
     cursor: pointer;
-    transition: background .15s;
+    transition: background .2s;
     position: relative;
     color: #fff !important;
-    font-size: 16px;
+    font-size: 15px;
     text-align: left;
   }
 
   .tg-mob-row:active {
-    background: #253648 !important;
+    background: rgba(80,162,233,.08) !important;
   }
 
   .tg-mob-row > i:first-child {
-    width: 22px;
-    text-align: center;
-    color: #8E9AA6 !important;
-    font-size: 22px;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #50A2E9 !important;
+    font-size: 18px;
     flex-shrink: 0;
-    margin-right: 12px;
+    margin-right: 14px;
+    background: rgba(80,162,233,.1);
+    border-radius: 10px;
   }
 
   .tg-mob-row > span {
@@ -163,26 +176,28 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    font-weight: 500;
   }
 
   .tg-mob-row + .tg-mob-row::before {
     content: '';
     position: absolute;
     top: 0;
-    left: 52px;
-    right: 0;
+    left: 66px;
+    right: 16px;
     height: 1px;
-    background: #2B3A4A !important;
+    background: rgba(255,255,255,.05) !important;
   }
 
   .tg-mob-value {
-    color: #8E9AA6 !important;
-    font-size: 14px;
-    margin-right: 8px;
+    color: #50A2E9 !important;
+    font-size: 13px;
+    margin-right: 6px;
     flex-shrink: 0;
+    font-weight: 500;
   }
 
-  /* Logout */
+  /* ── Logout ─────────────────────────────── */
   .tg-mob-logout {
     justify-content: center;
   }
@@ -190,15 +205,15 @@
   .tg-mob-logout > span {
     flex: none;
     color: #E95658 !important;
-    font-weight: 700;
-    font-size: 16px;
+    font-weight: 600;
+    font-size: 15px;
   }
 
-  /* Toggle */
+  /* ── Toggle (iOS-style) ─────────────────── */
   .tg-toggle {
     position: relative;
-    width: 50px;
-    height: 28px;
+    width: 52px;
+    height: 32px;
     flex-shrink: 0;
   }
 
@@ -207,86 +222,105 @@
   .tg-toggle-track {
     position: absolute;
     inset: 0;
-    border-radius: 14px;
-    background: #3D4C5E !important;
-    transition: background .2s;
+    border-radius: 16px;
+    background: #3A4758 !important;
+    transition: background .3s cubic-bezier(.4,0,.2,1);
     cursor: pointer;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,.2);
   }
 
   .tg-toggle-track::after {
     content: '';
     position: absolute;
-    top: 2px;
-    left: 2px;
-    width: 24px;
-    height: 24px;
+    top: 3px;
+    left: 3px;
+    width: 26px;
+    height: 26px;
     border-radius: 50%;
     background: #fff !important;
-    transition: transform .2s;
+    transition: transform .3s cubic-bezier(.4,0,.2,1), box-shadow .3s;
+    box-shadow: 0 2px 6px rgba(0,0,0,.25);
   }
 
   .tg-toggle input:checked + .tg-toggle-track {
-    background: #50A2E9 !important;
+    background: linear-gradient(135deg, #50A2E9, #3D8BD4) !important;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,.1), 0 0 8px rgba(80,162,233,.3);
   }
 
   .tg-toggle input:checked + .tg-toggle-track::after {
-    transform: translateX(22px);
+    transform: translateX(20px);
+    box-shadow: 0 2px 8px rgba(0,0,0,.2);
   }
 
-  /* Toggle & radio rows */
+  /* ── Toggle & radio rows ────────────────── */
   .tg-toggle-row { cursor: pointer; }
   .tg-toggle-row .tg-mob-arr { display: none; }
 
   .tg-r-left {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 14px;
     flex: 1;
-    font-size: 16px;
+    font-size: 15px;
     color: #fff !important;
+    font-weight: 500;
   }
 
   .tg-r-left i {
-    width: 22px;
-    text-align: center;
-    color: #8E9AA6 !important;
-    font-size: 22px;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #50A2E9 !important;
+    font-size: 18px;
+    background: rgba(80,162,233,.1);
+    border-radius: 10px;
   }
 
-  /* Radio check */
+  /* ── Radio check (beautiful) ────────────── */
   .tg-radio-row { cursor: pointer; }
   .tg-radio-row input { display: none; }
 
   .tg-radio-check {
-    width: 22px;
-    height: 22px;
+    width: 24px;
+    height: 24px;
     border-radius: 50%;
-    border: 2px solid #8E9AA6 !important;
+    border: 2px solid #4A5568 !important;
     position: relative;
     flex-shrink: 0;
-    transition: border-color .2s;
+    transition: all .3s cubic-bezier(.4,0,.2,1);
   }
 
   .tg-radio-row input:checked ~ .tg-radio-check {
     border-color: #50A2E9 !important;
+    border-width: 2px;
+    box-shadow: 0 0 0 2px rgba(80,162,233,.2);
   }
 
   .tg-radio-row input:checked ~ .tg-radio-check::after {
     content: '';
     position: absolute;
-    inset: 3px;
+    inset: 4px;
     border-radius: 50%;
     background: #50A2E9 !important;
+    animation: radioPopIn .25s cubic-bezier(.4,0,.2,1);
   }
 
-  /* Sub-page headers */
+  @keyframes radioPopIn {
+    0% { transform: scale(0); }
+    60% { transform: scale(1.2); }
+    100% { transform: scale(1); }
+  }
+
+  /* ── Sub-page headers ───────────────────── */
   .tg-sub-header {
     display: flex;
     align-items: center;
-    height: 60px;
+    height: 56px;
     padding: 0 16px;
-    border-bottom: 1px solid #2B3A4A;
-    background: #1E2A3A !important;
+    border-bottom: 1px solid rgba(255,255,255,.06);
+    background: linear-gradient(135deg, var(--bg-sec, #1a2536), var(--bg-sec, #1E2A3A)) !important;
     gap: 12px;
     position: sticky;
     top: 0;
@@ -298,29 +332,31 @@
     font-size: 18px;
     font-weight: 700;
     color: #fff !important;
+    letter-spacing: .3px;
   }
 
   .tg-sub-back {
-    width: 32px;
-    height: 32px;
+    width: 36px;
+    height: 36px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #fff !important;
-    font-size: 24px;
-    background: none;
+    color: #50A2E9 !important;
+    font-size: 20px;
+    background: rgba(80,162,233,.1);
     border: none;
     cursor: pointer;
-    transition: background .15s;
+    transition: all .2s;
   }
 
   .tg-sub-back:active {
-    background: rgba(255,255,255,.1);
+    background: rgba(80,162,233,.2);
+    transform: scale(.92);
   }
 
   .tg-sub-body {
-    background: #17212B !important;
+    background: var(--bg-dark, #17212B) !important;
     padding: 16px 0;
     overflow-y: auto;
     flex: 1;
@@ -330,120 +366,137 @@
     position: absolute;
     inset: 0;
     z-index: 5;
-    background: #17212B !important;
+    background: var(--bg-dark, #17212B) !important;
     display: flex;
     flex-direction: column;
-    animation: mobSlideIn .2s ease;
+    animation: mobSlideIn .25s cubic-bezier(.4,0,.2,1);
   }
 
   .mob-settings-sub.hidden { display: none; }
 
-  /* Section hints */
+  @keyframes mobSlideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to   { transform: translateX(0); opacity: 1; }
+  }
+
+  /* ── Section hints ──────────────────────── */
   .tg-mob-section-hint {
-    font-size: 14px;
-    color: #8E9AA6 !important;
-    padding: 0 16px 8px;
+    font-size: 13px;
+    color: #50A2E9 !important;
+    padding: 4px 28px 10px;
     margin: 0;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: .5px;
+    letter-spacing: .8px;
   }
 
-  /* Fields */
+  /* ── Fields ─────────────────────────────── */
   .tg-mob-field {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 6px;
     padding: 10px 16px;
   }
 
   .tg-mob-field span {
     font-size: 12px;
-    color: #8E9AA6 !important;
+    color: #50A2E9 !important;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: .5px;
+    letter-spacing: .6px;
   }
 
   .tg-mob-field input,
   .tg-mob-field textarea {
-    padding: 10px 14px;
-    border-radius: 8px;
-    background: #253648 !important;
+    padding: 12px 14px;
+    border-radius: 12px;
+    background: rgba(37,54,72,.6) !important;
     color: #fff !important;
-    border: 1px solid #2B3A4A;
-    font-size: 16px;
-    transition: border .2s;
-    min-height: 44px;
+    border: 1px solid rgba(255,255,255,.06);
+    font-size: 15px;
+    transition: all .25s;
+    min-height: 46px;
+    backdrop-filter: blur(4px);
   }
 
   .tg-mob-field input:focus,
   .tg-mob-field textarea:focus {
     border-color: #50A2E9 !important;
     outline: none;
+    box-shadow: 0 0 0 3px rgba(80,162,233,.15);
+    background: rgba(37,54,72,.8) !important;
   }
 
   .tg-mob-field + .tg-mob-field {
-    border-top: 1px solid #2B3A4A;
+    border-top: 1px solid rgba(255,255,255,.04);
   }
 
-  /* Action buttons */
+  /* ── Action buttons ─────────────────────── */
   .tg-mob-action-btn {
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
-    padding: 12px 16px;
-    margin: 8px 16px;
-    border-radius: 8px;
-    background: #50A2E9 !important;
+    padding: 14px 20px;
+    margin: 10px 16px;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #50A2E9, #3D8BD4) !important;
     color: #fff !important;
-    font-size: 14px;
+    font-size: 15px;
     font-weight: 600;
     border: none;
     cursor: pointer;
-    transition: opacity .15s;
+    transition: all .2s;
+    box-shadow: 0 4px 14px rgba(80,162,233,.3);
+    letter-spacing: .3px;
   }
 
-  .tg-mob-action-btn:active { opacity: .8; }
+  .tg-mob-action-btn:active {
+    opacity: .85;
+    transform: scale(.98);
+    box-shadow: 0 2px 8px rgba(80,162,233,.2);
+  }
 
   .tg-mob-action-btn.tg-secondary {
-    background: #253648 !important;
-    color: #8E9AA6 !important;
+    background: rgba(37,54,72,.8) !important;
+    color: #adb5bd !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,.15);
   }
 
   .tg-mob-card-title {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
-    color: #8E9AA6 !important;
-    padding: 12px 16px 4px;
+    color: #50A2E9 !important;
+    padding: 14px 16px 6px;
     text-transform: uppercase;
-    letter-spacing: .5px;
+    letter-spacing: .6px;
   }
 
-  /* Avatar block */
+  /* ── Avatar block ───────────────────────── */
   .tg-mob-avatar-block {
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 20px;
+    padding: 24px 20px;
     gap: 8px;
     position: relative;
   }
 
   .tg-mob-big-avatar {
-    width: 80px;
-    height: 80px;
+    width: 88px;
+    height: 88px;
     border-radius: 50%;
-    background: #3D4C5E !important;
+    background: linear-gradient(135deg, #3D6B99, #2A4A6B) !important;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 28px;
+    font-size: 32px;
     font-weight: 700;
     color: #fff !important;
     overflow: hidden;
     position: relative;
+    box-shadow: 0 4px 16px rgba(0,0,0,.25);
+    border: 3px solid rgba(80,162,233,.2);
   }
 
   .tg-mob-big-avatar img {
@@ -456,51 +509,59 @@
 
   .tg-mob-cam-btn {
     position: absolute;
-    bottom: 14px;
-    right: calc(50% - 54px);
-    width: 32px;
-    height: 32px;
+    bottom: 18px;
+    right: calc(50% - 58px);
+    width: 34px;
+    height: 34px;
     border-radius: 50%;
-    background: #50A2E9 !important;
+    background: linear-gradient(135deg, #50A2E9, #3D8BD4) !important;
     color: #fff !important;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 13px;
-    border: none;
+    font-size: 14px;
+    border: 3px solid #1E2A3A;
     cursor: pointer;
-    box-shadow: 0 2px 8px rgba(0,0,0,.3);
+    box-shadow: 0 2px 10px rgba(80,162,233,.3);
+    transition: transform .2s;
   }
 
-  /* Input row */
-  .tg-mob-input-wrap { padding: 0 16px 10px; }
+  .tg-mob-cam-btn:active {
+    transform: scale(.9);
+  }
+
+  /* ── Input row ──────────────────────────── */
+  .tg-mob-input-wrap { padding: 0 16px 12px; }
 
   .tg-mob-input {
     width: 100%;
-    padding: 10px 14px;
-    border-radius: 8px;
-    background: #253648 !important;
+    padding: 12px 14px;
+    border-radius: 12px;
+    background: rgba(37,54,72,.6) !important;
     color: #fff !important;
-    border: 1px solid #2B3A4A;
+    border: 1px solid rgba(255,255,255,.06);
     font-size: 14px;
+    transition: all .25s;
   }
 
   .tg-mob-input:focus {
     border-color: #50A2E9 !important;
     outline: none;
+    box-shadow: 0 0 0 3px rgba(80,162,233,.15);
   }
 
   .tg-input-row { border-bottom: none !important; }
 
-  /* Features list */
+  /* ── Features list ──────────────────────── */
   .tg-mob-feat {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 12px 16px;
-    font-size: 16px;
+    gap: 14px;
+    padding: 13px 16px;
+    font-size: 15px;
     color: #fff !important;
     position: relative;
+    font-weight: 500;
   }
 
   .tg-mob-feat + .tg-mob-feat::before {
@@ -508,55 +569,303 @@
     position: absolute;
     top: 0;
     left: 52px;
-    right: 0;
+    right: 16px;
     height: 1px;
-    background: #2B3A4A;
+    background: rgba(255,255,255,.04);
   }
 
   .tg-mob-feat i {
-    width: 22px;
-    text-align: center;
-    color: #8E9AA6 !important;
-    font-size: 20px;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #7B8D9E !important;
+    font-size: 16px;
+    background: rgba(123,141,158,.1);
+    border-radius: 8px;
+    flex-shrink: 0;
   }
 
   .tg-mob-feat.tg-premium i {
     color: #50A2E9 !important;
+    background: rgba(80,162,233,.1);
   }
 
-  /* Premium card */
+  /* ── Premium card ───────────────────────── */
   .tg-mob-premium-card {
     display: flex;
     align-items: center;
     gap: 14px;
-    padding: 16px;
+    padding: 18px 16px;
+    background: linear-gradient(135deg, rgba(80,162,233,.1), rgba(100,180,255,.05)) !important;
+    border-bottom: 1px solid rgba(80,162,233,.1);
   }
 
-  .tg-mob-premium-icon { font-size: 36px; }
+  .tg-mob-premium-card.psc-premium {
+    background: linear-gradient(135deg, rgba(80,162,233,.15), rgba(100,180,255,.08)) !important;
+  }
+
+  .tg-mob-premium-card.psc-super {
+    background: linear-gradient(135deg, rgba(255,215,0,.12), rgba(255,180,0,.06)) !important;
+    border-bottom-color: rgba(255,215,0,.15);
+  }
+
+  .tg-mob-premium-icon {
+    font-size: 40px;
+    filter: drop-shadow(0 2px 6px rgba(0,0,0,.2));
+  }
 
   .tg-mob-premium-info {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 3px;
   }
 
   .tg-mob-premium-role {
-    font-size: 16px;
+    font-size: 17px;
     font-weight: 700;
     color: #fff !important;
   }
 
   .tg-mob-premium-desc {
-    font-size: 12px;
-    color: #8E9AA6 !important;
+    font-size: 13px;
+    color: #7B8D9E !important;
+    line-height: 1.3;
   }
 
-  /* Session items */
+  /* ── Mobile premium pickers ─────────────── */
+  .mob-premium-section-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #fff !important;
+    padding: 16px 16px 6px;
+  }
+
+  .mob-premium-hint {
+    font-size: 13px;
+    color: #7B8D9E !important;
+    padding: 0 16px 10px;
+    line-height: 1.4;
+  }
+
+  .mob-pe-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 8px 16px 14px;
+  }
+
+  .mob-pe-grid .pe-emoji {
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    border-radius: 12px;
+    background: rgba(37,54,72,.6);
+    cursor: pointer;
+    transition: all .2s;
+    border: 2px solid transparent;
+  }
+
+  .mob-pe-grid .pe-emoji.active {
+    border-color: #50A2E9;
+    background: rgba(80,162,233,.15);
+    box-shadow: 0 0 0 2px rgba(80,162,233,.2);
+  }
+
+  .mob-pe-grid .pe-emoji:active {
+    transform: scale(.9);
+  }
+
+  .mob-pe-grid .pe-badge {
+    height: 36px;
+    padding: 0 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    border-radius: 10px;
+    background: rgba(37,54,72,.6);
+    color: #adb5bd;
+    cursor: pointer;
+    transition: all .2s;
+    border: 2px solid transparent;
+    letter-spacing: .5px;
+  }
+
+  .mob-pe-grid .pe-badge.active {
+    border-color: #50A2E9;
+    background: rgba(80,162,233,.15);
+    color: #50A2E9;
+    box-shadow: 0 0 0 2px rgba(80,162,233,.2);
+  }
+
+  .mob-pe-grid .pe-badge:active {
+    transform: scale(.92);
+  }
+
+  .mob-pe-grid .pe-color {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: all .2s;
+    border: 3px solid transparent;
+    box-shadow: 0 2px 6px rgba(0,0,0,.2);
+  }
+
+  .mob-pe-grid .pe-color.active {
+    border-color: #fff;
+    box-shadow: 0 0 0 3px rgba(80,162,233,.4), 0 2px 8px rgba(0,0,0,.3);
+    transform: scale(1.1);
+  }
+
+  .mob-pe-grid .pe-color:active {
+    transform: scale(.9);
+  }
+
+  .mob-premium-input-row {
+    display: flex;
+    gap: 8px;
+    padding: 0 16px 14px;
+    align-items: center;
+  }
+
+  .mob-premium-input-row input {
+    flex: 1;
+    padding: 10px 14px;
+    border-radius: 12px;
+    background: rgba(37,54,72,.6) !important;
+    color: #fff !important;
+    border: 1px solid rgba(255,255,255,.06);
+    font-size: 14px;
+    min-height: 42px;
+    transition: all .25s;
+  }
+
+  .mob-premium-input-row input:focus {
+    border-color: #50A2E9 !important;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(80,162,233,.15);
+  }
+
+  .mob-premium-input-row .mob-btn-sm {
+    padding: 10px 16px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, #50A2E9, #3D8BD4) !important;
+    color: #fff !important;
+    font-size: 13px;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all .2s;
+    box-shadow: 0 2px 8px rgba(80,162,233,.25);
+  }
+
+  .mob-premium-input-row .mob-btn-sm:active {
+    transform: scale(.95);
+  }
+
+  /* Custom status editor for mobile */
+  .mob-cs-editor {
+    padding: 0 16px 14px;
+  }
+
+  .mob-cs-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+    align-items: center;
+  }
+
+  .mob-cs-row input[type="text"] {
+    flex: 1;
+    padding: 10px 14px;
+    border-radius: 12px;
+    background: rgba(37,54,72,.6) !important;
+    color: #fff !important;
+    border: 1px solid rgba(255,255,255,.06);
+    font-size: 14px;
+  }
+
+  .mob-cs-row input[type="color"] {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    border: 2px solid rgba(255,255,255,.1);
+    background: transparent;
+    cursor: pointer;
+    padding: 2px;
+  }
+
+  /* Social links for mobile */
+  .mob-social-field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px 16px;
+  }
+
+  .mob-social-field label {
+    font-size: 12px;
+    color: #50A2E9 !important;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .6px;
+  }
+
+  .mob-social-field input {
+    padding: 10px 14px;
+    border-radius: 12px;
+    background: rgba(37,54,72,.6) !important;
+    color: #fff !important;
+    border: 1px solid rgba(255,255,255,.06);
+    font-size: 14px;
+    transition: all .25s;
+  }
+
+  .mob-social-field input:focus {
+    border-color: #50A2E9 !important;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(80,162,233,.15);
+  }
+
+  .mob-premium-divider {
+    height: 1px;
+    background: rgba(255,255,255,.05);
+    margin: 6px 16px;
+  }
+
+  .mob-premium-locked {
+    opacity: .5;
+    pointer-events: none;
+    position: relative;
+  }
+
+  .mob-premium-lock-badge {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 16px;
+    margin: 0 16px 10px;
+    border-radius: 10px;
+    background: rgba(80,162,233,.08);
+    color: #50A2E9;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  /* ── Session items ──────────────────────── */
   .tg-mob-session {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 12px 16px;
+    gap: 14px;
+    padding: 14px 16px;
     position: relative;
   }
 
@@ -565,39 +874,170 @@
     position: absolute;
     top: 0;
     left: 52px;
-    right: 0;
+    right: 16px;
     height: 1px;
-    background: #2B3A4A;
+    background: rgba(255,255,255,.04);
   }
 
   .tg-mob-session i {
-    width: 22px;
-    text-align: center;
-    color: #8E9AA6 !important;
-    font-size: 18px;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #50A2E9 !important;
+    font-size: 16px;
+    background: rgba(80,162,233,.1);
+    border-radius: 10px;
+    flex-shrink: 0;
   }
 
   .tg-mob-session-info {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 3px;
   }
 
   .tg-mob-session-device {
     font-size: 14px;
     color: #fff !important;
+    font-weight: 500;
   }
 
   .tg-mob-session-device small {
     color: #50A2E9 !important;
+    font-weight: 600;
   }
 
   .tg-mob-session-date {
     font-size: 12px;
-    color: #8E9AA6 !important;
+    color: #7B8D9E !important;
   }
 
   .tg-mob-session.current {
-    background: rgba(80,162,233,.08);
+    background: rgba(80,162,233,.06);
+  }
+
+  /* ── Premium themes grid for mobile ─────── */
+  .mob-theme-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    padding: 8px 16px 14px;
+  }
+
+  .mob-theme-grid .theme-swatch {
+    border-radius: 12px;
+    padding: 6px;
+    cursor: pointer;
+    transition: all .2s;
+    border: 2px solid transparent;
+    min-height: 80px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+  }
+
+  .mob-theme-grid .theme-swatch.active {
+    border-color: #50A2E9;
+    box-shadow: 0 0 0 2px rgba(80,162,233,.2);
+  }
+
+  .mob-theme-grid .ts-name {
+    font-size: 10px;
+    color: rgba(255,255,255,.7);
+    font-weight: 600;
+    text-align: center;
+  }
+
+  .mob-theme-grid .ts-preview {
+    display: grid;
+    grid-template-columns: 12px 24px 1fr;
+    gap: 2px;
+    width: 100%;
+    height: 40px;
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  .mob-theme-grid .ts-sb, .mob-theme-grid .ts-pnl, .mob-theme-grid .ts-ch {
+    border-radius: 3px;
+  }
+
+  .mob-theme-grid .ts-m1, .mob-theme-grid .ts-m2 {
+    width: 70%;
+    height: 8px;
+    border-radius: 4px;
+    margin: 3px auto;
+  }
+
+  /* ── Wallpaper grid for mobile ──────────── */
+  #mob-wallpaper-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+    gap: 10px;
+    padding: 14px 16px;
+  }
+
+  #mob-wallpaper-grid .wp-swatch {
+    height: 72px;
+    border-radius: 12px;
+    background: rgba(37,54,72,.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: all .2s;
+  }
+
+  #mob-wallpaper-grid .wp-swatch.active {
+    border-color: #50A2E9;
+    box-shadow: 0 0 0 2px rgba(80,162,233,.2);
+  }
+
+  #mob-wallpaper-grid .wp-label {
+    font-size: 16px;
+    color: #adb5bd;
+    font-weight: 600;
+  }
+
+  /* ── Notification sounds grid for mobile ── */
+  #mob-notif-sounds-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 14px 16px;
+  }
+
+  #mob-notif-sounds-grid .notif-sound-btn {
+    padding: 10px 14px;
+    border-radius: 12px;
+    background: rgba(37,54,72,.6);
+    color: #adb5bd;
+    border: 2px solid transparent;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all .2s;
+  }
+
+  #mob-notif-sounds-grid .notif-sound-btn.active {
+    border-color: #50A2E9;
+    background: rgba(80,162,233,.15);
+    color: #50A2E9;
+  }
+
+  /* ── Custom theme inputs for mobile ─────── */
+  #mob-custom-theme-section .tg-mob-field input[type="color"] {
+    width: 100%;
+    height: 42px;
+    border-radius: 12px;
+    border: 2px solid rgba(255,255,255,.06);
+    cursor: pointer;
+    padding: 4px;
+    background: transparent;
   }
 }

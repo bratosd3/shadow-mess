@@ -53,65 +53,86 @@ window.callsModule = (() => {
       const source = _audioCtx.createMediaStreamSource(stream);
       const dest = _audioCtx.createMediaStreamDestination();
 
-      // Highpass — removes rumble below 120Hz (stronger than 80Hz)
-      const highpass = _audioCtx.createBiquadFilter();
-      highpass.type = 'highpass';
-      highpass.frequency.value = 120;
-      highpass.Q.value = 0.8;
+      // ── Stage 1: Subsonic rumble removal (4th order) ──
+      const hp1 = _audioCtx.createBiquadFilter();
+      hp1.type = 'highpass'; hp1.frequency.value = 75; hp1.Q.value = 0.5;
+      const hp2 = _audioCtx.createBiquadFilter();
+      hp2.type = 'highpass'; hp2.frequency.value = 100; hp2.Q.value = 0.7;
+      const hp3 = _audioCtx.createBiquadFilter();
+      hp3.type = 'highpass'; hp3.frequency.value = 150; hp3.Q.value = 0.5;
 
-      // Second highpass for steeper roll-off
-      const highpass2 = _audioCtx.createBiquadFilter();
-      highpass2.type = 'highpass';
-      highpass2.frequency.value = 80;
-      highpass2.Q.value = 0.5;
-
-      // Notch filter — removes 50Hz hum (power line)
+      // ── Stage 2: Mains hum removal (50 + 60 Hz + harmonics) ──
       const notch50 = _audioCtx.createBiquadFilter();
-      notch50.type = 'notch';
-      notch50.frequency.value = 50;
-      notch50.Q.value = 10;
-
-      // Notch filter — removes 60Hz hum (US power line)
+      notch50.type = 'notch'; notch50.frequency.value = 50; notch50.Q.value = 15;
       const notch60 = _audioCtx.createBiquadFilter();
-      notch60.type = 'notch';
-      notch60.frequency.value = 60;
-      notch60.Q.value = 10;
+      notch60.type = 'notch'; notch60.frequency.value = 60; notch60.Q.value = 15;
+      const notch100 = _audioCtx.createBiquadFilter();
+      notch100.type = 'notch'; notch100.frequency.value = 100; notch100.Q.value = 12;
+      const notch120 = _audioCtx.createBiquadFilter();
+      notch120.type = 'notch'; notch120.frequency.value = 120; notch120.Q.value = 12;
 
-      // Lowpass — removes hiss above 12kHz
-      const lowpass = _audioCtx.createBiquadFilter();
-      lowpass.type = 'lowpass';
-      lowpass.frequency.value = 12000;
-      lowpass.Q.value = 0.7;
+      // ── Stage 3: High-frequency hiss removal ──
+      const lp1 = _audioCtx.createBiquadFilter();
+      lp1.type = 'lowpass'; lp1.frequency.value = 8000; lp1.Q.value = 0.5;
+      const lp2 = _audioCtx.createBiquadFilter();
+      lp2.type = 'lowpass'; lp2.frequency.value = 10000; lp2.Q.value = 0.7;
 
-      // Presence boost for voice clarity (2-4kHz)
+      // ── Stage 4: De-emphasize non-voice bands ──
+      // Cut muddy low-mids (200-400Hz)
+      const cutMud = _audioCtx.createBiquadFilter();
+      cutMud.type = 'peaking'; cutMud.frequency.value = 300; cutMud.gain.value = -3; cutMud.Q.value = 0.8;
+      // Cut nasal resonance (~800Hz)
+      const cutNasal = _audioCtx.createBiquadFilter();
+      cutNasal.type = 'peaking'; cutNasal.frequency.value = 800; cutNasal.gain.value = -1.5; cutNasal.Q.value = 1;
+
+      // ── Stage 5: Voice clarity enhancement ──
+      // Presence boost (2-4kHz) for articulation
       const presence = _audioCtx.createBiquadFilter();
-      presence.type = 'peaking';
-      presence.frequency.value = 3000;
-      presence.gain.value = 3;
-      presence.Q.value = 1;
+      presence.type = 'peaking'; presence.frequency.value = 2800; presence.gain.value = 4; presence.Q.value = 0.8;
+      // Warmth (fundamental voice range)
+      const warmth = _audioCtx.createBiquadFilter();
+      warmth.type = 'peaking'; warmth.frequency.value = 500; warmth.gain.value = 1.5; warmth.Q.value = 1;
 
-      // Compressor — aggressive noise gate effect
-      const compressor = _audioCtx.createDynamicsCompressor();
-      compressor.threshold.value = -35;
-      compressor.knee.value = 15;
-      compressor.ratio.value = 6;
-      compressor.attack.value = 0.002;
-      compressor.release.value = 0.15;
+      // ── Stage 6: Noise gate / compressor ──
+      // Expander-like behavior: aggressive compression to suppress low-level noise
+      const gate = _audioCtx.createDynamicsCompressor();
+      gate.threshold.value = -40;
+      gate.knee.value = 6;
+      gate.ratio.value = 12;
+      gate.attack.value = 0.001;
+      gate.release.value = 0.08;
 
-      // Gain
-      const gain = _audioCtx.createGain();
-      gain.gain.value = 1.3;
+      // Secondary gentle compressor for voice leveling
+      const comp = _audioCtx.createDynamicsCompressor();
+      comp.threshold.value = -20;
+      comp.knee.value = 20;
+      comp.ratio.value = 3;
+      comp.attack.value = 0.003;
+      comp.release.value = 0.25;
 
-      // Chain: highpass2 → highpass → notch50 → notch60 → lowpass → presence → compressor → gain
-      source.connect(highpass2);
-      highpass2.connect(highpass);
-      highpass.connect(notch50);
+      // ── Stage 7: Output gain ──
+      const outGain = _audioCtx.createGain();
+      outGain.gain.value = 1.5;
+
+      // Chain: source → hp1 → hp2 → hp3 → notch50 → notch60 → notch100 → notch120
+      //        → cutMud → warmth → cutNasal → presence → lp1 → lp2 → gate → comp → outGain → dest
+      source.connect(hp1);
+      hp1.connect(hp2);
+      hp2.connect(hp3);
+      hp3.connect(notch50);
       notch50.connect(notch60);
-      notch60.connect(lowpass);
-      lowpass.connect(presence);
-      presence.connect(compressor);
-      compressor.connect(gain);
-      gain.connect(dest);
+      notch60.connect(notch100);
+      notch100.connect(notch120);
+      notch120.connect(cutMud);
+      cutMud.connect(warmth);
+      warmth.connect(cutNasal);
+      cutNasal.connect(presence);
+      presence.connect(lp1);
+      lp1.connect(lp2);
+      lp2.connect(gate);
+      gate.connect(comp);
+      comp.connect(outGain);
+      outGain.connect(dest);
 
       // Replace audio track
       const processedTrack = dest.stream.getAudioTracks()[0];
@@ -120,7 +141,7 @@ window.callsModule = (() => {
       stream.addTrack(processedTrack);
 
       processedTrack._origTrack = origTrack;
-      _noiseNode = { source, highpass, highpass2, notch50, notch60, lowpass, presence, compressor, gain, dest };
+      _noiseNode = { source, dest, hp1, hp2, hp3, notch50, notch60, notch100, notch120, cutMud, warmth, cutNasal, presence, lp1, lp2, gate, comp, outGain };
     } catch (e) {
       console.warn('[calls] Noise suppression failed:', e);
     }

@@ -371,6 +371,7 @@ async function sendPushForMessage(msg, chat) {
 
 // ── Root ──────────────────────────────────────────────────────────────────
 app.get('/', (req, res) => res.sendFile(path.join(STATIC_DIR, 'index.html')));
+app.get('/admin', (req, res) => res.sendFile(path.join(STATIC_DIR, 'admin.html')));
 
 // Desktop app version check
 app.get('/api/desktop-version', (req, res) => {
@@ -788,6 +789,30 @@ app.post('/api/login', async (req, res) => {
   } catch (err) {
     console.error('Login error:', err);
     res.status(500).json({ error: 'Ошибка сервера' });
+  }
+});
+
+// ── Demo mode ─────────────────────────────────────────────────────────────
+app.post('/api/demo', async (req, res) => {
+  try {
+    const demoId = 'demo_' + Date.now().toString(36);
+    const username = demoId.slice(0, 16);
+    const hash = await bcrypt.hash('demo', 10);
+    const user = await User.create({
+      username,
+      displayName: 'Demo User',
+      passwordHash: hash,
+      bio: 'Демо-аккаунт',
+      premium: true,
+      settings: { theme: 'shadow-purple', animations: true },
+    });
+    const sessionId = uuidv4();
+    const token = jwt.sign({ id: user._id, sid: sessionId }, JWT_SECRET, { expiresIn: '1d' });
+    await Session.create({ _id: sessionId, userId: user._id, device: 'Demo', ip: '' });
+    res.json({ token, user: sanitizeUser(user), demo: true });
+  } catch (err) {
+    console.error('Demo error:', err);
+    res.status(500).json({ error: 'Ошибка создания демо' });
   }
 });
 

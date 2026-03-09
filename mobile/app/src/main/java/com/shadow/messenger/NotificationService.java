@@ -50,6 +50,7 @@ public class NotificationService extends Service {
         super.onCreate();
         handler = new Handler(Looper.getMainLooper());
         createServiceChannel();
+        createMessageChannel();
     }
 
     @Override
@@ -107,13 +108,37 @@ public class NotificationService extends Service {
 
     private void createServiceChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            // Service channel — completely silent and invisible
             NotificationChannel channel = new NotificationChannel(
                 CHANNEL_SERVICE,
-                "Shadow Messenger Service",
+                "Фоновая работа",
                 NotificationManager.IMPORTANCE_MIN
             );
             channel.setShowBadge(false);
             channel.setSound(null, null);
+            channel.enableVibration(false);
+            channel.enableLights(false);
+            channel.setLockscreenVisibility(Notification.VISIBILITY_SECRET);
+            channel.setDescription("Фоновое получение сообщений");
+            NotificationManager nm = getSystemService(NotificationManager.class);
+            if (nm != null) nm.createNotificationChannel(channel);
+        }
+    }
+
+    private void createMessageChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(
+                CHANNEL_MSG,
+                "Сообщения",
+                NotificationManager.IMPORTANCE_HIGH
+            );
+            channel.setShowBadge(true);
+            channel.enableVibration(true);
+            channel.setVibrationPattern(new long[]{0, 200, 100, 200});
+            channel.enableLights(true);
+            channel.setLightColor(0xFF50A2E9);
+            channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+            channel.setDescription("Уведомления о новых сообщениях");
             NotificationManager nm = getSystemService(NotificationManager.class);
             if (nm != null) nm.createNotificationChannel(channel);
         }
@@ -124,14 +149,26 @@ public class NotificationService extends Service {
         PendingIntent pi = PendingIntent.getActivity(this, 0, intent,
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
-        return new NotificationCompat.Builder(this, CHANNEL_SERVICE)
+        // Make the foreground notification as invisible as possible:
+        // - No title, no text, no ticker
+        // - PRIORITY_MIN + IMPORTANCE_NONE channel
+        // - VISIBILITY_SECRET hides from lockscreen
+        // - FOREGROUND_SERVICE_DEFERRED delays showing
+        // - setShowWhen(false) hides timestamp
+        // - setSilent(true) prevents sound/vibration
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_SERVICE)
             .setSmallIcon(R.drawable.ic_notification)
-            .setContentTitle("Shadow Messenger")
-            .setContentText("Ожидание сообщений...")
             .setPriority(NotificationCompat.PRIORITY_MIN)
-            .setOngoing(true)
             .setContentIntent(pi)
-            .build();
+            .setVisibility(NotificationCompat.VISIBILITY_SECRET)
+            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_DEFERRED)
+            .setShowWhen(false)
+            .setSilent(true)
+            .setOnlyAlertOnce(true)
+            .setGroup("shadow_bg")
+            .setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_SUMMARY);
+
+        return builder.build();
     }
 
     private void acquireWakeLock() {
