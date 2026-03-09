@@ -1074,7 +1074,7 @@
     position: fixed;
     inset: 0;
     z-index: 10000;
-    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    background: linear-gradient(135deg, var(--bg-dark), var(--bg-sec));
   }
   .incoming-avatar,
   .vk-call-avatar {

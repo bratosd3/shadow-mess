@@ -10,6 +10,8 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$ProjectRoot = Split-Path $PSScriptRoot -Parent
+Push-Location $ProjectRoot
 
 Write-Host "`n=== Shadow Messenger Deploy ===" -ForegroundColor Cyan
 
@@ -61,3 +63,4 @@ if (Test-Path $hookFile) {
 
 Write-Host "`n=== Deploy complete! ===" -ForegroundColor Green
 Write-Host "  Commit: $Message" -ForegroundColor DarkGray
+Pop-Location

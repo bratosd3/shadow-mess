@@ -101,7 +101,7 @@ img,video{max-width:100%;display:block}
 .ci-time{font-size:11px;color:var(--text-muted);flex-shrink:0;margin-left:8px}
 .ci-bottom{display:flex;justify-content:space-between;align-items:center;margin-top:2px}
 .ci-msg{font-size:13px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ci-badge{min-width:18px;height:18px;border-radius:9px;background:var(--brand);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 5px;flex-shrink:0}
+.ci-badge{min-width:20px;height:20px;border-radius:10px;background:var(--brand);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;padding:0 6px;flex-shrink:0;box-sizing:border-box}
 
 /* Sub-tabs / Contacts */
 .sub-tabs{display:flex;padding:4px 8px;gap:4px;flex-wrap:wrap}
@@ -316,7 +316,7 @@ img,video{max-width:100%;display:block}
 #bottom-tabs{display:none;background:var(--bg-dark);border-top:1px solid rgba(0,0,0,.3);height:var(--btab-h);padding-bottom:env(safe-area-inset-bottom)}
 .btab{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;color:var(--text-muted);font-size:10px;transition:var(--tr);position:relative;-webkit-tap-highlight-color:transparent}
 .btab i{font-size:18px}.btab.active{color:var(--brand)}
-.btab-badge{position:absolute;top:4px;right:calc(50% - 18px);min-width:16px;height:16px;border-radius:8px;background:var(--red);color:#fff;font-size:9px;display:flex;align-items:center;justify-content:center;padding:0 4px;font-weight:700}
+.btab-badge{position:absolute;top:4px;right:calc(50% - 18px);min-width:18px;height:18px;border-radius:9px;background:var(--red);color:#fff;font-size:9px;display:flex;align-items:center;justify-content:center;padding:0 4px;font-weight:700;box-sizing:border-box}
 
 /* Recording overlay */
 #rec-overlay{position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:9500;display:flex;align-items:center;justify-content:center}
@@ -577,7 +577,10 @@ body.ghost-active .sb-user{box-shadow:0 0 12px rgba(139,92,246,.4)}
   #app.chat-open #bottom-tabs{display:none}
   #app.chat-open #chat-back{display:flex}
   #members-panel.mob-show{display:flex!important;position:fixed;inset:0;z-index:7000;background:var(--bg-sec)}
-  .chat-item{margin:0 4px}
+  .chat-item{margin:0 4px;padding:10px 12px}
+  .chat-item .ci-avatar{width:50px;height:50px;font-size:18px}
+  .ci-online{width:14px;height:14px;border:2px solid var(--bg-sec)}
+  .ci-badge{min-width:22px;height:22px;border-radius:11px;font-size:12px;padding:0 6px;box-sizing:border-box}
   #messages-container{padding:8px}
   /* ── Input panel fix: stick to the bottom reliably ── */
   #chat-input{padding:8px 8px;padding-bottom:max(8px, env(safe-area-inset-bottom));position:fixed;bottom:0;left:0;right:0;z-index:10;background:var(--bg-sec);border-top:1px solid var(--bg-active)}

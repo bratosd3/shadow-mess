@@ -5,7 +5,7 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "build": "electron-packager . \"Shadow Messenger\" --platform=win32 --arch=x64 --icon=../static/icons/icon.ico --out=dist --overwrite --asar",
+    "build": "electron-packager . \"Shadow Messenger\" --platform=win32 --arch=x64 --icon=../../static/icons/icon.ico --out=dist --overwrite --asar",
     "build-installer": "electron-builder --win nsis"
   },
   "author": "Shadow Team",
@@ -27,7 +27,7 @@
       "target": [
         "nsis"
       ],
-      "icon": "../static/icons/icon-512.png",
+      "icon": "../../static/icons/icon-512.png",
       "sign": null,
       "signingHashAlgorithms": null
     },
@@ -35,9 +35,9 @@
       "oneClick": false,
       "allowToChangeInstallationDirectory": true,
       "perMachine": true,
-      "installerHeaderIcon": "../static/icons/icon.ico",
-      "installerIcon": "../static/icons/icon.ico",
-      "uninstallerIcon": "../static/icons/icon.ico",
+      "installerHeaderIcon": "../../static/icons/icon.ico",
+      "installerIcon": "../../static/icons/icon.ico",
+      "uninstallerIcon": "../../static/icons/icon.ico",
       "installerSidebar": null,
       "shortcutName": "Shadow Messenger",
       "createDesktopShortcut": "always",
@@ -58,7 +58,7 @@
     ],
     "extraResources": [
       {
-        "from": "../static/icons/icon-512.png",
+        "from": "../../static/icons/icon-512.png",
         "to": "icon.png"
       }
     ]
