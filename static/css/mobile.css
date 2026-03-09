@@ -5,7 +5,7 @@
 
 @media (max-width: 768px) {
   .tg-style {
-    background: var(--bg-dark, #17212B) !important;
+    background: var(--bg-dark) !important;
     padding: 0 !important;
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
@@ -22,7 +22,7 @@
     position: sticky;
     top: 0;
     z-index: 3;
-    background: linear-gradient(135deg, var(--bg-sec, #1a2536), var(--bg-dark, #17212B)) !important;
+    background: linear-gradient(135deg, var(--bg-sec), var(--bg-dark)) !important;
     backdrop-filter: blur(12px);
   }
 
@@ -31,7 +31,7 @@
     text-align: center;
     font-size: 18px;
     font-weight: 700;
-    color: #fff !important;
+    color: var(--head) !important;
     letter-spacing: .3px;
   }
 
@@ -41,7 +41,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #adb5bd !important;
+    color: var(--text-muted) !important;
     font-size: 20px;
     background: none;
     border: none;
@@ -51,13 +51,13 @@
   }
 
   .tg-mob-search:active {
-    background: rgba(80,162,233,.15);
-    color: #50A2E9 !important;
+    background: rgba(88,101,242,.15);
+    color: var(--brand) !important;
   }
 
   /* ── Cards ──────────────────────────────── */
   .tg-mob-card {
-    background: var(--bg-sec, #1E2A3A) !important;
+    background: var(--bg-sec) !important;
     margin: 0 12px 16px;
     overflow: hidden;
     border-radius: 14px !important;
@@ -76,20 +76,20 @@
   }
 
   .tg-mob-profile:active {
-    background: rgba(80,162,233,.08);
+    background: rgba(88,101,242,.08);
   }
 
   .tg-mob-avatar {
     width: 56px;
     height: 56px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #3D6B99, #2A4A6B) !important;
+    background: linear-gradient(135deg, var(--brand), var(--brand-h)) !important;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 22px;
     font-weight: 700;
-    color: #fff !important;
+    color: var(--head) !important;
     overflow: hidden;
     flex-shrink: 0;
     position: relative;
@@ -115,7 +115,7 @@
   .tg-mob-pname {
     font-size: 17px;
     font-weight: 700;
-    color: #fff !important;
+    color: var(--head) !important;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -123,12 +123,12 @@
 
   .tg-mob-pphone {
     font-size: 13px;
-    color: #7B8D9E !important;
+    color: var(--text-muted) !important;
     margin-top: 3px;
   }
 
   .tg-mob-arr {
-    color: #5A6A7A !important;
+    color: var(--text-muted) !important;
     font-size: 14px;
     flex-shrink: 0;
     margin-left: 8px;
@@ -147,13 +147,13 @@
     cursor: pointer;
     transition: background .2s;
     position: relative;
-    color: #fff !important;
+    color: var(--head) !important;
     font-size: 15px;
     text-align: left;
   }
 
   .tg-mob-row:active {
-    background: rgba(80,162,233,.08) !important;
+    background: rgba(88,101,242,.08) !important;
   }
 
   .tg-mob-row > i:first-child {
@@ -162,11 +162,11 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #50A2E9 !important;
+    color: var(--brand) !important;
     font-size: 18px;
     flex-shrink: 0;
     margin-right: 14px;
-    background: rgba(80,162,233,.1);
+    background: rgba(88,101,242,.1);
     border-radius: 10px;
   }
 
@@ -190,7 +190,7 @@
   }
 
   .tg-mob-value {
-    color: #50A2E9 !important;
+    color: var(--brand) !important;
     font-size: 13px;
     margin-right: 6px;
     flex-shrink: 0;
@@ -204,7 +204,7 @@
 
   .tg-mob-logout > span {
     flex: none;
-    color: #E95658 !important;
+    color: var(--red) !important;
     font-weight: 600;
     font-size: 15px;
   }
@@ -223,7 +223,7 @@
     position: absolute;
     inset: 0;
     border-radius: 16px;
-    background: #3A4758 !important;
+    background: var(--bg-active) !important;
     transition: background .3s cubic-bezier(.4,0,.2,1);
     cursor: pointer;
     box-shadow: inset 0 1px 3px rgba(0,0,0,.2);
@@ -243,8 +243,8 @@
   }
 
   .tg-toggle input:checked + .tg-toggle-track {
-    background: linear-gradient(135deg, #50A2E9, #3D8BD4) !important;
-    box-shadow: inset 0 1px 3px rgba(0,0,0,.1), 0 0 8px rgba(80,162,233,.3);
+    background: linear-gradient(135deg, var(--brand), var(--brand-h)) !important;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,.1), 0 0 8px rgba(88,101,242,.3);
   }
 
   .tg-toggle input:checked + .tg-toggle-track::after {
@@ -262,7 +262,7 @@
     gap: 14px;
     flex: 1;
     font-size: 15px;
-    color: #fff !important;
+    color: var(--head) !important;
     font-weight: 500;
   }
 
@@ -272,9 +272,9 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #50A2E9 !important;
+    color: var(--brand) !important;
     font-size: 18px;
-    background: rgba(80,162,233,.1);
+    background: rgba(88,101,242,.1);
     border-radius: 10px;
   }
 
@@ -286,16 +286,16 @@
     width: 24px;
     height: 24px;
     border-radius: 50%;
-    border: 2px solid #4A5568 !important;
+    border: 2px solid var(--bg-active) !important;
     position: relative;
     flex-shrink: 0;
     transition: all .3s cubic-bezier(.4,0,.2,1);
   }
 
   .tg-radio-row input:checked ~ .tg-radio-check {
-    border-color: #50A2E9 !important;
+    border-color: var(--brand) !important;
     border-width: 2px;
-    box-shadow: 0 0 0 2px rgba(80,162,233,.2);
+    box-shadow: 0 0 0 2px rgba(88,101,242,.2);
   }
 
   .tg-radio-row input:checked ~ .tg-radio-check::after {
@@ -303,7 +303,7 @@
     position: absolute;
     inset: 4px;
     border-radius: 50%;
-    background: #50A2E9 !important;
+    background: var(--brand) !important;
     animation: radioPopIn .25s cubic-bezier(.4,0,.2,1);
   }
 
@@ -320,7 +320,7 @@
     height: 56px;
     padding: 0 16px;
     border-bottom: 1px solid rgba(255,255,255,.06);
-    background: linear-gradient(135deg, var(--bg-sec, #1a2536), var(--bg-sec, #1E2A3A)) !important;
+    background: linear-gradient(135deg, var(--bg-sec), var(--bg-sec)) !important;
     gap: 12px;
     position: sticky;
     top: 0;
@@ -331,7 +331,7 @@
     margin: 0;
     font-size: 18px;
     font-weight: 700;
-    color: #fff !important;
+    color: var(--head) !important;
     letter-spacing: .3px;
   }
 
@@ -342,21 +342,21 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #50A2E9 !important;
+    color: var(--brand) !important;
     font-size: 20px;
-    background: rgba(80,162,233,.1);
+    background: rgba(88,101,242,.1);
     border: none;
     cursor: pointer;
     transition: all .2s;
   }
 
   .tg-sub-back:active {
-    background: rgba(80,162,233,.2);
+    background: rgba(88,101,242,.2);
     transform: scale(.92);
   }
 
   .tg-sub-body {
-    background: var(--bg-dark, #17212B) !important;
+    background: var(--bg-dark) !important;
     padding: 16px 0;
     overflow-y: auto;
     flex: 1;
@@ -366,7 +366,7 @@
     position: absolute;
     inset: 0;
     z-index: 5;
-    background: var(--bg-dark, #17212B) !important;
+    background: var(--bg-dark) !important;
     display: flex;
     flex-direction: column;
     animation: mobSlideIn .25s cubic-bezier(.4,0,.2,1);
@@ -382,7 +382,7 @@
   /* ── Section hints ──────────────────────── */
   .tg-mob-section-hint {
     font-size: 13px;
-    color: #50A2E9 !important;
+    color: var(--brand) !important;
     padding: 4px 28px 10px;
     margin: 0;
     font-weight: 600;
@@ -400,7 +400,7 @@
 
   .tg-mob-field span {
     font-size: 12px;
-    color: #50A2E9 !important;
+    color: var(--brand) !important;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: .6px;
@@ -410,8 +410,8 @@
   .tg-mob-field textarea {
     padding: 12px 14px;
     border-radius: 12px;
-    background: rgba(37,54,72,.6) !important;
-    color: #fff !important;
+    background: rgba(56,58,64,.6) !important;
+    color: var(--head) !important;
     border: 1px solid rgba(255,255,255,.06);
     font-size: 15px;
     transition: all .25s;
@@ -421,10 +421,10 @@
 
   .tg-mob-field input:focus,
   .tg-mob-field textarea:focus {
-    border-color: #50A2E9 !important;
+    border-color: var(--brand) !important;
     outline: none;
-    box-shadow: 0 0 0 3px rgba(80,162,233,.15);
-    background: rgba(37,54,72,.8) !important;
+    box-shadow: 0 0 0 3px rgba(88,101,242,.15);
+    background: rgba(56,58,64,.8) !important;
   }
 
   .tg-mob-field + .tg-mob-field {
@@ -440,33 +440,33 @@
     padding: 14px 20px;
     margin: 10px 16px;
     border-radius: 14px;
-    background: linear-gradient(135deg, #50A2E9, #3D8BD4) !important;
+    background: linear-gradient(135deg, var(--brand), var(--brand-h)) !important;
     color: #fff !important;
     font-size: 15px;
     font-weight: 600;
     border: none;
     cursor: pointer;
     transition: all .2s;
-    box-shadow: 0 4px 14px rgba(80,162,233,.3);
+    box-shadow: 0 4px 14px rgba(88,101,242,.3);
     letter-spacing: .3px;
   }
 
   .tg-mob-action-btn:active {
     opacity: .85;
     transform: scale(.98);
-    box-shadow: 0 2px 8px rgba(80,162,233,.2);
+    box-shadow: 0 2px 8px rgba(88,101,242,.2);
   }
 
   .tg-mob-action-btn.tg-secondary {
-    background: rgba(37,54,72,.8) !important;
-    color: #adb5bd !important;
+    background: rgba(56,58,64,.8) !important;
+    color: var(--text-muted) !important;
     box-shadow: 0 2px 8px rgba(0,0,0,.15);
   }
 
   .tg-mob-card-title {
     font-size: 13px;
     font-weight: 600;
-    color: #50A2E9 !important;
+    color: var(--brand) !important;
     padding: 14px 16px 6px;
     text-transform: uppercase;
     letter-spacing: .6px;
@@ -486,17 +486,17 @@
     width: 88px;
     height: 88px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #3D6B99, #2A4A6B) !important;
+    background: linear-gradient(135deg, var(--brand), var(--brand-h)) !important;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 32px;
     font-weight: 700;
-    color: #fff !important;
+    color: var(--head) !important;
     overflow: hidden;
     position: relative;
     box-shadow: 0 4px 16px rgba(0,0,0,.25);
-    border: 3px solid rgba(80,162,233,.2);
+    border: 3px solid rgba(88,101,242,.2);
   }
 
   .tg-mob-big-avatar img {
@@ -514,15 +514,15 @@
     width: 34px;
     height: 34px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #50A2E9, #3D8BD4) !important;
+    background: linear-gradient(135deg, var(--brand), var(--brand-h)) !important;
     color: #fff !important;
     display: flex;
     align-items: center;
     justify-content: center;
     font-size: 14px;
-    border: 3px solid #1E2A3A;
+    border: 3px solid var(--bg-sec);
     cursor: pointer;
-    box-shadow: 0 2px 10px rgba(80,162,233,.3);
+    box-shadow: 0 2px 10px rgba(88,101,242,.3);
     transition: transform .2s;
   }
 
@@ -537,17 +537,17 @@
     width: 100%;
     padding: 12px 14px;
     border-radius: 12px;
-    background: rgba(37,54,72,.6) !important;
-    color: #fff !important;
+    background: rgba(56,58,64,.6) !important;
+    color: var(--head) !important;
     border: 1px solid rgba(255,255,255,.06);
     font-size: 14px;
     transition: all .25s;
   }
 
   .tg-mob-input:focus {
-    border-color: #50A2E9 !important;
+    border-color: var(--brand) !important;
     outline: none;
-    box-shadow: 0 0 0 3px rgba(80,162,233,.15);
+    box-shadow: 0 0 0 3px rgba(88,101,242,.15);
   }
 
   .tg-input-row { border-bottom: none !important; }
@@ -559,7 +559,7 @@
     gap: 14px;
     padding: 13px 16px;
     font-size: 15px;
-    color: #fff !important;
+    color: var(--head) !important;
     position: relative;
     font-weight: 500;
   }
@@ -580,16 +580,16 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #7B8D9E !important;
+    color: var(--text-muted) !important;
     font-size: 16px;
-    background: rgba(123,141,158,.1);
+    background: rgba(148,155,164,.1);
     border-radius: 8px;
     flex-shrink: 0;
   }
 
   .tg-mob-feat.tg-premium i {
-    color: #50A2E9 !important;
-    background: rgba(80,162,233,.1);
+    color: var(--brand) !important;
+    background: rgba(88,101,242,.1);
   }
 
   /* ── Premium card ───────────────────────── */
@@ -598,12 +598,12 @@
     align-items: center;
     gap: 14px;
     padding: 18px 16px;
-    background: linear-gradient(135deg, rgba(80,162,233,.1), rgba(100,180,255,.05)) !important;
-    border-bottom: 1px solid rgba(80,162,233,.1);
+    background: linear-gradient(135deg, rgba(88,101,242,.1), rgba(88,101,242,.05)) !important;
+    border-bottom: 1px solid rgba(88,101,242,.1);
   }
 
   .tg-mob-premium-card.psc-premium {
-    background: linear-gradient(135deg, rgba(80,162,233,.15), rgba(100,180,255,.08)) !important;
+    background: linear-gradient(135deg, rgba(88,101,242,.15), rgba(88,101,242,.08)) !important;
   }
 
   .tg-mob-premium-card.psc-super {
@@ -625,12 +625,12 @@
   .tg-mob-premium-role {
     font-size: 17px;
     font-weight: 700;
-    color: #fff !important;
+    color: var(--head) !important;
   }
 
   .tg-mob-premium-desc {
     font-size: 13px;
-    color: #7B8D9E !important;
+    color: var(--text-muted) !important;
     line-height: 1.3;
   }
 
@@ -638,13 +638,13 @@
   .mob-premium-section-title {
     font-size: 15px;
     font-weight: 700;
-    color: #fff !important;
+    color: var(--head) !important;
     padding: 16px 16px 6px;
   }
 
   .mob-premium-hint {
     font-size: 13px;
-    color: #7B8D9E !important;
+    color: var(--text-muted) !important;
     padding: 0 16px 10px;
     line-height: 1.4;
   }
@@ -664,16 +664,16 @@
     justify-content: center;
     font-size: 22px;
     border-radius: 12px;
-    background: rgba(37,54,72,.6);
+    background: rgba(56,58,64,.6);
     cursor: pointer;
     transition: all .2s;
     border: 2px solid transparent;
   }
 
   .mob-pe-grid .pe-emoji.active {
-    border-color: #50A2E9;
-    background: rgba(80,162,233,.15);
-    box-shadow: 0 0 0 2px rgba(80,162,233,.2);
+    border-color: var(--brand);
+    background: rgba(88,101,242,.15);
+    box-shadow: 0 0 0 2px rgba(88,101,242,.2);
   }
 
   .mob-pe-grid .pe-emoji:active {
@@ -689,8 +689,8 @@
     font-size: 13px;
     font-weight: 700;
     border-radius: 10px;
-    background: rgba(37,54,72,.6);
-    color: #adb5bd;
+    background: rgba(56,58,64,.6);
+    color: var(--text-muted);
     cursor: pointer;
     transition: all .2s;
     border: 2px solid transparent;
@@ -698,10 +698,10 @@
   }
 
   .mob-pe-grid .pe-badge.active {
-    border-color: #50A2E9;
-    background: rgba(80,162,233,.15);
-    color: #50A2E9;
-    box-shadow: 0 0 0 2px rgba(80,162,233,.2);
+    border-color: var(--brand);
+    background: rgba(88,101,242,.15);
+    color: var(--brand);
+    box-shadow: 0 0 0 2px rgba(88,101,242,.2);
   }
 
   .mob-pe-grid .pe-badge:active {
@@ -720,7 +720,7 @@
 
   .mob-pe-grid .pe-color.active {
     border-color: #fff;
-    box-shadow: 0 0 0 3px rgba(80,162,233,.4), 0 2px 8px rgba(0,0,0,.3);
+    box-shadow: 0 0 0 3px rgba(88,101,242,.4), 0 2px 8px rgba(0,0,0,.3);
     transform: scale(1.1);
   }
 
@@ -739,8 +739,8 @@
     flex: 1;
     padding: 10px 14px;
     border-radius: 12px;
-    background: rgba(37,54,72,.6) !important;
-    color: #fff !important;
+    background: rgba(56,58,64,.6) !important;
+    color: var(--head) !important;
     border: 1px solid rgba(255,255,255,.06);
     font-size: 14px;
     min-height: 42px;
@@ -748,15 +748,15 @@
   }
 
   .mob-premium-input-row input:focus {
-    border-color: #50A2E9 !important;
+    border-color: var(--brand) !important;
     outline: none;
-    box-shadow: 0 0 0 3px rgba(80,162,233,.15);
+    box-shadow: 0 0 0 3px rgba(88,101,242,.15);
   }
 
   .mob-premium-input-row .mob-btn-sm {
     padding: 10px 16px;
     border-radius: 12px;
-    background: linear-gradient(135deg, #50A2E9, #3D8BD4) !important;
+    background: linear-gradient(135deg, var(--brand), var(--brand-h)) !important;
     color: #fff !important;
     font-size: 13px;
     font-weight: 600;
@@ -764,7 +764,7 @@
     cursor: pointer;
     white-space: nowrap;
     transition: all .2s;
-    box-shadow: 0 2px 8px rgba(80,162,233,.25);
+    box-shadow: 0 2px 8px rgba(88,101,242,.25);
   }
 
   .mob-premium-input-row .mob-btn-sm:active {
@@ -787,8 +787,8 @@
     flex: 1;
     padding: 10px 14px;
     border-radius: 12px;
-    background: rgba(37,54,72,.6) !important;
-    color: #fff !important;
+    background: rgba(56,58,64,.6) !important;
+    color: var(--head) !important;
     border: 1px solid rgba(255,255,255,.06);
     font-size: 14px;
   }
@@ -813,7 +813,7 @@
 
   .mob-social-field label {
     font-size: 12px;
-    color: #50A2E9 !important;
+    color: var(--brand) !important;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: .6px;
@@ -822,17 +822,17 @@
   .mob-social-field input {
     padding: 10px 14px;
     border-radius: 12px;
-    background: rgba(37,54,72,.6) !important;
-    color: #fff !important;
+    background: rgba(56,58,64,.6) !important;
+    color: var(--head) !important;
     border: 1px solid rgba(255,255,255,.06);
     font-size: 14px;
     transition: all .25s;
   }
 
   .mob-social-field input:focus {
-    border-color: #50A2E9 !important;
+    border-color: var(--brand) !important;
     outline: none;
-    box-shadow: 0 0 0 3px rgba(80,162,233,.15);
+    box-shadow: 0 0 0 3px rgba(88,101,242,.15);
   }
 
   .mob-premium-divider {
@@ -854,8 +854,8 @@
     padding: 8px 16px;
     margin: 0 16px 10px;
     border-radius: 10px;
-    background: rgba(80,162,233,.08);
-    color: #50A2E9;
+    background: rgba(88,101,242,.08);
+    color: var(--brand);
     font-size: 13px;
     font-weight: 600;
   }
@@ -885,9 +885,9 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #50A2E9 !important;
+    color: var(--brand) !important;
     font-size: 16px;
-    background: rgba(80,162,233,.1);
+    background: rgba(88,101,242,.1);
     border-radius: 10px;
     flex-shrink: 0;
   }
@@ -900,22 +900,22 @@
 
   .tg-mob-session-device {
     font-size: 14px;
-    color: #fff !important;
+    color: var(--head) !important;
     font-weight: 500;
   }
 
   .tg-mob-session-device small {
-    color: #50A2E9 !important;
+    color: var(--brand) !important;
     font-weight: 600;
   }
 
   .tg-mob-session-date {
     font-size: 12px;
-    color: #7B8D9E !important;
+    color: var(--text-muted) !important;
   }
 
   .tg-mob-session.current {
-    background: rgba(80,162,233,.06);
+    background: rgba(88,101,242,.06);
   }
 
   /* ── Premium themes grid for mobile ─────── */
@@ -941,8 +941,8 @@
   }
 
   .mob-theme-grid .theme-swatch.active {
-    border-color: #50A2E9;
-    box-shadow: 0 0 0 2px rgba(80,162,233,.2);
+    border-color: var(--brand);
+    box-shadow: 0 0 0 2px rgba(88,101,242,.2);
   }
 
   .mob-theme-grid .ts-name {
@@ -984,7 +984,7 @@
   #mob-wallpaper-grid .wp-swatch {
     height: 72px;
     border-radius: 12px;
-    background: rgba(37,54,72,.6);
+    background: rgba(56,58,64,.6);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -994,13 +994,13 @@
   }
 
   #mob-wallpaper-grid .wp-swatch.active {
-    border-color: #50A2E9;
-    box-shadow: 0 0 0 2px rgba(80,162,233,.2);
+    border-color: var(--brand);
+    box-shadow: 0 0 0 2px rgba(88,101,242,.2);
   }
 
   #mob-wallpaper-grid .wp-label {
     font-size: 16px;
-    color: #adb5bd;
+    color: var(--text-muted);
     font-weight: 600;
   }
 
@@ -1015,8 +1015,8 @@
   #mob-notif-sounds-grid .notif-sound-btn {
     padding: 10px 14px;
     border-radius: 12px;
-    background: rgba(37,54,72,.6);
-    color: #adb5bd;
+    background: rgba(56,58,64,.6);
+    color: var(--text-muted);
     border: 2px solid transparent;
     font-size: 13px;
     font-weight: 600;
@@ -1025,9 +1025,9 @@
   }
 
   #mob-notif-sounds-grid .notif-sound-btn.active {
-    border-color: #50A2E9;
-    background: rgba(80,162,233,.15);
-    color: #50A2E9;
+    border-color: var(--brand);
+    background: rgba(88,101,242,.15);
+    color: var(--brand);
   }
 
   /* ── Custom theme inputs for mobile ─────── */
@@ -1056,7 +1056,7 @@
   #mob-btn-apply-custom-theme {
     margin: 8px 16px 14px;
     background: linear-gradient(135deg, #7c3aed, #5865f2);
-    color: #fff;
+    color: var(--head);
     border: none;
     border-radius: 10px;
     padding: 12px;
@@ -1076,36 +1076,59 @@
     z-index: 10000;
     background: linear-gradient(135deg, #1a1a2e, #16213e);
   }
+  .incoming-avatar,
   .vk-call-avatar {
-    width: 100px;
-    height: 100px;
-    font-size: 40px;
+    width: 130px;
+    height: 130px;
+    font-size: 48px;
+    box-shadow: 0 0 50px rgba(88,101,242,.35);
   }
   .vk-call-name {
-    font-size: 20px;
+    font-size: 22px;
+    margin-top: 16px;
+  }
+  .incoming-name {
+    font-size: 22px;
   }
   .vk-call-controls {
-    gap: 12px;
-    padding: 16px 12px;
-    padding-bottom: calc(16px + env(safe-area-inset-bottom));
+    gap: 14px;
+    padding: 20px 16px;
+    padding-bottom: calc(20px + env(safe-area-inset-bottom));
   }
   .vk-ctrl-btn {
-    width: 52px;
-    height: 52px;
-    font-size: 18px;
-  }
-  .vk-call-pip {
-    width: 100px;
-    height: 75px;
-    bottom: 110px;
-    right: 12px;
-  }
-  .incoming-btns {
-    gap: 32px;
-  }
-  .inc-btn {
     width: 60px;
     height: 60px;
     font-size: 22px;
+  }
+  .vk-ctrl-label {
+    font-size: 10px;
+    bottom: -18px;
+  }
+  .vk-call-pip {
+    width: 120px;
+    height: 90px;
+    bottom: 120px;
+    right: 12px;
+    border-radius: 12px;
+  }
+  .vk-call-timer {
+    font-size: 18px;
+  }
+  .vk-call-statuses {
+    gap: 12px;
+    margin-top: 12px;
+  }
+  .incoming-btns {
+    gap: 40px;
+    margin-top: 40px;
+  }
+  .inc-btn {
+    width: 64px;
+    height: 64px;
+    font-size: 24px;
+  }
+  .incoming-type {
+    font-size: 15px;
+    margin-top: 6px;
   }
 }

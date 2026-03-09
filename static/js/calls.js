@@ -653,6 +653,10 @@ window.callsModule = (() => {
 
   async function startScreenShare() {
     if (!pc) throw new Error('No active call');
+    if (!navigator.mediaDevices.getDisplayMedia) {
+      window.showToast?.('Демонстрация экрана недоступна на этом устройстве', 'warning');
+      return;
+    }
     try {
       screenStream = await navigator.mediaDevices.getDisplayMedia({
         video: { frameRate: { ideal: 60 }, width: { ideal: 1920 }, height: { ideal: 1080 }, cursor: 'always' },

@@ -34,7 +34,7 @@ public class NotificationService extends Service {
     private static final String TAG = "ShadowNotifService";
     private static final String CHANNEL_SERVICE = "shadow_service";
     private static final String CHANNEL_MSG = "shadow_messages";
-    private static final long POLL_INTERVAL = 30_000; // 30 seconds
+    private static final long POLL_INTERVAL = 15_000; // 15 seconds
     private static final String SERVER_URL = "https://shadow-mess.onrender.com";
     private static final String PREFS_NAME = "shadow_notif_prefs";
 
@@ -232,6 +232,7 @@ public class NotificationService extends Service {
 
                 JSONObject response = new JSONObject(sb.toString());
                 JSONArray messages = response.getJSONArray("messages");
+                JSONArray calls = response.optJSONArray("calls");
 
                 if (messages.length() > 0) {
                     // Update last poll time to latest message timestamp
@@ -243,7 +244,25 @@ public class NotificationService extends Service {
                         JSONObject msg = messages.getJSONObject(i);
                         showMessageNotification(msg);
                     }
-                } else {
+                }
+
+                // Show call notifications
+                if (calls != null && calls.length() > 0) {
+                    for (int i = 0; i < calls.length(); i++) {
+                        JSONObject call = calls.getJSONObject(i);
+                        showCallNotification(call);
+                    }
+                    // Update lastPoll to latest call time if newer
+                    String callTime = calls.getJSONObject(0).optString("startedAt", "");
+                    if (!callTime.isEmpty()) {
+                        String currentLast = prefs.getString("lastPoll", "");
+                        if (callTime.compareTo(currentLast) > 0) {
+                            prefs.edit().putString("lastPoll", callTime).apply();
+                        }
+                    }
+                }
+
+                if (messages.length() == 0 && (calls == null || calls.length() == 0)) {
                     // No messages — update lastPoll to now
                     SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US);
                     sdf.setTimeZone(TimeZone.getTimeZone("UTC"));
@@ -319,6 +338,48 @@ public class NotificationService extends Service {
             } catch (SecurityException ignored) {}
         } catch (Exception e) {
             Log.e(TAG, "Notification error: " + e.getMessage());
+        }
+    }
+
+    private void showCallNotification(JSONObject call) {
+        try {
+            String callerName = call.optString("callerName", "Неизвестный");
+            String status = call.optString("status", "missed");
+            String type = call.optString("type", "audio");
+
+            String title;
+            String text;
+            if ("missed".equals(status)) {
+                title = "Пропущенный звонок";
+                text = callerName + ("video".equals(type) ? " — видеозвонок" : " — аудиозвонок");
+            } else {
+                title = "Отклонённый звонок";
+                text = callerName;
+            }
+
+            Intent intent = new Intent(this, MainActivity.class);
+            intent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP);
+            PendingIntent pi = PendingIntent.getActivity(this, notifId, intent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+
+            NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_MSG)
+                .setSmallIcon(R.drawable.ic_notification)
+                .setContentTitle(title)
+                .setContentText(text)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setCategory(NotificationCompat.CATEGORY_CALL)
+                .setAutoCancel(true)
+                .setContentIntent(pi)
+                .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+                .setVibrate(new long[]{0, 300, 200, 300})
+                .setDefaults(NotificationCompat.DEFAULT_SOUND | NotificationCompat.DEFAULT_LIGHTS);
+
+            try {
+                NotificationManagerCompat nm = NotificationManagerCompat.from(this);
+                nm.notify(notifId++, builder.build());
+            } catch (SecurityException ignored) {}
+        } catch (Exception e) {
+            Log.e(TAG, "Call notification error: " + e.getMessage());
         }
     }
 

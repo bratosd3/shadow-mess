@@ -46,10 +46,21 @@ function createWindow() {
 
   mainWindow.once('ready-to-show', () => mainWindow.show());
 
-  /* Grant media permissions for WebRTC calls */
+  /* Grant media permissions for WebRTC calls & screen share */
   session.defaultSession.setPermissionRequestHandler((_wc, permission, cb) => {
-    const allowed = ['media', 'mediaKeySystem', 'notifications', 'fullscreen'];
+    const allowed = ['media', 'mediaKeySystem', 'notifications', 'fullscreen', 'display-capture'];
     cb(allowed.includes(permission));
+  });
+
+  /* Enable getDisplayMedia() — Electron requires explicit handler */
+  const { desktopCapturer } = require('electron');
+  session.defaultSession.setDisplayMediaRequestHandler(async (_req, callback) => {
+    const sources = await desktopCapturer.getSources({ types: ['screen', 'window'] });
+    if (sources.length > 0) {
+      callback({ video: sources[0] });
+    } else {
+      callback({});
+    }
   });
 
   /* Open external links in default browser */

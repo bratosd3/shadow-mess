@@ -424,7 +424,25 @@ app.get('/api/notifications/poll', authMiddleware, async (req, res) => {
       senderId: { $ne: req.user.id },
       timestamp: { $gt: since },
     }).sort({ timestamp: -1 }).limit(50).lean();
-    res.json({ messages });
+
+    // Ensure senderName is populated (fallback for older messages)
+    const senderIds = [...new Set(messages.filter(m => !m.senderName).map(m => m.senderId))];
+    if (senderIds.length > 0) {
+      const users = await User.find({ _id: { $in: senderIds } }).select('_id displayName').lean();
+      const nameMap = Object.fromEntries(users.map(u => [u._id, u.displayName || 'Пользователь']));
+      for (const msg of messages) {
+        if (!msg.senderName) msg.senderName = nameMap[msg.senderId] || 'Пользователь';
+      }
+    }
+
+    // Include missed/rejected calls
+    const calls = await CallRecord.find({
+      receiverId: req.user.id,
+      status: { $in: ['missed', 'rejected'] },
+      startedAt: { $gt: since },
+    }).sort({ startedAt: -1 }).limit(10).lean();
+
+    res.json({ messages, calls });
   } catch (err) {
     res.status(500).json({ error: 'Poll failed' });
   }
