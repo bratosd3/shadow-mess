@@ -359,6 +359,7 @@ video{-webkit-appearance:none;appearance:none;object-fit:cover}
 .vk-call-content{padding:0}
 .vk-call-video-layer{display:none;position:absolute;inset:0}.vk-call-video-layer.active{display:flex}
 .vk-remote-video{width:100%;height:100%;object-fit:cover}
+.vk-call-video-layer.screen-share .vk-remote-video{object-fit:contain;background:#000}
 .vk-call-pip{position:absolute;bottom:100px;right:16px;width:120px;height:90px;border-radius:var(--r);overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,.5);z-index:2}
 .vk-call-pip video{width:100%;height:100%;object-fit:cover}
 .vk-pip-off{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:var(--bg-dark);color:var(--text-muted);font-size:24px}

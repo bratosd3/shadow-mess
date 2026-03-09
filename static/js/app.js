@@ -673,6 +673,21 @@ function initUI() {
   };
   $('btn-end-call').onclick = () => handleCallEnded();
   $('btn-minimize-call').onclick = () => minimizeCall();
+
+  // Speaker toggle (mobile only via ShadowNative)
+  const speakerBtn = $('toggle-speaker');
+  if (speakerBtn) {
+    if (window.ShadowNative?.setSpeakerphone) {
+      speakerBtn.classList.remove('hidden');
+      speakerBtn.onclick = () => {
+        const isOn = window.ShadowNative.isSpeakerphoneOn?.() || false;
+        window.ShadowNative.setSpeakerphone(!isOn);
+        speakerBtn.classList.toggle('vk-ctrl-off', isOn);
+        speakerBtn.querySelector('i').className = isOn ? 'fas fa-phone' : 'fas fa-volume-high';
+        speakerBtn.querySelector('.vk-ctrl-label').textContent = isOn ? 'Телефон' : 'Динамик';
+      };
+    }
+  }
   $('call-mini-expand').onclick = () => expandCall();
   $('call-mini-mute').onclick = () => {
     const muted = window.callsModule.toggleMute();
@@ -805,7 +820,13 @@ function initUI() {
   if ($('mob-set-ghost-app')) $('mob-set-ghost-app').onchange = () => toggleGhost();
   if ($('mob-set-dnd')) $('mob-set-dnd').onchange = () => saveSettingsToggle('dndMode', $('mob-set-dnd').checked);
   if ($('mob-set-dnd-reply')) $('mob-set-dnd-reply').onchange = () => saveSettingsToggle('dndAutoReply', $('mob-set-dnd-reply').value);
-  if ($('mob-set-animations')) $('mob-set-animations').onchange = () => saveSettingsToggle('animations', $('mob-set-animations').checked);
+  if ($('mob-set-animations')) $('mob-set-animations').onchange = () => {
+    const v = $('mob-set-animations').checked;
+    if (!S.user.settings) S.user.settings = {};
+    S.user.settings.animations = v;
+    applyDesignPrefs();
+    saveSettingsToggle('animations', v);
+  };
   if ($('mob-set-send-enter')) $('mob-set-send-enter').onchange = () => saveSettingsToggle('sendByEnter', $('mob-set-send-enter').checked);
 
   // Mobile Super User toggles
@@ -1570,12 +1591,15 @@ function handleCtxAction(action) {
     const el = $('messages-area').querySelector(`.msg[data-id="${msg.id}"] .msg-translation`);
     if (el) { el.remove(); showToast('Перевод удалён', 'success'); }
   } else if (action === 'save') {
-    // Save to favourites (self-chat)
+    // Save to favourites (self-chat) — debounced to prevent duplicates
+    if (window._savingFav) return;
+    window._savingFav = true;
     const saveChatId = S.chats.find(c => c.type === 'private' && c.members?.length === 1)?.id;
     if (saveChatId) {
       api(`/api/messages/${msg.id}/forward`, { method: 'POST', body: JSON.stringify({ targetChatId: saveChatId }) })
-        .then(() => showToast('Сохранено в Избранное', 'success')).catch(() => showToast('Не удалось сохранить', 'error'));
-    } else showToast('Сначала откройте Избранное', 'info');
+        .then(() => showToast('Сохранено в Избранное', 'success')).catch(() => showToast('Не удалось сохранить', 'error'))
+        .finally(() => { window._savingFav = false; });
+    } else { showToast('Сначала откройте Избранное', 'info'); window._savingFav = false; }
   } else if (action === 'select-text') {
     if (msg.text) { if (navigator.clipboard) navigator.clipboard.writeText(msg.text).catch(() => _fallbackCopy(msg.text)); else _fallbackCopy(msg.text); showToast('Текст скопирован', 'success'); }
   } else if (action === 'download') {
@@ -2117,7 +2141,7 @@ async function _loadMobSessions() {
 function _fillMobPremium() {
   const card = $('mob-premium-card');
   if (!card) return;
-  const role = S.user?.role || 'user';
+  const role = S.user?.superUser ? 'super_user' : (S.user?.premium || S.user?.premiumFree) ? 'premium' : 'user';
   const icons = { user: '👻', premium: '💎', super_user: '⚡', admin: '🛡️' };
   const names = { user: 'Обычный пользователь', premium: 'Shadow+', super_user: 'Super User', admin: 'Администратор' };
   card.querySelector('.tg-mob-premium-icon').textContent = icons[role] || '👻';
@@ -2150,9 +2174,18 @@ function _fillMobPremium() {
   if ($('mob-social-web')) $('mob-social-web').value = sl.website || '';
 
   initMobPremiumPickers();
-}
 
-function initMobPremiumPickers() {
+  // Tab switching
+  document.querySelectorAll('.mob-prem-tab').forEach(btn => {
+    btn.onclick = () => {
+      document.querySelectorAll('.mob-prem-tab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const tab = btn.dataset.ptab;
+      if ($('mob-prem-tab-settings')) $('mob-prem-tab-settings').style.display = tab === 'settings' ? '' : 'none';
+      if ($('mob-prem-tab-about')) $('mob-prem-tab-about').style.display = tab === 'about' ? '' : 'none';
+    };
+  });
+}
   // Emoji picker
   const emojiGrid = $('mob-premium-emoji-grid');
   if (emojiGrid) {

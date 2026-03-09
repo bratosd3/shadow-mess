@@ -9,6 +9,7 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.media.AudioAttributes;
+import android.media.AudioManager;
 import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.Build;
@@ -308,6 +309,21 @@ public class MainActivity extends Activity {
             for (int i = Math.max(1000, notifId - 5); i <= notifId; i++) {
                 nm.cancel(i);
             }
+        }
+
+        @JavascriptInterface
+        public void setSpeakerphone(boolean on) {
+            AudioManager am = (AudioManager) getSystemService(AUDIO_SERVICE);
+            if (am != null) {
+                am.setMode(on ? AudioManager.MODE_IN_COMMUNICATION : AudioManager.MODE_IN_COMMUNICATION);
+                am.setSpeakerphoneOn(on);
+            }
+        }
+
+        @JavascriptInterface
+        public boolean isSpeakerphoneOn() {
+            AudioManager am = (AudioManager) getSystemService(AUDIO_SERVICE);
+            return am != null && am.isSpeakerphoneOn();
         }
     }
 }

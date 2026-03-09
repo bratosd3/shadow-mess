@@ -879,10 +879,30 @@ app.put('/api/me', authMiddleware, async (req, res) => {
     if (avatarColor !== undefined) user.avatarColor  = avatarColor;
     if (phone       !== undefined) user.phone        = phone;
     if (settings    !== undefined) {
+      const cfg = await Config.findById('premiumEnabled');
+      const premiumFree = cfg?.value === false;
+      const canPremium = user.premium || user.superUser || premiumFree;
+      // Premium-only settings
+      const premiumSettings = ['customTheme'];
+      const premiumThemes = ['neon','sakura','cyber','golden','aurora','vampire','lavender','emerald','synthwave','arctic','magma','matrix','cosmic','midnight-blue'];
       for (const [k, v] of Object.entries(settings)) {
+        if (premiumSettings.includes(k) && !canPremium) continue;
+        if (k === 'theme' && premiumThemes.includes(v) && !canPremium) continue;
         user.settings[k] = v;
       }
       user.markModified('settings');
+    }
+
+    // Premium-only fields
+    if (req.body.customStatus !== undefined || req.body.customStatusEmoji !== undefined || req.body.customStatusColor !== undefined || req.body.socialLinks !== undefined) {
+      const cfg = await Config.findById('premiumEnabled');
+      const premiumFree = cfg?.value === false;
+      const canPremium = user.premium || user.superUser || premiumFree;
+      if (!canPremium) return res.status(403).json({ error: 'Требуется Premium' });
+      if (req.body.customStatus      !== undefined) user.customStatus      = req.body.customStatus;
+      if (req.body.customStatusEmoji  !== undefined) user.customStatusEmoji  = req.body.customStatusEmoji;
+      if (req.body.customStatusColor  !== undefined) user.customStatusColor  = req.body.customStatusColor;
+      if (req.body.socialLinks        !== undefined) user.socialLinks        = req.body.socialLinks;
     }
 
     await user.save();

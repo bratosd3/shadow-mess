@@ -45,10 +45,6 @@ window.callsModule = (() => {
     // Skip Web Audio processing on iOS — causes audio crackling and glitches
     if (isIOS()) return stream;
 
-    // Skip on mobile — browser's built-in noiseSuppression + autoGainControl are sufficient
-    // Extra Web Audio processing causes crackling and feedback on many Android devices
-    if (isMobile()) return stream;
-
     try {
       _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
@@ -59,45 +55,73 @@ window.callsModule = (() => {
       const source = _audioCtx.createMediaStreamSource(stream);
       const dest = _audioCtx.createMediaStreamDestination();
 
-      // ── Stage 1: Subsonic rumble removal ──
-      const hp1 = _audioCtx.createBiquadFilter();
-      hp1.type = 'highpass'; hp1.frequency.value = 80; hp1.Q.value = 0.7;
+      if (isMobile()) {
+        // ── Mobile: lightweight chain — just gate + gain for muting ──
+        // Highpass to remove rumble + compressor for noise gating + output gain
+        const hp = _audioCtx.createBiquadFilter();
+        hp.type = 'highpass'; hp.frequency.value = 120; hp.Q.value = 0.7;
 
-      // ── Stage 2: Mains hum removal (50 + 60 Hz) ──
-      const notch50 = _audioCtx.createBiquadFilter();
-      notch50.type = 'notch'; notch50.frequency.value = 50; notch50.Q.value = 10;
-      const notch60 = _audioCtx.createBiquadFilter();
-      notch60.type = 'notch'; notch60.frequency.value = 60; notch60.Q.value = 10;
+        const comp = _audioCtx.createDynamicsCompressor();
+        comp.threshold.value = -35;
+        comp.knee.value = 15;
+        comp.ratio.value = 6;
+        comp.attack.value = 0.003;
+        comp.release.value = 0.15;
 
-      // ── Stage 3: Gentle high-frequency rolloff ──
-      const lp1 = _audioCtx.createBiquadFilter();
-      lp1.type = 'lowpass'; lp1.frequency.value = 12000; lp1.Q.value = 0.5;
+        const outGain = _audioCtx.createGain();
+        outGain.gain.value = 1.0;
 
-      // ── Stage 4: Voice presence boost ──
-      const presence = _audioCtx.createBiquadFilter();
-      presence.type = 'peaking'; presence.frequency.value = 2500; presence.gain.value = 2; presence.Q.value = 1;
+        source.connect(hp);
+        hp.connect(comp);
+        comp.connect(outGain);
+        outGain.connect(dest);
 
-      // ── Stage 5: Gentle compressor for voice leveling ──
-      const comp = _audioCtx.createDynamicsCompressor();
-      comp.threshold.value = -24;
-      comp.knee.value = 12;
-      comp.ratio.value = 4;
-      comp.attack.value = 0.003;
-      comp.release.value = 0.25;
+        _noiseNode = { source, dest, hp, comp, outGain, gain: outGain };
+      } else {
+        // ── Desktop: full 6-stage chain ──
 
-      // ── Stage 6: Output gain ──
-      const outGain = _audioCtx.createGain();
-      outGain.gain.value = 1.0;
+        // ── Stage 1: Subsonic rumble removal ──
+        const hp1 = _audioCtx.createBiquadFilter();
+        hp1.type = 'highpass'; hp1.frequency.value = 100; hp1.Q.value = 0.7;
 
-      // Chain: source → hp1 → notch50 → notch60 → presence → lp1 → comp → outGain → dest
-      source.connect(hp1);
-      hp1.connect(notch50);
-      notch50.connect(notch60);
-      notch60.connect(presence);
-      presence.connect(lp1);
-      lp1.connect(comp);
-      comp.connect(outGain);
-      outGain.connect(dest);
+        // ── Stage 2: Mains hum removal (50 + 60 Hz) ──
+        const notch50 = _audioCtx.createBiquadFilter();
+        notch50.type = 'notch'; notch50.frequency.value = 50; notch50.Q.value = 10;
+        const notch60 = _audioCtx.createBiquadFilter();
+        notch60.type = 'notch'; notch60.frequency.value = 60; notch60.Q.value = 10;
+
+        // ── Stage 3: Aggressive high-frequency rolloff ──
+        const lp1 = _audioCtx.createBiquadFilter();
+        lp1.type = 'lowpass'; lp1.frequency.value = 8000; lp1.Q.value = 0.5;
+
+        // ── Stage 4: Voice presence boost ──
+        const presence = _audioCtx.createBiquadFilter();
+        presence.type = 'peaking'; presence.frequency.value = 2500; presence.gain.value = 3; presence.Q.value = 1.2;
+
+        // ── Stage 5: Aggressive compressor / noise gate ──
+        const comp = _audioCtx.createDynamicsCompressor();
+        comp.threshold.value = -35;
+        comp.knee.value = 10;
+        comp.ratio.value = 8;
+        comp.attack.value = 0.002;
+        comp.release.value = 0.15;
+
+        // ── Stage 6: Output gain ──
+        const outGain = _audioCtx.createGain();
+        outGain.gain.value = 1.2;
+
+        // Chain
+        source.connect(hp1);
+        hp1.connect(notch50);
+        notch50.connect(notch60);
+        notch60.connect(presence);
+        presence.connect(lp1);
+        lp1.connect(comp);
+        comp.connect(outGain);
+        outGain.connect(dest);
+
+        _noiseNode = { source, dest, hp1, notch50, notch60, presence, lp1, comp, outGain, gain: outGain };
+      }
 
       // Replace audio track
       const processedTrack = dest.stream.getAudioTracks()[0];
@@ -130,6 +154,9 @@ window.callsModule = (() => {
       videoLayer.classList.add('hidden');
       audioLayer.classList.remove('hidden-layer');
     }
+
+    // Toggle screen-share class for object-fit:contain on mobile
+    videoLayer.classList.toggle('screen-share', isScreenSharing && !_hasRemoteVideo);
 
     // Screen badge
     const badge = $('call-screen-badge');
@@ -193,9 +220,9 @@ window.callsModule = (() => {
       if (!stream) return;
       remoteStream = stream;
 
-      // Remote video element
+      // Remote video element — only set srcObject when video track is real
       const remoteVideo = $('remote-video');
-      if (remoteVideo) {
+      if (remoteVideo && event.track.kind === 'video') {
         remoteVideo.srcObject = stream;
         remoteVideo.play().catch(() => {});
       }
@@ -249,9 +276,15 @@ window.callsModule = (() => {
       }
 
       if (event.track.kind === 'video') {
-        event.track.onunmute = () => { _hasRemoteVideo = true; updateCallView(); };
+        event.track.onunmute = () => {
+          // Check if track is really enabled (not a dummy)
+          if (event.track.enabled && event.track.readyState === 'live') {
+            _hasRemoteVideo = true; updateCallView();
+          }
+        };
         event.track.onmute = () => { _hasRemoteVideo = false; updateCallView(); };
-        if (event.track.enabled && event.track.readyState === 'live') {
+        event.track.onended = () => { _hasRemoteVideo = false; updateCallView(); };
+        if (event.track.enabled && !event.track.muted && event.track.readyState === 'live') {
           _hasRemoteVideo = true;
           updateCallView();
         }
@@ -527,42 +560,11 @@ window.callsModule = (() => {
     if (!localStream) return isMuted;
     isMuted = !isMuted;
 
-    // Use gain node when noise suppression chain is active
+    // Use gain node when noise suppression chain is active (desktop + Android)
     if (_noiseNode && _noiseNode.gain) {
       _noiseNode.gain.gain.value = isMuted ? 0 : 1.0;
-    } else if (isMobile() && localStream.getAudioTracks().length) {
-      // On mobile: use a temporary gain node to mute instead of disabling tracks
-      // (disabling tracks can kill the entire audio session on Android WebView)
-      if (!_muteGain && _audioCtx) {
-        // AudioContext exists but no noise chain — shouldn't happen, use track.enabled
-        localStream.getAudioTracks().forEach(t => { t.enabled = !isMuted; });
-      } else {
-        // No AudioContext on mobile — create one just for muting
-        if (!_muteCtx) {
-          try {
-            _muteCtx = new (window.AudioContext || window.webkitAudioContext)();
-            const src = _muteCtx.createMediaStreamSource(localStream);
-            _muteGain = _muteCtx.createGain();
-            const dest = _muteCtx.createMediaStreamDestination();
-            src.connect(_muteGain);
-            _muteGain.connect(dest);
-            // Replace track in peer connection
-            const newTrack = dest.stream.getAudioTracks()[0];
-            const oldTrack = localStream.getAudioTracks()[0];
-            const sender = pc?.getSenders().find(s => s.track?.kind === 'audio');
-            if (sender) sender.replaceTrack(newTrack);
-            newTrack._origTrack = oldTrack;
-          } catch (e) {
-            console.warn('[calls] Mobile mute fallback failed:', e);
-            localStream.getAudioTracks().forEach(t => { t.enabled = !isMuted; });
-          }
-        }
-        if (_muteGain) {
-          _muteGain.gain.value = isMuted ? 0 : 1;
-        }
-      }
     } else {
-      // Desktop fallback: toggle track.enabled
+      // iOS fallback or no noise chain: toggle track.enabled
       localStream.getAudioTracks().forEach(t => { t.enabled = !isMuted; });
     }
 
@@ -578,47 +580,40 @@ window.callsModule = (() => {
     if (!localStream || !pc) return isVideoOff;
 
     const videoTracks = localStream.getVideoTracks();
-    const hasDummyOnly = videoTracks.length === 1 && (videoTracks[0].label === '' || !videoTracks[0].label);
+    const hasDummyOnly = videoTracks.length === 1 && (!videoTracks[0].label || videoTracks[0].label === '' || videoTracks[0].readyState === 'ended');
 
     if (isVideoOff) {
       // Turning camera ON
-      if (hasDummyOnly) {
-        try {
-          const camStream = await navigator.mediaDevices.getUserMedia({
-            video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' }
-          });
-          const camTrack = camStream.getVideoTracks()[0];
+      try {
+        const camStream = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' }
+        });
+        const camTrack = camStream.getVideoTracks()[0];
 
-          // Remove dummy track
-          videoTracks.forEach(t => { t.stop(); localStream.removeTrack(t); });
-          localStream.addTrack(camTrack);
+        // Remove old tracks
+        videoTracks.forEach(t => { t.stop(); localStream.removeTrack(t); });
+        localStream.addTrack(camTrack);
 
-          // Replace track in peer connection
-          const sender = pc.getSenders().find(s => s.track?.kind === 'video');
-          if (sender) {
-            await sender.replaceTrack(camTrack);
-          } else {
-            pc.addTrack(camTrack, localStream);
-          }
-
-          const lv = $('local-video');
-          if (lv) lv.srcObject = localStream;
-
-          isVideoOff = false;
-          callType = 'video';
-
-          // Trigger renegotiation so remote peer sees video
-          await _renegotiate();
-        } catch (e) {
-          console.error('[calls] toggleVideo ON error:', e);
-          window.showToast?.('📷 Камера недоступна', 'warning');
-          return isVideoOff;
+        // Replace track in peer connection
+        const sender = pc.getSenders().find(s => s.track?.kind === 'video' || (s.track === null && s !== pc.getSenders().find(x => x.track?.kind === 'audio')));
+        if (sender) {
+          await sender.replaceTrack(camTrack);
+        } else {
+          pc.addTrack(camTrack, localStream);
         }
-      } else {
-        // Re-enable existing video track
-        videoTracks.forEach(t => { t.enabled = true; });
+
+        const lv = $('local-video');
+        if (lv) lv.srcObject = localStream;
+
         isVideoOff = false;
         callType = 'video';
+
+        // Always renegotiate so remote peer sees video
+        await _renegotiate();
+      } catch (e) {
+        console.error('[calls] toggleVideo ON error:', e);
+        window.showToast?.('📷 Камера недоступна', 'warning');
+        return isVideoOff;
       }
     } else {
       // Turning camera OFF — just disable track, don't stop/remove
@@ -734,6 +729,7 @@ window.callsModule = (() => {
     isInCall: () => !!pc,
     isMuted: () => isMuted,
     isVideoOff: () => isVideoOff,
+    isScreenSharing: () => isScreenSharing,
     updateCallView,
   };
 })();

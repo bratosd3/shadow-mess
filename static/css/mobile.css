@@ -873,6 +873,37 @@
     font-weight: 600;
   }
 
+  /* ── Premium tabs ──────────────────────── */
+  .mob-prem-tabs {
+    display: flex;
+    gap: 0;
+    margin: 8px 16px;
+    border-radius: 10px;
+    overflow: hidden;
+    background: var(--bg-active, rgba(255,255,255,.06));
+  }
+  .mob-prem-tab {
+    flex: 1;
+    padding: 10px 8px;
+    text-align: center;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    transition: all .2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+  .mob-prem-tab.active {
+    background: var(--brand, #5865f2);
+    color: #fff;
+    border-radius: 10px;
+  }
+
   /* ── Session items ──────────────────────── */
   .tg-mob-session {
     display: flex;
@@ -1118,14 +1149,22 @@
     font-size: 22px;
   }
   .vk-call-controls {
-    gap: 14px;
-    padding: 20px 16px;
+    gap: 10px;
+    padding: 20px 12px;
     padding-bottom: calc(20px + env(safe-area-inset-bottom));
+  }
+  .vk-ctrl-group {
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
   }
   .vk-ctrl-btn {
     width: 48px;
     height: 48px;
     font-size: 18px;
+  }
+  #toggle-screen {
+    display: none;
   }
   .vk-ctrl-label {
     font-size: 10px;

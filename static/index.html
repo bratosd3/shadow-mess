@@ -290,81 +290,92 @@
               <span class="tg-mob-premium-desc">Активируйте Shadow+ для расширенных возможностей</span>
             </div>
           </div>
-          <div id="mob-premium-lock-area"></div>
-          <!-- Emoji picker -->
-          <div id="mob-premium-config">
-            <div class="mob-premium-section-title">⭐ Эмодзи рядом с именем</div>
-            <div class="mob-premium-hint">Выберите эмодзи, который будет отображаться рядом с вашим именем</div>
-            <div class="mob-pe-grid" id="mob-premium-emoji-grid"></div>
-            <div class="mob-premium-input-row">
-              <input type="text" id="mob-custom-emoji-input" placeholder="Свой эмодзи..." maxlength="4" style="width:60px;text-align:center;font-size:20px;flex:none">
-              <button class="mob-btn-sm" id="mob-btn-set-custom-emoji">Применить</button>
-            </div>
-            <div class="mob-premium-divider"></div>
-            <!-- Badge picker -->
-            <div class="mob-premium-section-title">🏷️ Значок профиля</div>
-            <div class="mob-premium-hint">Текстовый значок рядом с именем в чате</div>
-            <div class="mob-pe-grid" id="mob-premium-badge-grid"></div>
-            <div class="mob-premium-input-row">
-              <input type="text" id="mob-custom-badge-input" placeholder="Свой значок..." maxlength="12">
-              <button class="mob-btn-sm" id="mob-btn-set-custom-badge">Применить</button>
-            </div>
-            <div class="mob-premium-divider"></div>
-            <!-- Name color picker -->
-            <div class="mob-premium-section-title">🎨 Цвет имени в чате</div>
-            <div class="mob-premium-hint">Ваше имя будет выделено цветом в сообщениях</div>
-            <div class="mob-pe-grid" id="mob-premium-color-grid"></div>
-            <div class="mob-premium-divider"></div>
-            <!-- Premium themes -->
-            <div class="mob-premium-section-title">💎 Эксклюзивные темы</div>
-            <div class="mob-premium-hint">Темы, доступные только Shadow+</div>
-            <div class="mob-theme-grid" id="mob-premium-themes-grid"></div>
-            <div class="mob-premium-divider"></div>
-            <!-- Custom status -->
-            <div class="mob-premium-section-title">💬 Кастомный статус</div>
-            <div class="mob-premium-hint">Статус с эмодзи и цветным фоном</div>
-            <div class="mob-cs-editor">
-              <div class="mob-cs-row">
-                <input type="text" id="mob-cs-emoji" placeholder="😎" maxlength="2" style="width:48px;text-align:center;font-size:20px;flex:none">
-                <input type="text" id="mob-cs-text" placeholder="Мой крутой статус...">
+          <!-- Tabs: Settings / About -->
+          <div class="mob-prem-tabs">
+            <button class="mob-prem-tab active" data-ptab="settings"><i class="fas fa-sliders"></i> Настройки</button>
+            <button class="mob-prem-tab" data-ptab="about"><i class="fas fa-info-circle"></i> О функциях</button>
+          </div>
+          <!-- Tab: Settings -->
+          <div id="mob-prem-tab-settings" class="mob-prem-tab-content">
+            <div id="mob-premium-lock-area"></div>
+            <div id="mob-premium-config">
+              <div class="mob-premium-section-title">⭐ Эмодзи рядом с именем</div>
+              <div class="mob-premium-hint">Выберите эмодзи, который будет отображаться рядом с вашим именем</div>
+              <div class="mob-pe-grid" id="mob-premium-emoji-grid"></div>
+              <div class="mob-premium-input-row">
+                <input type="text" id="mob-custom-emoji-input" placeholder="Свой эмодзи..." maxlength="4" style="width:60px;text-align:center;font-size:20px;flex:none">
+                <button class="mob-btn-sm" id="mob-btn-set-custom-emoji">Применить</button>
               </div>
-              <div class="mob-cs-row">
-                <button class="mob-cp-btn mob-cp-btn-sm" id="mob-cs-color-btn"><span class="mob-cp-swatch" id="mob-cs-color-swatch"></span></button><input type="hidden" id="mob-cs-color" value="#5865f2">
-                <button class="mob-btn-sm" id="mob-btn-save-status" style="flex:1"><i class="fas fa-check"></i> Сохранить</button>
+              <div class="mob-premium-divider"></div>
+              <div class="mob-premium-section-title">🏷️ Значок профиля</div>
+              <div class="mob-premium-hint">Текстовый значок рядом с именем в чате</div>
+              <div class="mob-pe-grid" id="mob-premium-badge-grid"></div>
+              <div class="mob-premium-input-row">
+                <input type="text" id="mob-custom-badge-input" placeholder="Свой значок..." maxlength="12">
+                <button class="mob-btn-sm" id="mob-btn-set-custom-badge">Применить</button>
+              </div>
+              <div class="mob-premium-divider"></div>
+              <div class="mob-premium-section-title">🎨 Цвет имени в чате</div>
+              <div class="mob-premium-hint">Ваше имя будет выделено цветом в сообщениях</div>
+              <div class="mob-pe-grid" id="mob-premium-color-grid"></div>
+              <div class="mob-premium-divider"></div>
+              <div class="mob-premium-section-title">💎 Эксклюзивные темы</div>
+              <div class="mob-premium-hint">Темы, доступные только Shadow+</div>
+              <div class="mob-theme-grid" id="mob-premium-themes-grid"></div>
+              <div class="mob-premium-divider"></div>
+              <div class="mob-premium-section-title">💬 Кастомный статус</div>
+              <div class="mob-premium-hint">Статус с эмодзи и цветным фоном</div>
+              <div class="mob-cs-editor">
+                <div class="mob-cs-row">
+                  <input type="text" id="mob-cs-emoji" placeholder="😎" maxlength="2" style="width:48px;text-align:center;font-size:20px;flex:none">
+                  <input type="text" id="mob-cs-text" placeholder="Мой крутой статус...">
+                </div>
+                <div class="mob-cs-row">
+                  <button class="mob-cp-btn mob-cp-btn-sm" id="mob-cs-color-btn"><span class="mob-cp-swatch" id="mob-cs-color-swatch"></span></button><input type="hidden" id="mob-cs-color" value="#5865f2">
+                  <button class="mob-btn-sm" id="mob-btn-save-status" style="flex:1"><i class="fas fa-check"></i> Сохранить</button>
+                </div>
+              </div>
+              <div class="mob-premium-divider"></div>
+              <div class="mob-premium-section-title">🔗 Социальные ссылки</div>
+              <div class="mob-premium-hint">Добавьте ссылки на свои профили</div>
+              <div class="tg-mob-card">
+                <div class="mob-social-field"><label>Telegram</label><input id="mob-social-tg" type="text" placeholder="@username"></div>
+                <div class="mob-social-field"><label>Instagram</label><input id="mob-social-ig" type="text" placeholder="@username"></div>
+                <div class="mob-social-field"><label>GitHub</label><input id="mob-social-gh" type="text" placeholder="username"></div>
+                <div class="mob-social-field"><label>Сайт</label><input id="mob-social-web" type="text" placeholder="https://..."></div>
+                <button class="tg-mob-action-btn" id="mob-btn-save-social" style="margin:8px 16px 12px"><i class="fas fa-floppy-disk"></i> Сохранить ссылки</button>
               </div>
             </div>
-            <div class="mob-premium-divider"></div>
-            <!-- Social links -->
-            <div class="mob-premium-section-title">🔗 Социальные ссылки</div>
-            <div class="mob-premium-hint">Добавьте ссылки на свои профили</div>
+          </div>
+          <!-- Tab: About features -->
+          <div id="mob-prem-tab-about" class="mob-prem-tab-content" style="display:none">
+            <div class="tg-mob-section-hint">🆓 Бесплатные функции</div>
+            <div class="tg-mob-card" id="mob-free-features">
+              <div class="tg-mob-feat"><i class="fas fa-message"></i><span>Текстовые сообщения</span></div>
+              <div class="tg-mob-feat"><i class="fas fa-image"></i><span>Фото и файлы</span></div>
+              <div class="tg-mob-feat"><i class="fas fa-microphone"></i><span>Голосовые сообщения</span></div>
+              <div class="tg-mob-feat"><i class="fas fa-phone"></i><span>Аудио и видеозвонки</span></div>
+              <div class="tg-mob-feat"><i class="fas fa-users"></i><span>Групповые чаты и звонки</span></div>
+              <div class="tg-mob-feat"><i class="fas fa-swatchbook"></i><span>17 тем оформления</span></div>
+            </div>
+            <div class="tg-mob-section-hint">💎 Shadow+ функции</div>
+            <div class="tg-mob-card" id="mob-premium-features">
+              <div class="tg-mob-feat tg-premium"><i class="fas fa-ghost"></i><span>Режим Призрака — полная невидимость в сети</span></div>
+              <div class="tg-mob-feat tg-premium"><i class="fas fa-star"></i><span>Эмодзи и значок профиля рядом с именем</span></div>
+              <div class="tg-mob-feat tg-premium"><i class="fas fa-droplet"></i><span>Цвет имени в чате — выделяйтесь</span></div>
+              <div class="tg-mob-feat tg-premium"><i class="fas fa-gem"></i><span>14 эксклюзивных тем оформления</span></div>
+              <div class="tg-mob-feat tg-premium"><i class="fas fa-palette"></i><span>Создание своей уникальной темы</span></div>
+              <div class="tg-mob-feat tg-premium"><i class="fas fa-comment-dots"></i><span>Кастомный статус с эмодзи и цветом</span></div>
+              <div class="tg-mob-feat tg-premium"><i class="fas fa-music"></i><span>Свой звук уведомлений</span></div>
+              <div class="tg-mob-feat tg-premium"><i class="fas fa-link"></i><span>Социальные ссылки в профиле</span></div>
+            </div>
+            <div class="tg-mob-section-hint">⚡ Super User</div>
             <div class="tg-mob-card">
-              <div class="mob-social-field"><label>Telegram</label><input id="mob-social-tg" type="text" placeholder="@username"></div>
-              <div class="mob-social-field"><label>Instagram</label><input id="mob-social-ig" type="text" placeholder="@username"></div>
-              <div class="mob-social-field"><label>GitHub</label><input id="mob-social-gh" type="text" placeholder="username"></div>
-              <div class="mob-social-field"><label>Сайт</label><input id="mob-social-web" type="text" placeholder="https://..."></div>
-              <button class="tg-mob-action-btn" id="mob-btn-save-social" style="margin:8px 16px 12px"><i class="fas fa-floppy-disk"></i> Сохранить ссылки</button>
+              <div class="tg-mob-feat tg-premium"><i class="fas fa-bolt"></i><span>Все функции Shadow+</span></div>
+              <div class="tg-mob-feat tg-premium"><i class="fas fa-shield-halved"></i><span>Модерация сообщений и пользователей</span></div>
+              <div class="tg-mob-feat tg-premium"><i class="fas fa-eye"></i><span>Просмотр скрытой информации</span></div>
+              <div class="tg-mob-feat tg-premium"><i class="fas fa-bullhorn"></i><span>Рассылка и объявления</span></div>
             </div>
-          </div>
-          <div class="mob-premium-divider"></div>
-          <!-- Features list -->
-          <div class="tg-mob-section-hint">🆓 Бесплатно</div>
-          <div class="tg-mob-card" id="mob-free-features">
-            <div class="tg-mob-feat"><i class="fas fa-message"></i><span>Текстовые сообщения</span></div>
-            <div class="tg-mob-feat"><i class="fas fa-image"></i><span>Фото и файлы</span></div>
-            <div class="tg-mob-feat"><i class="fas fa-microphone"></i><span>Голосовые сообщения</span></div>
-            <div class="tg-mob-feat"><i class="fas fa-phone"></i><span>Аудио и видеозвонки</span></div>
-            <div class="tg-mob-feat"><i class="fas fa-users"></i><span>Групповые чаты и звонки</span></div>
-            <div class="tg-mob-feat"><i class="fas fa-swatchbook"></i><span>17 тем оформления</span></div>
-          </div>
-          <div class="tg-mob-section-hint">💎 Shadow+</div>
-          <div class="tg-mob-card" id="mob-premium-features">
-            <div class="tg-mob-feat tg-premium"><i class="fas fa-ghost"></i><span>Режим Призрака</span></div>
-            <div class="tg-mob-feat tg-premium"><i class="fas fa-star"></i><span>Эмодзи и значок профиля</span></div>
-            <div class="tg-mob-feat tg-premium"><i class="fas fa-droplet"></i><span>Цвет имени в чате</span></div>
-            <div class="tg-mob-feat tg-premium"><i class="fas fa-gem"></i><span>Эксклюзивные темы</span></div>
-            <div class="tg-mob-feat tg-premium"><i class="fas fa-palette"></i><span>Создание своей темы</span></div>
-            <div class="tg-mob-feat tg-premium"><i class="fas fa-comment-dots"></i><span>Кастомный статус</span></div>
-            <div class="tg-mob-feat tg-premium"><i class="fas fa-music"></i><span>Звук уведомлений</span></div>
           </div>
         </div>
       </div>
@@ -535,6 +546,7 @@
       <div class="vk-ctrl-group">
         <button class="vk-ctrl-btn" id="toggle-mute"><i class="fas fa-microphone"></i><span class="vk-ctrl-label">Микрофон</span></button>
         <button class="vk-ctrl-btn" id="toggle-video"><i class="fas fa-video-slash"></i><span class="vk-ctrl-label">Камера</span></button>
+        <button class="vk-ctrl-btn hidden" id="toggle-speaker"><i class="fas fa-volume-high"></i><span class="vk-ctrl-label">Динамик</span></button>
         <button class="vk-ctrl-btn" id="toggle-screen"><i class="fas fa-display"></i><span class="vk-ctrl-label">Экран</span></button>
         <button class="vk-ctrl-btn" id="btn-minimize-call"><i class="fas fa-compress"></i><span class="vk-ctrl-label">Свернуть</span></button>
       </div>
