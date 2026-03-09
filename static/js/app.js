@@ -706,6 +706,9 @@ function initUI() {
 
   // DND
   if ($('set-dnd')) $('set-dnd').onchange = () => toggleDnd($('set-dnd').checked);
+  // Desktop Super User toggles
+  if ($('set-super-moderate')) $('set-super-moderate').onchange = () => saveSettingsToggle('superModerate', $('set-super-moderate').checked);
+  if ($('set-super-extended')) $('set-super-extended').onchange = () => saveSettingsToggle('superExtended', $('set-super-extended').checked);
   // Custom status
   if ($('btn-save-status')) $('btn-save-status').onclick = () => saveCustomStatus();
   // Social links
@@ -806,6 +809,28 @@ function initUI() {
   if ($('mob-set-dnd-reply')) $('mob-set-dnd-reply').onchange = () => saveSettingsToggle('dndAutoReply', $('mob-set-dnd-reply').value);
   if ($('mob-set-animations')) $('mob-set-animations').onchange = () => saveSettingsToggle('animations', $('mob-set-animations').checked);
   if ($('mob-set-send-enter')) $('mob-set-send-enter').onchange = () => saveSettingsToggle('sendByEnter', $('mob-set-send-enter').checked);
+
+  // Mobile Super User toggles
+  if ($('mob-set-super-moderate')) $('mob-set-super-moderate').onchange = () => saveSettingsToggle('superModerate', $('mob-set-super-moderate').checked);
+  if ($('mob-set-super-see-hidden')) $('mob-set-super-see-hidden').onchange = () => saveSettingsToggle('superExtended', $('mob-set-super-see-hidden').checked);
+  // Mobile broadcast
+  if ($('mob-btn-broadcast')) $('mob-btn-broadcast').onclick = async () => {
+    const text = $('mob-broadcast-text')?.value?.trim();
+    if (!text) { showToast('Введите текст', 'warning'); return; }
+    try {
+      const res = await api('/api/broadcast', { method: 'POST', body: JSON.stringify({ text }) });
+      showToast(`Отправлено в ${res.sentTo} чатов`, 'success'); $('mob-broadcast-text').value = '';
+    } catch (e) { showToast(e.message, 'error'); }
+  };
+  // Mobile announcement
+  if ($('mob-btn-announce')) $('mob-btn-announce').onclick = async () => {
+    const text = $('mob-announce-text')?.value?.trim();
+    if (!text) { showToast('Введите текст', 'warning'); return; }
+    try {
+      await api('/api/announcement', { method: 'POST', body: JSON.stringify({ text }) });
+      showToast('Объявление отправлено', 'success'); $('mob-announce-text').value = '';
+    } catch (e) { showToast(e.message, 'error'); }
+  };
 
   // Mobile profile save
   if ($('mob-btn-save-profile')) $('mob-btn-save-profile').onclick = async () => {
@@ -2041,12 +2066,15 @@ function _syncMobToggles() {
   if ($('mob-set-dnd-reply')) $('mob-set-dnd-reply').value = S.user?.dndAutoReply || '';
   if ($('mob-set-animations')) $('mob-set-animations').checked = s.animations !== false;
   if ($('mob-set-send-enter')) $('mob-set-send-enter').checked = !!s.sendByEnter;
+  if ($('mob-set-super-moderate')) $('mob-set-super-moderate').checked = !!s.superModerate;
+  if ($('mob-set-super-see-hidden')) $('mob-set-super-see-hidden').checked = s.superExtended !== false;
   // Sync mobile custom theme inputs
   const ct = s.customTheme || {};
   if ($('mob-ct-bg')) $('mob-ct-bg').value = ct.bg || '#313338';
   if ($('mob-ct-dark')) $('mob-ct-dark').value = ct.dark || '#1e1f22';
   if ($('mob-ct-sec')) $('mob-ct-sec').value = ct.sec || '#2b2d31';
   if ($('mob-ct-brand')) $('mob-ct-brand').value = ct.brand || '#5865f2';
+  if (typeof _updateMobCpSwatches === 'function') _updateMobCpSwatches();
 }
 
 function _syncMobRadios() {
@@ -2568,8 +2596,9 @@ function buildThemeGrid(containerId) {
     const themeName = s.dataset.theme;
     const t = THEMES[themeName];
     if (!t) return;
-    // Show inline preview panel
-    const inl = $('theme-preview-inline');
+    // On mobile (theme-grid-mob), apply directly without preview
+    const isMobile = containerId === 'theme-grid-mob';
+    const inl = !isMobile ? $('theme-preview-inline') : null;
     if (inl) {
       const box = $('theme-preview-box-inline');
       if (box) box.style.background = t.bg;
@@ -2593,7 +2622,11 @@ function buildThemeGrid(containerId) {
       $('tpi-cancel').onclick = () => hide(inl);
     } else {
       applyTheme(themeName);
+      grid.querySelectorAll('.theme-swatch').forEach(x => x.classList.toggle('active', x.dataset.theme === themeName));
       try { S.user = await api('/api/me', { method: 'PUT', body: JSON.stringify({ settings: { theme: themeName } }) }); } catch {}
+      const modal = $('modal-themes');
+      if (modal) hide(modal);
+      showToast('Тема применена', 'success');
     }
   });
 }
@@ -2727,6 +2760,39 @@ function initCustomThemeCreator() {
     applyCustomTheme();
   };
 
+  // Mobile color picker buttons
+  const cpLabels = { bg: 'Основной фон', dark: 'Тёмный фон', sec: 'Вторичный', brand: 'Акцент' };
+  ['bg', 'dark', 'sec', 'brand'].forEach(k => {
+    const btn = $('mob-ct-' + k + '-btn');
+    const hidden = $('mob-ct-' + k);
+    const swatch = $('mob-ct-' + k + '-swatch');
+    const valSpan = $('mob-ct-' + k + '-val');
+    if (btn && hidden) {
+      // Init swatch
+      if (swatch) swatch.style.background = hidden.value;
+      btn.onclick = () => openColorPicker(hidden.value, cpLabels[k], color => {
+        hidden.value = color;
+        if (swatch) swatch.style.background = color;
+        if (valSpan) valSpan.textContent = color;
+        if ($('ct-' + k)) $('ct-' + k).value = color;
+        if (!_themeBackup) _backupTheme();
+        updateCustomThemePreview();
+      });
+    }
+  });
+
+  // Mobile status color button
+  const csBtn = $('mob-cs-color-btn');
+  const csHidden = $('mob-cs-color');
+  const csSwatch = $('mob-cs-color-swatch');
+  if (csBtn && csHidden) {
+    if (csSwatch) csSwatch.style.background = csHidden.value;
+    csBtn.onclick = () => openColorPicker(csHidden.value, 'Цвет статуса', color => {
+      csHidden.value = color;
+      if (csSwatch) csSwatch.style.background = color;
+    });
+  }
+
   // Load saved custom theme
   const ct = S.user?.settings?.customTheme;
   if (ct) {
@@ -2736,6 +2802,20 @@ function initCustomThemeCreator() {
     if ($('ct-brand')) $('ct-brand').value = ct.brand || '#5865f2';
   }
   updateCustomThemePreview();
+  _updateMobCpSwatches();
+}
+
+function _updateMobCpSwatches() {
+  ['bg', 'dark', 'sec', 'brand'].forEach(k => {
+    const hidden = $('mob-ct-' + k);
+    const swatch = $('mob-ct-' + k + '-swatch');
+    const valSpan = $('mob-ct-' + k + '-val');
+    if (hidden && swatch) swatch.style.background = hidden.value;
+    if (hidden && valSpan) valSpan.textContent = hidden.value;
+  });
+  const csHidden = $('mob-cs-color');
+  const csSwatch = $('mob-cs-color-swatch');
+  if (csHidden && csSwatch) csSwatch.style.background = csHidden.value;
 }
 
 function _backupTheme() {
@@ -2817,6 +2897,92 @@ function adjustColor(hex, amount) {
   const g = Math.min(255, ((num >> 8) & 0xFF) + amount);
   const b = Math.min(255, (num & 0xFF) + amount);
   return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, '0')}`;
+}
+
+/* ── Custom Color Picker (mobile-friendly) ──────────────────────── */
+function openColorPicker(currentColor, title, callback) {
+  let hue = 0, sat = 1, val = 1;
+  // Parse current color to HSV
+  const hex2rgb = h => { const n = parseInt(h.slice(1),16); return [(n>>16)&255,(n>>8)&255,n&255]; };
+  const rgb2hsv = (r,g,b) => { r/=255;g/=255;b/=255; const mx=Math.max(r,g,b),mn=Math.min(r,g,b),d=mx-mn; let h=0; if(d){if(mx===r)h=((g-b)/d+6)%6;else if(mx===g)h=(b-r)/d+2;else h=(r-g)/d+4;h/=6;} return [h,mx?d/mx:0,mx]; };
+  const hsv2rgb = (h,s,v) => { const i=Math.floor(h*6),f=h*6-i,p=v*(1-s),q=v*(1-f*s),t=v*(1-(1-f)*s); let r,g,b; switch(i%6){case 0:r=v;g=t;b=p;break;case 1:r=q;g=v;b=p;break;case 2:r=p;g=v;b=t;break;case 3:r=p;g=q;b=v;break;case 4:r=t;g=p;b=v;break;case 5:r=v;g=p;b=q;break;} return [Math.round(r*255),Math.round(g*255),Math.round(b*255)]; };
+  const rgb2hex = (r,g,b) => '#'+[r,g,b].map(x=>x.toString(16).padStart(2,'0')).join('');
+  const hue2hex = h => rgb2hex(...hsv2rgb(h,1,1));
+
+  if (currentColor && /^#[0-9a-f]{6}$/i.test(currentColor)) {
+    [hue, sat, val] = rgb2hsv(...hex2rgb(currentColor));
+  }
+
+  const getHex = () => rgb2hex(...hsv2rgb(hue, sat, val));
+
+  const overlay = document.createElement('div');
+  overlay.className = 'custom-cp-overlay';
+  overlay.innerHTML = `
+    <div class="custom-cp-sheet">
+      <div class="custom-cp-title">${title || 'Выберите цвет'}</div>
+      <div class="custom-cp-preview" id="cp-preview"></div>
+      <div class="custom-cp-sat-wrap" id="cp-sat"><div class="custom-cp-sat-thumb" id="cp-sat-thumb"></div></div>
+      <div class="custom-cp-hue-wrap" id="cp-hue"><div class="custom-cp-hue-thumb" id="cp-hue-thumb"></div></div>
+      <div class="custom-cp-hex-row"><input class="custom-cp-hex-input" id="cp-hex" maxlength="7" value="${getHex()}"></div>
+      <div class="custom-cp-btns"><button class="custom-cp-btn-cancel" id="cp-cancel">Отмена</button><button class="custom-cp-btn-ok" id="cp-ok">Выбрать</button></div>
+    </div>`;
+  document.body.appendChild(overlay);
+
+  const preview = overlay.querySelector('#cp-preview');
+  const satWrap = overlay.querySelector('#cp-sat');
+  const satThumb = overlay.querySelector('#cp-sat-thumb');
+  const hueWrap = overlay.querySelector('#cp-hue');
+  const hueThumb = overlay.querySelector('#cp-hue-thumb');
+  const hexInput = overlay.querySelector('#cp-hex');
+
+  function updateUI() {
+    const hex = getHex();
+    preview.style.background = hex;
+    satWrap.style.background = hue2hex(hue);
+    hueThumb.style.left = (hue * 100) + '%';
+    hueThumb.style.background = hue2hex(hue);
+    satThumb.style.left = (sat * 100) + '%';
+    satThumb.style.top = ((1 - val) * 100) + '%';
+    satThumb.style.background = hex;
+    hexInput.value = hex;
+  }
+
+  // Hue slider
+  function onHue(e) {
+    const r = hueWrap.getBoundingClientRect();
+    const t = e.touches ? e.touches[0] : e;
+    hue = Math.max(0, Math.min(1, (t.clientX - r.left) / r.width));
+    updateUI();
+  }
+  hueWrap.addEventListener('pointerdown', e => { onHue(e); hueWrap.setPointerCapture(e.pointerId); });
+  hueWrap.addEventListener('pointermove', e => { if (e.pressure > 0) onHue(e); });
+
+  // Saturation/Value pad
+  function onSat(e) {
+    const r = satWrap.getBoundingClientRect();
+    const t = e.touches ? e.touches[0] : e;
+    sat = Math.max(0, Math.min(1, (t.clientX - r.left) / r.width));
+    val = Math.max(0, Math.min(1, 1 - (t.clientY - r.top) / r.height));
+    updateUI();
+  }
+  satWrap.addEventListener('pointerdown', e => { onSat(e); satWrap.setPointerCapture(e.pointerId); });
+  satWrap.addEventListener('pointermove', e => { if (e.pressure > 0) onSat(e); });
+
+  // Hex input
+  hexInput.addEventListener('input', () => {
+    const v = hexInput.value.trim();
+    if (/^#[0-9a-f]{6}$/i.test(v)) {
+      [hue, sat, val] = rgb2hsv(...hex2rgb(v));
+      updateUI();
+    }
+  });
+
+  // Buttons
+  overlay.querySelector('#cp-cancel').onclick = () => overlay.remove();
+  overlay.querySelector('#cp-ok').onclick = () => { callback(getHex()); overlay.remove(); };
+  overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+
+  updateUI();
 }
 
 function initPremiumEmojiPicker() {
