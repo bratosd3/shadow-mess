@@ -9,7 +9,7 @@ let mainWindow = null;
 let tray = null;
 let isQuitting = false;
 
-const ICON_PNG = path.join(__dirname, '..', '..', 'static', 'icons', 'icon-512.png');
+const ICON_PNG = path.join(__dirname, '..', 'static', 'icons', 'icon-512.png');
 
 /* ───────── Prevent multiple instances ───────── */
 const gotLock = app.requestSingleInstanceLock();

@@ -343,10 +343,8 @@ async function boot() {
   applyTheme(S.user.settings?.theme || 'default');
   applyDesignPrefs();
   initSocket();
-  // Start Android background notification service
-  if (window.ShadowNative?.startBackgroundService && S.token && S.user) {
-    try { window.ShadowNative.startBackgroundService(S.token, S.user.id); } catch(e) {}
-  }
+  // Background notification service disabled — causes persistent notification in notification shade
+  // Real-time notifications are handled by Socket.io while the app is open
   initUI();
   loadChats();
   loadFriends();

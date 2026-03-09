@@ -336,7 +336,13 @@ img,video{max-width:100%;display:block}
 
 /* VK Call Overlays */
 #incoming-call-overlay,#active-call-overlay{position:fixed;inset:0;z-index:10000;display:flex;align-items:center;justify-content:center}
-.vk-call-bg{position:absolute;inset:0;background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);opacity:.97}
+.vk-call-bg{position:absolute;inset:0;background:linear-gradient(135deg,#1a1a2e 0%,#16213e 50%,#0f3460 100%);opacity:.97;z-index:0}
+/* Hide native media controls/icons from video and audio elements */
+video::-webkit-media-controls,audio::-webkit-media-controls{display:none!important}
+video::-webkit-media-controls-enclosure{display:none!important}
+video::-webkit-media-controls-panel{display:none!important}
+video{-webkit-appearance:none;appearance:none;object-fit:cover}
+#remote-audio-hidden{position:absolute;width:0;height:0;opacity:0;pointer-events:none;z-index:-1}
 .incoming-content,.vk-call-content{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;justify-content:center;width:100%;height:100%;padding:40px 20px}
 .incoming-avatar,.vk-call-avatar{width:120px;height:120px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:48px;font-weight:700;color:#fff;overflow:hidden;box-shadow:0 0 40px rgba(88,101,242,.3)}
 .incoming-avatar,.vk-call-avatar{position:relative}
@@ -586,9 +592,9 @@ body.ghost-active .sb-user{box-shadow:0 0 12px rgba(139,92,246,.4)}
   #chat-input{padding:8px 8px;padding-bottom:max(8px, env(safe-area-inset-bottom));position:fixed;bottom:0;left:0;right:0;z-index:10;background:var(--bg-sec);border-top:1px solid var(--bg-active)}
   #chat-view{display:flex;flex-direction:column;height:100%;position:relative}
   #messages-container{flex:1;min-height:0;overflow-y:auto;padding-bottom:60px}
-  .incoming-avatar,.vk-call-avatar{width:130px;height:130px;font-size:48px;box-shadow:0 0 50px rgba(88,101,242,.35)}
-  .vk-ctrl-btn{width:60px;height:60px;font-size:22px}
-  .inc-btn{width:64px;height:64px;font-size:24px}
+  .incoming-avatar,.vk-call-avatar{width:90px;height:90px;font-size:36px;box-shadow:0 0 30px rgba(88,101,242,.3)}
+  .vk-ctrl-btn{width:48px;height:48px;font-size:18px}
+  .inc-btn{width:54px;height:54px;font-size:20px}
   #emoji-picker{width:280px;bottom:60px;right:8px}
   .msg-content img{max-width:260px}
   .msg-video-circle{width:220px;height:220px}

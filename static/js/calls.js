@@ -27,6 +27,8 @@ window.callsModule = (() => {
   let _hasRemoteVideo = false;
   let _audioCtx       = null;       // for noise suppression
   let _noiseNode      = null;
+  let _muteCtx        = null;       // for mobile mute without noise chain
+  let _muteGain       = null;
   let _reconnectTimer = null;
 
   const $ = id => document.getElementById(id);
@@ -43,6 +45,10 @@ window.callsModule = (() => {
     // Skip Web Audio processing on iOS — causes audio crackling and glitches
     if (isIOS()) return stream;
 
+    // Skip on mobile — browser's built-in noiseSuppression + autoGainControl are sufficient
+    // Extra Web Audio processing causes crackling and feedback on many Android devices
+    if (isMobile()) return stream;
+
     try {
       _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
@@ -53,84 +59,43 @@ window.callsModule = (() => {
       const source = _audioCtx.createMediaStreamSource(stream);
       const dest = _audioCtx.createMediaStreamDestination();
 
-      // ── Stage 1: Subsonic rumble removal (4th order) ──
+      // ── Stage 1: Subsonic rumble removal ──
       const hp1 = _audioCtx.createBiquadFilter();
-      hp1.type = 'highpass'; hp1.frequency.value = 75; hp1.Q.value = 0.5;
-      const hp2 = _audioCtx.createBiquadFilter();
-      hp2.type = 'highpass'; hp2.frequency.value = 100; hp2.Q.value = 0.7;
-      const hp3 = _audioCtx.createBiquadFilter();
-      hp3.type = 'highpass'; hp3.frequency.value = 150; hp3.Q.value = 0.5;
+      hp1.type = 'highpass'; hp1.frequency.value = 80; hp1.Q.value = 0.7;
 
-      // ── Stage 2: Mains hum removal (50 + 60 Hz + harmonics) ──
+      // ── Stage 2: Mains hum removal (50 + 60 Hz) ──
       const notch50 = _audioCtx.createBiquadFilter();
-      notch50.type = 'notch'; notch50.frequency.value = 50; notch50.Q.value = 15;
+      notch50.type = 'notch'; notch50.frequency.value = 50; notch50.Q.value = 10;
       const notch60 = _audioCtx.createBiquadFilter();
-      notch60.type = 'notch'; notch60.frequency.value = 60; notch60.Q.value = 15;
-      const notch100 = _audioCtx.createBiquadFilter();
-      notch100.type = 'notch'; notch100.frequency.value = 100; notch100.Q.value = 12;
-      const notch120 = _audioCtx.createBiquadFilter();
-      notch120.type = 'notch'; notch120.frequency.value = 120; notch120.Q.value = 12;
+      notch60.type = 'notch'; notch60.frequency.value = 60; notch60.Q.value = 10;
 
-      // ── Stage 3: High-frequency hiss removal ──
+      // ── Stage 3: Gentle high-frequency rolloff ──
       const lp1 = _audioCtx.createBiquadFilter();
-      lp1.type = 'lowpass'; lp1.frequency.value = 8000; lp1.Q.value = 0.5;
-      const lp2 = _audioCtx.createBiquadFilter();
-      lp2.type = 'lowpass'; lp2.frequency.value = 10000; lp2.Q.value = 0.7;
+      lp1.type = 'lowpass'; lp1.frequency.value = 12000; lp1.Q.value = 0.5;
 
-      // ── Stage 4: De-emphasize non-voice bands ──
-      // Cut muddy low-mids (200-400Hz)
-      const cutMud = _audioCtx.createBiquadFilter();
-      cutMud.type = 'peaking'; cutMud.frequency.value = 300; cutMud.gain.value = -3; cutMud.Q.value = 0.8;
-      // Cut nasal resonance (~800Hz)
-      const cutNasal = _audioCtx.createBiquadFilter();
-      cutNasal.type = 'peaking'; cutNasal.frequency.value = 800; cutNasal.gain.value = -1.5; cutNasal.Q.value = 1;
-
-      // ── Stage 5: Voice clarity enhancement ──
-      // Presence boost (2-4kHz) for articulation
+      // ── Stage 4: Voice presence boost ──
       const presence = _audioCtx.createBiquadFilter();
-      presence.type = 'peaking'; presence.frequency.value = 2800; presence.gain.value = 4; presence.Q.value = 0.8;
-      // Warmth (fundamental voice range)
-      const warmth = _audioCtx.createBiquadFilter();
-      warmth.type = 'peaking'; warmth.frequency.value = 500; warmth.gain.value = 1.5; warmth.Q.value = 1;
+      presence.type = 'peaking'; presence.frequency.value = 2500; presence.gain.value = 2; presence.Q.value = 1;
 
-      // ── Stage 6: Noise gate / compressor ──
-      // Expander-like behavior: aggressive compression to suppress low-level noise
-      const gate = _audioCtx.createDynamicsCompressor();
-      gate.threshold.value = -40;
-      gate.knee.value = 6;
-      gate.ratio.value = 12;
-      gate.attack.value = 0.001;
-      gate.release.value = 0.08;
-
-      // Secondary gentle compressor for voice leveling
+      // ── Stage 5: Gentle compressor for voice leveling ──
       const comp = _audioCtx.createDynamicsCompressor();
-      comp.threshold.value = -20;
-      comp.knee.value = 20;
-      comp.ratio.value = 3;
+      comp.threshold.value = -24;
+      comp.knee.value = 12;
+      comp.ratio.value = 4;
       comp.attack.value = 0.003;
       comp.release.value = 0.25;
 
-      // ── Stage 7: Output gain ──
+      // ── Stage 6: Output gain ──
       const outGain = _audioCtx.createGain();
-      outGain.gain.value = 1.5;
+      outGain.gain.value = 1.0;
 
-      // Chain: source → hp1 → hp2 → hp3 → notch50 → notch60 → notch100 → notch120
-      //        → cutMud → warmth → cutNasal → presence → lp1 → lp2 → gate → comp → outGain → dest
+      // Chain: source → hp1 → notch50 → notch60 → presence → lp1 → comp → outGain → dest
       source.connect(hp1);
-      hp1.connect(hp2);
-      hp2.connect(hp3);
-      hp3.connect(notch50);
+      hp1.connect(notch50);
       notch50.connect(notch60);
-      notch60.connect(notch100);
-      notch100.connect(notch120);
-      notch120.connect(cutMud);
-      cutMud.connect(warmth);
-      warmth.connect(cutNasal);
-      cutNasal.connect(presence);
+      notch60.connect(presence);
       presence.connect(lp1);
-      lp1.connect(lp2);
-      lp2.connect(gate);
-      gate.connect(comp);
+      lp1.connect(comp);
       comp.connect(outGain);
       outGain.connect(dest);
 
@@ -141,7 +106,7 @@ window.callsModule = (() => {
       stream.addTrack(processedTrack);
 
       processedTrack._origTrack = origTrack;
-      _noiseNode = { source, dest, hp1, hp2, hp3, notch50, notch60, notch100, notch120, cutMud, warmth, cutNasal, presence, lp1, lp2, gate, comp, outGain };
+      _noiseNode = { source, dest, hp1, notch50, notch60, presence, lp1, comp, outGain, gain: outGain };
     } catch (e) {
       console.warn('[calls] Noise suppression failed:', e);
     }
@@ -170,7 +135,7 @@ window.callsModule = (() => {
     const badge = $('call-screen-badge');
     if (badge) badge.classList.toggle('hidden', !isScreenSharing);
 
-    // PiP local video
+    // PiP local video — now outside video layer, so visible in both modes
     const pip = $('call-pip');
     const pipOff = $('call-pip-off');
     if (pip) {
@@ -434,6 +399,11 @@ window.callsModule = (() => {
       _audioCtx = null;
       _noiseNode = null;
     }
+    if (_muteCtx) {
+      _muteCtx.close().catch(() => {});
+      _muteCtx = null;
+      _muteGain = null;
+    }
     const lv = $('local-video');
     const rv = $('remote-video');
     if (lv) lv.srcObject = null;
@@ -557,12 +527,42 @@ window.callsModule = (() => {
     if (!localStream) return isMuted;
     isMuted = !isMuted;
 
-    // Use gain node mute when noise suppression is active to keep AudioContext alive
-    // (disabling tracks can kill the audio session on mobile, muting remote audio too)
+    // Use gain node when noise suppression chain is active
     if (_noiseNode && _noiseNode.gain) {
-      _noiseNode.gain.gain.value = isMuted ? 0 : 1.2;
+      _noiseNode.gain.gain.value = isMuted ? 0 : 1.0;
+    } else if (isMobile() && localStream.getAudioTracks().length) {
+      // On mobile: use a temporary gain node to mute instead of disabling tracks
+      // (disabling tracks can kill the entire audio session on Android WebView)
+      if (!_muteGain && _audioCtx) {
+        // AudioContext exists but no noise chain — shouldn't happen, use track.enabled
+        localStream.getAudioTracks().forEach(t => { t.enabled = !isMuted; });
+      } else {
+        // No AudioContext on mobile — create one just for muting
+        if (!_muteCtx) {
+          try {
+            _muteCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const src = _muteCtx.createMediaStreamSource(localStream);
+            _muteGain = _muteCtx.createGain();
+            const dest = _muteCtx.createMediaStreamDestination();
+            src.connect(_muteGain);
+            _muteGain.connect(dest);
+            // Replace track in peer connection
+            const newTrack = dest.stream.getAudioTracks()[0];
+            const oldTrack = localStream.getAudioTracks()[0];
+            const sender = pc?.getSenders().find(s => s.track?.kind === 'audio');
+            if (sender) sender.replaceTrack(newTrack);
+            newTrack._origTrack = oldTrack;
+          } catch (e) {
+            console.warn('[calls] Mobile mute fallback failed:', e);
+            localStream.getAudioTracks().forEach(t => { t.enabled = !isMuted; });
+          }
+        }
+        if (_muteGain) {
+          _muteGain.gain.value = isMuted ? 0 : 1;
+        }
+      }
     } else {
-      // Fallback: toggle track.enabled when no noise suppression chain
+      // Desktop fallback: toggle track.enabled
       localStream.getAudioTracks().forEach(t => { t.enabled = !isMuted; });
     }
 
@@ -653,13 +653,21 @@ window.callsModule = (() => {
 
   async function startScreenShare() {
     if (!pc) throw new Error('No active call');
-    if (!navigator.mediaDevices.getDisplayMedia) {
-      window.showToast?.('Демонстрация экрана недоступна на этом устройстве', 'warning');
+
+    // Screen sharing is not available on Android WebView
+    if (isMobile()) {
+      window.showToast?.('Демонстрация экрана недоступна на мобильном устройстве. Используйте ПК.', 'warning');
       return;
     }
+
+    if (!navigator.mediaDevices.getDisplayMedia) {
+      window.showToast?.('Демонстрация экрана не поддерживается в этом браузере', 'warning');
+      return;
+    }
+
     try {
       screenStream = await navigator.mediaDevices.getDisplayMedia({
-        video: { frameRate: { ideal: 60 }, width: { ideal: 1920 }, height: { ideal: 1080 }, cursor: 'always' },
+        video: { frameRate: { ideal: 30, max: 60 }, cursor: 'always' },
         audio: false
       });
       isScreenSharing = true;

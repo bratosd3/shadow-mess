@@ -236,8 +236,10 @@
     left: 3px;
     width: 26px;
     height: 26px;
-    border-radius: 50%;
+    aspect-ratio: 1;
+    border-radius: 50% !important;
     background: #fff !important;
+    box-sizing: border-box;
     transition: transform .3s cubic-bezier(.4,0,.2,1), box-shadow .3s;
     box-shadow: 0 2px 6px rgba(0,0,0,.25);
   }
@@ -283,12 +285,19 @@
   .tg-radio-row input { display: none; }
 
   .tg-radio-check {
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    border: 2px solid var(--bg-active) !important;
+    width: 24px !important;
+    height: 24px !important;
+    min-width: 24px;
+    min-height: 24px;
+    max-width: 24px;
+    max-height: 24px;
+    aspect-ratio: 1;
+    border-radius: 50% !important;
+    border: 2px solid var(--text-muted) !important;
     position: relative;
     flex-shrink: 0;
+    flex-grow: 0;
+    box-sizing: border-box;
     transition: all .3s cubic-bezier(.4,0,.2,1);
   }
 
@@ -301,8 +310,12 @@
   .tg-radio-row input:checked ~ .tg-radio-check::after {
     content: '';
     position: absolute;
-    inset: 4px;
-    border-radius: 50%;
+    top: 50%;
+    left: 50%;
+    width: 12px;
+    height: 12px;
+    transform: translate(-50%, -50%);
+    border-radius: 50% !important;
     background: var(--brand) !important;
     animation: radioPopIn .25s cubic-bezier(.4,0,.2,1);
   }
@@ -1074,14 +1087,28 @@
     position: fixed;
     inset: 0;
     z-index: 10000;
-    background: linear-gradient(135deg, var(--bg-dark), var(--bg-sec));
+    overflow: hidden;
+  }
+  #active-call-overlay .vk-call-bg,
+  #incoming-call-overlay .vk-call-bg {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%) !important;
+    opacity: 1;
+    z-index: 0;
+  }
+  /* Hide any native video/audio poster/controls on Android */
+  #active-call-overlay video,
+  #incoming-call-overlay video {
+    -webkit-media-controls: none !important;
+    background: transparent !important;
   }
   .incoming-avatar,
   .vk-call-avatar {
-    width: 130px;
-    height: 130px;
-    font-size: 48px;
-    box-shadow: 0 0 50px rgba(88,101,242,.35);
+    width: 90px;
+    height: 90px;
+    font-size: 36px;
+    box-shadow: 0 0 30px rgba(88,101,242,.3);
   }
   .vk-call-name {
     font-size: 22px;
@@ -1096,9 +1123,9 @@
     padding-bottom: calc(20px + env(safe-area-inset-bottom));
   }
   .vk-ctrl-btn {
-    width: 60px;
-    height: 60px;
-    font-size: 22px;
+    width: 48px;
+    height: 48px;
+    font-size: 18px;
   }
   .vk-ctrl-label {
     font-size: 10px;
@@ -1123,9 +1150,9 @@
     margin-top: 40px;
   }
   .inc-btn {
-    width: 64px;
-    height: 64px;
-    font-size: 24px;
+    width: 54px;
+    height: 54px;
+    font-size: 20px;
   }
   .incoming-type {
     font-size: 15px;
