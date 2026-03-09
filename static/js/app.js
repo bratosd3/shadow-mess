@@ -2203,6 +2203,8 @@ function _fillMobPremium() {
     };
   });
 }
+
+function initMobPremiumPickers() {
   // Emoji picker
   const emojiGrid = $('mob-premium-emoji-grid');
   if (emojiGrid) {
