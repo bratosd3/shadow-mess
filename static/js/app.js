@@ -195,21 +195,39 @@ const Sounds = {
   },
   callEnd() { this._beep(400, 0.15); setTimeout(() => this._beep(300, 0.15), 180); },
   _ringInterval: null,
+  _ringTimeouts: [],
   ringStart() {
     this.ringStop();
-    const ring = () => { this._beep(523, 0.2, 0.2); setTimeout(() => this._beep(659, 0.2, 0.2), 250); setTimeout(() => this._beep(784, 0.3, 0.2), 500); };
+    const ring = () => {
+      this._beep(523, 0.2, 0.2);
+      this._ringTimeouts.push(setTimeout(() => this._beep(659, 0.2, 0.2), 250));
+      this._ringTimeouts.push(setTimeout(() => this._beep(784, 0.3, 0.2), 500));
+    };
     ring();
     this._ringInterval = setInterval(ring, 2000);
   },
-  ringStop() { if (this._ringInterval) { clearInterval(this._ringInterval); this._ringInterval = null; } },
+  ringStop() {
+    if (this._ringInterval) { clearInterval(this._ringInterval); this._ringInterval = null; }
+    this._ringTimeouts.forEach(t => clearTimeout(t));
+    this._ringTimeouts = [];
+  },
   _incomingInterval: null,
+  _incomingTimeouts: [],
   incomingStart() {
     this.incomingStop();
-    const ring = () => { this._beep(784, 0.15, 0.25); setTimeout(() => this._beep(659, 0.15, 0.25), 200); setTimeout(() => this._beep(784, 0.15, 0.25), 400); };
+    const ring = () => {
+      this._beep(784, 0.15, 0.25);
+      this._incomingTimeouts.push(setTimeout(() => this._beep(659, 0.15, 0.25), 200));
+      this._incomingTimeouts.push(setTimeout(() => this._beep(784, 0.15, 0.25), 400));
+    };
     ring();
     this._incomingInterval = setInterval(ring, 1500);
   },
-  incomingStop() { if (this._incomingInterval) { clearInterval(this._incomingInterval); this._incomingInterval = null; } },
+  incomingStop() {
+    if (this._incomingInterval) { clearInterval(this._incomingInterval); this._incomingInterval = null; }
+    this._incomingTimeouts.forEach(t => clearTimeout(t));
+    this._incomingTimeouts = [];
+  },
 };
 
 /* ══════════════════════════════════════════════════════════════════════
@@ -462,6 +480,15 @@ function initSocket() {
 
   socket.on('friend_request', () => loadFriends());
   socket.on('friend_accepted', () => loadFriends());
+
+  // Real-time premium / superuser sync
+  socket.on('role_changed', data => {
+    S.user.premium = data.premium;
+    S.user.superUser = data.superUser;
+    if (data.premiumFeaturesConfig) S.premiumFeaturesConfig = data.premiumFeaturesConfig;
+    fillSettings();
+    showToast(data.premium ? 'Вам выдан Premium!' : data.superUser ? 'Вам выдан SuperUser!' : 'Ваш статус обновлён', 'info');
+  });
 
   // Calls
   // Wire up connection-lost callback so calls.js can notify app.js
@@ -3351,6 +3378,7 @@ async function startRecording(type) {
     circle.classList.add('video-mode');
     circle.classList.remove('audio-mode');
     preview.srcObject = _recStream;
+    preview.play().catch(() => {});
   } else {
     circle.classList.add('audio-mode');
     circle.classList.remove('video-mode');

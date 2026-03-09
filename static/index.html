@@ -159,14 +159,14 @@
         </div>
         <!-- Group 1: Main settings -->
         <div class="tg-mob-card">
-          <button class="tg-mob-row" data-act="edit-profile"><i class="fas fa-user-pen"></i><span>Редактировать профиль</span><i class="fas fa-chevron-right tg-mob-arr"></i></button>
-          <button class="tg-mob-row" data-act="appearance"><i class="fas fa-palette"></i><span>Оформление</span><i class="fas fa-chevron-right tg-mob-arr"></i></button>
+          <button class="tg-mob-row" data-act="edit-profile"><i class="fas fa-user-pen"></i><span>Аккаунт</span><i class="fas fa-chevron-right tg-mob-arr"></i></button>
+          <button class="tg-mob-row" data-act="appearance"><i class="fas fa-palette"></i><span>Внешний вид</span><i class="fas fa-chevron-right tg-mob-arr"></i></button>
           <button class="tg-mob-row" data-act="notifications-page"><i class="fas fa-bell"></i><span>Уведомления</span><span id="notif-mob-badge" class="tg-mob-value">Выкл</span><i class="fas fa-chevron-right tg-mob-arr"></i></button>
-          <button class="tg-mob-row" data-act="privacy-page"><i class="fas fa-shield-halved"></i><span>Приватность</span><i class="fas fa-chevron-right tg-mob-arr"></i></button>
+          <button class="tg-mob-row" data-act="privacy-page"><i class="fas fa-shield-halved"></i><span>Конфиденциальность</span><i class="fas fa-chevron-right tg-mob-arr"></i></button>
         </div>
         <!-- Group 2: Extra -->
         <div class="tg-mob-card">
-          <button class="tg-mob-row" data-act="sessions"><i class="fas fa-clock-rotate-left"></i><span>Сессии</span><i class="fas fa-chevron-right tg-mob-arr"></i></button>
+          <button class="tg-mob-row" data-act="sessions"><i class="fas fa-clock-rotate-left"></i><span>Устройства</span><i class="fas fa-chevron-right tg-mob-arr"></i></button>
           <button class="tg-mob-row" data-act="shadow-plus"><i class="fas fa-gem"></i><span>Shadow+</span><i class="fas fa-chevron-right tg-mob-arr"></i></button>
         </div>
         <!-- Group 3: Logout -->
@@ -176,7 +176,7 @@
       </div>
       <!-- Sub-pages for mobile settings -->
       <div class="mob-settings-sub hidden" id="mob-sub-appearance">
-        <div class="tg-sub-header"><button class="tg-sub-back" data-back="mob-sub-appearance"><i class="fas fa-arrow-left"></i></button><h3>Оформление</h3></div>
+        <div class="tg-sub-header"><button class="tg-sub-back" data-back="mob-sub-appearance"><i class="fas fa-arrow-left"></i></button><h3>Внешний вид</h3></div>
         <div class="tg-sub-body">
           <div class="tg-mob-card">
             <button class="tg-mob-row" data-act="themes"><i class="fas fa-swatchbook"></i><span>Тема</span><i class="fas fa-chevron-right tg-mob-arr"></i></button>
@@ -186,7 +186,6 @@
             <button class="tg-mob-row" data-act="wallpaper"><i class="fas fa-image"></i><span>Фон чата</span><i class="fas fa-chevron-right tg-mob-arr"></i></button>
           </div>
           <div class="tg-mob-card">
-            <label class="tg-mob-row tg-toggle-row"><span class="tg-r-left"><i class="fas fa-ghost"></i>Режим Призрака</span><div class="tg-toggle"><input type="checkbox" id="mob-set-ghost-app"><span class="tg-toggle-track"></span></div></label>
             <label class="tg-mob-row tg-toggle-row"><span class="tg-r-left"><i class="fas fa-wand-magic-sparkles"></i>Анимации</span><div class="tg-toggle"><input type="checkbox" id="mob-set-animations" checked><span class="tg-toggle-track"></span></div></label>
             <label class="tg-mob-row tg-toggle-row"><span class="tg-r-left"><i class="fas fa-paper-plane"></i>Отправка по Enter</span><div class="tg-toggle"><input type="checkbox" id="mob-set-send-enter"><span class="tg-toggle-track"></span></div></label>
           </div>
@@ -231,7 +230,7 @@
         </div>
       </div>
       <div class="mob-settings-sub hidden" id="mob-sub-privacy">
-        <div class="tg-sub-header"><button class="tg-sub-back" data-back="mob-sub-privacy"><i class="fas fa-arrow-left"></i></button><h3>Приватность</h3></div>
+        <div class="tg-sub-header"><button class="tg-sub-back" data-back="mob-sub-privacy"><i class="fas fa-arrow-left"></i></button><h3>Конфиденциальность</h3></div>
         <div class="tg-sub-body">
           <div class="tg-mob-card">
             <label class="tg-mob-row tg-toggle-row"><span class="tg-r-left"><i class="fas fa-circle" style="color:#23a559"></i>Статус онлайн</span><div class="tg-toggle"><input type="checkbox" id="mob-set-online" checked><span class="tg-toggle-track"></span></div></label>
@@ -243,7 +242,7 @@
       </div>
       <!-- Profile sub-page -->
       <div class="mob-settings-sub hidden" id="mob-sub-profile">
-        <div class="tg-sub-header"><button class="tg-sub-back" data-back="mob-sub-profile"><i class="fas fa-arrow-left"></i></button><h3>Редактировать профиль</h3></div>
+        <div class="tg-sub-header"><button class="tg-sub-back" data-back="mob-sub-profile"><i class="fas fa-arrow-left"></i></button><h3>Аккаунт</h3></div>
         <div class="tg-sub-body">
           <div class="tg-mob-avatar-block">
             <div class="tg-mob-big-avatar" id="mob-edit-avatar"></div>
@@ -265,7 +264,7 @@
       </div>
       <!-- Sessions sub-page -->
       <div class="mob-settings-sub hidden" id="mob-sub-sessions">
-        <div class="tg-sub-header"><button class="tg-sub-back" data-back="mob-sub-sessions"><i class="fas fa-arrow-left"></i></button><h3>Сессии</h3></div>
+        <div class="tg-sub-header"><button class="tg-sub-back" data-back="mob-sub-sessions"><i class="fas fa-arrow-left"></i></button><h3>Устройства</h3></div>
         <div class="tg-sub-body">
           <div class="tg-mob-section-hint">Устройства, на которых выполнен вход</div>
           <div class="tg-mob-card" id="mob-sessions-list"></div>

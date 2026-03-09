@@ -157,10 +157,12 @@ window.callsModule = (() => {
     const showVideo = _hasRemoteVideo || isScreenSharing;
 
     if (showVideo) {
+      videoLayer.classList.remove('hidden');
       videoLayer.classList.add('active');
       audioLayer.classList.add('hidden-layer');
     } else {
       videoLayer.classList.remove('active');
+      videoLayer.classList.add('hidden');
       audioLayer.classList.remove('hidden-layer');
     }
 
@@ -547,7 +549,7 @@ window.callsModule = (() => {
 
     const vl = $('call-video-layer');
     const al = $('call-audio-layer');
-    if (vl) vl.classList.remove('active');
+    if (vl) { vl.classList.remove('active'); vl.classList.add('hidden'); }
     if (al) al.classList.remove('hidden-layer');
   }
 

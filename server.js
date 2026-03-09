@@ -578,6 +578,12 @@ app.put('/api/admin/users/:id/superuser', adminKeyMiddleware, async (req, res) =
   if (!user) return res.status(404).json({ error: 'Пользователь не найден' });
   user.superUser = !user.superUser;
   await user.save();
+  // Уведомляем пользователя в реальном времени
+  const sset = onlineUsers.get(user._id.toString());
+  if (sset) {
+    const cfg = await Config.findById('premiumFeatures');
+    for (const sid of sset) io.to(sid).emit('role_changed', { superUser: user.superUser, premium: user.premium, premiumFeaturesConfig: cfg?.data || null });
+  }
   res.json({ id: user._id, username: user.username, superUser: user.superUser });
 });
 
@@ -595,6 +601,12 @@ app.put('/api/admin/users/:id/premium', adminKeyMiddleware, async (req, res) => 
     user.customStatusColor = '';
   }
   await user.save();
+  // Уведомляем пользователя в реальном времени
+  const sset = onlineUsers.get(user._id.toString());
+  if (sset) {
+    const cfg = await Config.findById('premiumFeatures');
+    for (const sid of sset) io.to(sid).emit('role_changed', { premium: user.premium, superUser: user.superUser, premiumFeaturesConfig: cfg?.data || null });
+  }
   res.json({ id: user._id, username: user.username, premium: user.premium });
 });
 

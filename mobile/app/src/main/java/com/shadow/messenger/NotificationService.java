@@ -149,15 +149,10 @@ public class NotificationService extends Service {
         PendingIntent pi = PendingIntent.getActivity(this, 0, intent,
             PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
-        // Make the foreground notification as invisible as possible:
-        // - No title, no text, no ticker
-        // - PRIORITY_MIN + IMPORTANCE_NONE channel
-        // - VISIBILITY_SECRET hides from lockscreen
-        // - FOREGROUND_SERVICE_DEFERRED delays showing
-        // - setShowWhen(false) hides timestamp
-        // - setSilent(true) prevents sound/vibration
         NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_SERVICE)
             .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle("")
+            .setContentText("")
             .setPriority(NotificationCompat.PRIORITY_MIN)
             .setContentIntent(pi)
             .setVisibility(NotificationCompat.VISIBILITY_SECRET)
@@ -165,8 +160,10 @@ public class NotificationService extends Service {
             .setShowWhen(false)
             .setSilent(true)
             .setOnlyAlertOnce(true)
+            .setOngoing(false)
             .setGroup("shadow_bg")
-            .setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_SUMMARY);
+            .setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_SUMMARY)
+            .setCategory(NotificationCompat.CATEGORY_SERVICE);
 
         return builder.build();
     }
@@ -270,6 +267,7 @@ public class NotificationService extends Service {
             String senderName = msg.optString("senderName", "Новое сообщение");
             String text = msg.optString("text", "");
             String type = msg.optString("type", "text");
+            String chatId = msg.optString("chatId", "default");
 
             if (text.isEmpty()) {
                 switch (type) {
@@ -288,21 +286,36 @@ public class NotificationService extends Service {
             PendingIntent pi = PendingIntent.getActivity(this, notifId, intent,
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
 
+            // Telegram-style: grouped by chat, BigTextStyle, heads-up
             NotificationCompat.Builder builder = new NotificationCompat.Builder(this, CHANNEL_MSG)
                 .setSmallIcon(R.drawable.ic_notification)
                 .setContentTitle(senderName)
                 .setContentText(text)
+                .setStyle(new NotificationCompat.BigTextStyle().bigText(text))
                 .setPriority(NotificationCompat.PRIORITY_HIGH)
                 .setCategory(NotificationCompat.CATEGORY_MESSAGE)
                 .setAutoCancel(true)
                 .setContentIntent(pi)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
                 .setVibrate(new long[]{0, 200, 100, 200})
-                .setDefaults(NotificationCompat.DEFAULT_SOUND | NotificationCompat.DEFAULT_LIGHTS);
+                .setDefaults(NotificationCompat.DEFAULT_SOUND | NotificationCompat.DEFAULT_LIGHTS)
+                .setGroup("shadow_msg_" + chatId)
+                .setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_CHILDREN);
+
+            // Summary notification for grouping (Telegram-style stacking)
+            NotificationCompat.Builder summary = new NotificationCompat.Builder(this, CHANNEL_MSG)
+                .setSmallIcon(R.drawable.ic_notification)
+                .setContentTitle("Shadow Messenger")
+                .setContentText("Новые сообщения")
+                .setGroup("shadow_msg_" + chatId)
+                .setGroupSummary(true)
+                .setAutoCancel(true)
+                .setContentIntent(pi);
 
             try {
                 NotificationManagerCompat nm = NotificationManagerCompat.from(this);
                 nm.notify(notifId++, builder.build());
+                nm.notify(("shadow_msg_" + chatId).hashCode(), summary.build());
             } catch (SecurityException ignored) {}
         } catch (Exception e) {
             Log.e(TAG, "Notification error: " + e.getMessage());
