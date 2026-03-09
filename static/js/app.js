@@ -145,6 +145,7 @@ async function api(url, opts = {}) {
   try {
     res = await fetch(url, { ...opts, headers });
   } catch (e) {
+    if (e.name === 'AbortError') throw e;
     throw new Error('Нет соединения с сервером');
   }
   let data;
@@ -259,14 +260,18 @@ function initAuth() {
     const btn = loginForm.querySelector('button[type="submit"]');
     const origText = btn.textContent;
     btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Вход...';
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Подключение...';
     try {
-      const data = await api('/api/login', { method: 'POST', body: JSON.stringify({ username: $('login-username').value.trim(), password: $('login-password').value }) });
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 45000);
+      const data = await api('/api/login', { method: 'POST', body: JSON.stringify({ username: $('login-username').value.trim(), password: $('login-password').value }), signal: controller.signal });
+      clearTimeout(timeout);
       S.token = data.token; S.user = data.user;
       localStorage.setItem('token', data.token);
       boot();
     } catch (err) {
-      showToast(err.message, 'error');
+      if (err.name === 'AbortError') showToast('Сервер просыпается — попробуйте ещё раз через 10 сек', 'error');
+      else showToast(err.message, 'error');
       btn.disabled = false;
       btn.textContent = origText;
     }
@@ -277,14 +282,18 @@ function initAuth() {
     const btn = regForm.querySelector('button[type="submit"]');
     const origText = btn.textContent;
     btn.disabled = true;
-    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Создание...';
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Подключение...';
     try {
-      const data = await api('/api/register', { method: 'POST', body: JSON.stringify({ username: $('reg-username').value.trim(), displayName: $('reg-displayname').value.trim() || $('reg-username').value.trim(), password: $('reg-password').value }) });
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 45000);
+      const data = await api('/api/register', { method: 'POST', body: JSON.stringify({ username: $('reg-username').value.trim(), displayName: $('reg-displayname').value.trim() || $('reg-username').value.trim(), password: $('reg-password').value }), signal: controller.signal });
+      clearTimeout(timeout);
       S.token = data.token; S.user = data.user;
       localStorage.setItem('token', data.token);
       boot();
     } catch (err) {
-      showToast(err.message, 'error');
+      if (err.name === 'AbortError') showToast('Сервер просыпается — попробуйте ещё раз через 10 сек', 'error');
+      else showToast(err.message, 'error');
       btn.disabled = false;
       btn.textContent = origText;
     }
